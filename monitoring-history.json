@@ -1,0 +1,38 @@
+{
+  "lastUpdated": "2025-09-06T06:52:13.679Z",
+  "baseline": {
+    "specificityScore": 78,
+    "responseTime": 2500,
+    "contentTransmissionRate": 95,
+    "errorRate": 12
+  },
+  "thresholds": {
+    "specificityMin": 60,
+    "responseTimeMax": 5000,
+    "contentTransmissionMin": 85,
+    "errorRateMax": 25
+  },
+  "history": [
+    {
+      "timestamp": "2025-09-06T06:52:09.809Z",
+      "specificityScores": [
+        90.68417878975959,
+        60.137155871725454,
+        65.8906761955757
+      ],
+      "responseTimes": [
+        1641,
+        1438,
+        790
+      ],
+      "contentTransmissionSuccess": 3,
+      "errors": 0,
+      "totalTests": 3,
+      "avgSpecificityScore": 72.23733695235357,
+      "avgResponseTime": 1289.6666666666667,
+      "contentTransmissionRate": 100,
+      "errorRate": 0
+    }
+  ],
+  "alerts": []
+}

@@ -1,0 +1,70 @@
+[package]
+name = "deepseek-mcp-bridge"
+version = "1.0.0"
+edition = "2021"
+authors = ["DeepSeek MCP Team"]
+description = "High-performance MCP bridge for DeepSeek AI integration"
+license = "MIT"
+repository = "https://github.com/deepseek/mcp-bridge"
+keywords = ["mcp", "deepseek", "ai", "bridge"]
+categories = ["development-tools", "api-bindings"]
+
+[dependencies]
+tokio = { version = "1.39", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
+async-trait = "0.1"
+futures = "0.3"
+dashmap = "6.0"
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace", "limit", "validate-request"] }
+axum = { version = "0.7", features = ["ws"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+dotenvy = "0.15"
+lazy_static = "1.5"
+env_logger = "0.10"
+fastrand = "2.0"
+
+# Security dependencies
+jsonschema = "0.18"
+secrecy = { version = "0.8", features = ["serde"] }
+ring = "0.17"
+sha2 = "0.10"
+hmac = "0.12"
+argon2 = "0.5"
+base64 = "0.22"
+regex = "1.10"
+validator = { version = "0.18", features = ["derive"] }
+governor = "0.6"
+leaky-bucket = "1.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.12"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bin]]
+name = "mcp-server"
+path = "src/bin/mcp-server.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+
+[profile.bench]
+opt-level = 3
+debug = false
+lto = true

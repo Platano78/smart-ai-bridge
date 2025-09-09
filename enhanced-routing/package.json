@@ -1,0 +1,30 @@
+{
+  "name": "deepseek-enhanced-empirical-routing",
+  "version": "6.2.0",
+  "description": "Enhanced Empirical Routing with Complexity Intelligence for DeepSeek MCP Bridge",
+  "type": "module",
+  "main": "enhanced-empirical-router.js",
+  "scripts": {
+    "test": "node integration-tests.js",
+    "deploy": "node deploy-enhanced-routing.js",
+    "validate": "node -e \"import('./enhanced-empirical-router.js').then(() => console.log('✅ Module validation passed'))\"",
+    "performance-test": "node -e \"const { IntegrationTestSuite } = await import('./integration-tests.js'); const suite = new IntegrationTestSuite(); await suite.testPerformanceImpact(); console.log('Performance test completed');\"",
+    "health-check": "node -e \"const { EnhancedEmpiricalRouter } = await import('./enhanced-empirical-router.js'); const router = new EnhancedEmpiricalRouter({}); console.log(router.performHealthCheck());\""
+  },
+  "keywords": [
+    "deepseek",
+    "mcp",
+    "empirical-routing",
+    "complexity-analysis",
+    "decision-fusion",
+    "ai-routing",
+    "intelligent-routing"
+  ],
+  "author": "Claude Code Enhanced Empirical Routing Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

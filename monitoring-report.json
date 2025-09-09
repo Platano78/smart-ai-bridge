@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-09-06T06:52:13.680Z",
+  "summary": {
+    "totalMonitoringRuns": 1,
+    "recentRuns": 1,
+    "activeAlerts": 0
+  },
+  "currentMetrics": {
+    "specificityScore": 72.23733695235357,
+    "responseTime": 1289.6666666666667,
+    "contentTransmissionRate": 100,
+    "errorRate": 0
+  },
+  "trends": {
+    "avgSpecificityScore": 72.23733695235357,
+    "avgResponseTime": 1289.6666666666667,
+    "avgContentTransmissionRate": 100
+  },
+  "status": "HEALTHY",
+  "recommendations": [
+    "System performing within acceptable parameters - continue monitoring"
+  ]
+}

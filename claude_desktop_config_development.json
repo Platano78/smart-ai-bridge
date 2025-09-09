@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "deepseek-bridge-dev": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/deepseek-mcp-bridge/server.js"
+      ],
+      "env": {
+        "NODE_ENV": "development",
+        "MCP_SERVER_NAME": "DeepSeek Bridge v6.1.1 - Development Mode",
+        "DEEPSEEK_TIMEOUT": "120000",
+        "DEEPSEEK_COMPLEX_TIMEOUT": "240000",
+        "DEEPSEEK_MAX_REQUEST_SIZE": "100000",
+        "DEEPSEEK_RETRY_ATTEMPTS": "5",
+        "ENABLE_DEBUG_LOGGING": "true",
+        "ENABLE_VERBOSE_ERRORS": "true",
+        "ENABLE_OFFLINE_MODE": "true",
+        "FALLBACK_RESPONSE_ENABLED": "true",
+        "CACHE_RESPONSES": "false",
+        "ALLOW_LOCALHOST": "true",
+        "ENABLE_CORS_DEBUG": "true"
+      }
+    }
+  }
+}

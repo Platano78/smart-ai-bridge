@@ -1,0 +1,15 @@
+{
+  "name": "deepseek-diagnostics",
+  "version": "1.0.0",
+  "description": "DeepSeek reliability monitoring and diagnostic tools",
+  "main": "deepseek-reliability-test.js",
+  "scripts": {
+    "test": "node deepseek-reliability-test.js",
+    "monitor": "node deepseek-monitor.js",
+    "monitor-fast": "node deepseek-monitor.js 2",
+    "monitor-slow": "node deepseek-monitor.js 30"
+  },
+  "keywords": ["deepseek", "ai", "diagnostics", "monitoring", "reliability"],
+  "author": "DeepSeek MCP Bridge Project",
+  "license": "MIT"
+}

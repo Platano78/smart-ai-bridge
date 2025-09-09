@@ -1,0 +1,87 @@
+{
+  "mcpServers": {
+    "deepseek-bridge-consolidated": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/deepseek-mcp-bridge/server-consolidated-v7.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "DeepSeek Consolidated Multi-Provider Bridge v7.0.0",
+        "DEEPSEEK_TIMEOUT": "120000",
+        "DEEPSEEK_COMPLEX_TIMEOUT": "180000",
+        "DEEPSEEK_MAX_REQUEST_SIZE": "50000",
+        "CIRCUIT_BREAKER_FAILURE_THRESHOLD": "3",
+        "FALLBACK_RESPONSE_ENABLED": "true",
+        "WILSON_SCORE_CONFIDENCE": "95",
+        "MULTI_PROVIDER_ROUTING": "true"
+      }
+    },
+    "chat-archive-parser": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/universal-development-mcp/mcp-servers/chat-archive-parser/implementation/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Chat Archive Parser",
+        "PROJECT_ROOT": "/home/platano/project/universal-development-mcp"
+      }
+    },
+    "universal-context-export": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/universal-development-mcp/mcp-servers/universal-context-export/implementation/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Universal Context Export",
+        "PROJECT_ROOT": "/home/platano/project/universal-development-mcp"
+      }
+    },
+    "project-analyzer": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/universal-development-mcp/mcp-servers/project-analyzer/implementation/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Project Analyzer",
+        "PROJECT_ROOT": "/home/platano/project/universal-development-mcp"
+      }
+    },
+    "session-management": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/universal-development-mcp/mcp-servers/session-management/src/session-management-server.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Session Management",
+        "PROJECT_ROOT": "/home/platano/project/universal-development-mcp"
+      }
+    },
+    "workflow-automation": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/universal-development-mcp/mcp-servers/workflow-automation/src/mcp-server.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Workflow Automation",
+        "PROJECT_ROOT": "/home/platano/project/universal-development-mcp"
+      }
+    },
+    "playwright": {
+      "command": "node",
+      "args": [
+        "/home/platano/mcp-servers/playwright-mcp/lib/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "Playwright",
+        "PLAYWRIGHT_BROWSERS_PATH": "/home/platano/.cache/ms-playwright"
+      }
+    }
+  }
+}

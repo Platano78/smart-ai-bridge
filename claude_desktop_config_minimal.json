@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "deepseek": {
+      "command": "node",
+      "args": [
+        "/home/platano/project/deepseek-mcp-bridge/server.js"
+      ],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

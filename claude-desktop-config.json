@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "deepseek-mcp-bridge": {
+      "command": "deepseek-mcp-bridge",
+      "args": ["--env", "production", "--port", "8080"],
+      "env": {
+        "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}",
+        "RUST_LOG": "info",
+        "HOST": "127.0.0.1",
+        "PORT": "8080"
+      }
+    }
+  },
+  "global": {
+    "logging": {
+      "level": "info",
+      "file": "/var/log/claude-desktop-mcp.log"
+    },
+    "timeout": 30000,
+    "retries": 3
+  }
+}
