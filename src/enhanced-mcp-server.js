@@ -3,6 +3,12 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
 import { DualDeepSeekBridge } from './dual-bridge.js';
 
 export class EnhancedMCPServer {
@@ -22,20 +28,22 @@ export class EnhancedMCPServer {
 
   setupTools() {
     // Enhanced query_deepseek tool with dual endpoint support
-    this.server.setRequestHandler('tools/call', async (request) => {
-      if (request.params.name === 'query_deepseek') {
-        return await this.handleQueryDeepSeek(request.params.arguments);
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      
+      if (name === 'query_deepseek') {
+        return await this.handleQueryDeepSeek(args);
       }
       
-      if (request.params.name === 'check_deepseek_status') {
+      if (name === 'check_deepseek_status') {
         return await this.handleStatusCheck();
       }
       
       // Handle other existing tools...
-      throw new Error(`Unknown tool: ${request.params.name}`);
+      throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     });
 
-    this.server.setRequestHandler('tools/list', async () => {
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
           {
