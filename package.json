@@ -1,6 +1,6 @@
 {
   "name": "deepseek-mcp-bridge",
-  "version": "6.2.0",
+  "version": "6.3.0-beta",
   "description": "DeepSeek MCP Bridge v6.2.0 - Mathematical Reasoning + FIM Integration - TDD Atomic Task Enhancement with Game Balance Calculations and Intelligent Code Refactoring",
   "main": "server.js",
   "type": "module",
@@ -9,22 +9,27 @@
   },
   "scripts": {
     "start": "node server.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:statistical": "vitest --reporter=verbose --timeout=60000",
+    "test:endpoints": "vitest tests/statistical/endpoints.test.js",
+    "test:coverage": "vitest --coverage",
     "start:consolidated": "node server-consolidated-v7.js",
     "start:enhanced": "node server-enhanced-routing.js",
     "start:legacy": "node server-backup-phase3-20250902.js",
-    "test": "node test-connection.js",
     "deploy": "node server.js",
     "deploy:consolidated": "node server-consolidated-v7.js",
     "deploy:enhanced": "node server-enhanced-routing.js",
     "deploy:legacy": "node server-backup-phase3-20250902.js",
-    "status": "node -e \"console.log('DeepSeek MCP Bridge v6.1.1 - Production Deployed (Phase 3)')\"",
+    "status": "node -e \"console.log('DeepSeek MCP Bridge v6.3.0-beta - Dual Endpoint Development')\"",
     "create:consolidated": "cp test-enhanced-routing.js server-consolidated-v7.js && chmod +x server-consolidated-v7.js && echo 'Created server-consolidated-v7.js'",
     "switch:consolidated": "cp server-consolidated-v7.js server-active.js && echo 'Switched to Consolidated v7.0.0'",
     "switch:enhanced": "cp server-enhanced-routing.js server-active.js && echo 'Switched to Enhanced Routing v5.0.0'",
     "switch:legacy": "cp server.js server-active.js && echo 'Switched to Legacy v4.1.0'"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "openai": "^4.0.0"
   },
   "keywords": [
     "mcp",
@@ -170,6 +175,7 @@
     }
   },
   "devDependencies": {
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
   }
 }
