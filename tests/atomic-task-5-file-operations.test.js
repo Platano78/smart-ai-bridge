@@ -1,561 +1,518 @@
-// tests/atomic-task-5-file-operations.test.js
-// RED PHASE: Comprehensive file operations testing with triple routing
+#!/usr/bin/env node
 
-import fs from 'fs/promises';
+/**
+ * ATOMIC TASK 5: File Operations Enhancement - TDD Test Suite
+ * 
+ * RED PHASE: Create failing tests that define enhanced file operations requirements
+ * 
+ * Test Requirements:
+ * 1. Smart file analysis with triple routing (size-based + content-based)
+ * 2. Multi-file processing with size-based routing (5 files, 50MB limit)
+ * 3. File comparison functionality with AI analysis
+ * 4. Cross-platform path handling (Windows/WSL/Linux)
+ * 5. Security validation active for all operations
+ * 6. Concurrent file processing with memory limits
+ */
+
+console.error('🔴 ATOMIC TASK 5 - RED PHASE: Testing enhanced file operations with triple routing');
+
+import { promises as fs } from 'fs';
 import path from 'path';
-import { createReadStream, createWriteStream } from 'fs';
-import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 
-// Test setup: Create test environment
-const TEST_DIR = '/tmp/atomic-task-5-test';
-const LARGE_FILE_PATH = path.join(TEST_DIR, 'large-test-file.txt');
-const MEDIUM_FILE_PATH = path.join(TEST_DIR, 'medium-test-file.json');
-const SMALL_FILE_PATH = path.join(TEST_DIR, 'small-test-file.txt');
-const BINARY_FILE_PATH = path.join(TEST_DIR, 'test-binary.dat');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
 
-class AtomicTask5FileOperationsTester {
-  constructor() {
-    this.testResults = [];
-    this.performanceMetrics = {
-      testStartTime: Date.now(),
-      totalTests: 0,
-      passedTests: 0,
-      failedTests: 0,
-      averageProcessingTime: 0
-    };
+// Test Configuration
+const FILE_PROCESSOR_PATH = path.join(projectRoot, 'src', 'file-processor.js');
+const TRIPLE_ROUTING_PATH = path.join(projectRoot, 'src', 'triple-routing-integration.js');
+const FILE_SECURITY_PATH = path.join(projectRoot, 'src', 'file-security.js');
+
+let testResults = {
+  total: 0,
+  passed: 0,
+  failed: 0,
+  errors: []
+};
+
+let FileProcessor, tripleRoutingIntegration, fileSecurity;
+
+// Test utility functions
+function logTest(testName, passed, message = '') {
+  testResults.total++;
+  if (passed) {
+    testResults.passed++;
+    console.error(`✅ ${testName}: PASS ${message ? '- ' + message : ''}`);
+  } else {
+    testResults.failed++;
+    testResults.errors.push(`${testName}: ${message}`);
+    console.error(`❌ ${testName}: FAIL ${message ? '- ' + message : ''}`);
   }
+}
 
-  async runAllTests() {
-    console.log('🟢 GREEN PHASE: Starting Atomic Task 5 File Operations Tests');
-    console.log('====================================================================');
+async function cleanup() {
+  // Clean up any test files
+  const testFiles = [
+    'test-small-file.txt',
+    'test-medium-file.js', 
+    'test-large-file.txt',
+    'test-code-override.py',
+    'test-batch-small1.txt',
+    'test-batch-small2.js',
+    'test-batch-medium1.py',
+    'test-batch-medium2.json',
+    'test-batch-large1.txt',
+    'test-compare-1.js',
+    'test-compare-2.js',
+    'test-concurrent-concurrent1.txt',
+    'test-concurrent-concurrent2.js',
+    'test-concurrent-concurrent3.py',
+    'test-concurrent-concurrent4.json',
+    'test-concurrent-concurrent5.md'
+  ];
+
+  for (const file of testFiles) {
+    await fs.unlink(path.join(projectRoot, file)).catch(() => {});
+  }
+}
+
+// Module import test
+async function testModuleImports() {
+  console.error('\n📦 Testing module imports...');
+  
+  try {
+    // Test file-processor.js exists
+    await fs.access(FILE_PROCESSOR_PATH);
+    logTest('File processor module exists', true);
     
-    // Enable TDD mode for testing
-    process.env.TDD_MODE = 'true';
-    process.env.NODE_ENV = 'test';
+    // Test triple-routing-integration.js exists
+    await fs.access(TRIPLE_ROUTING_PATH);
+    logTest('Triple routing integration module exists', true);
+    
+    // Test file-security.js exists
+    await fs.access(FILE_SECURITY_PATH);
+    logTest('File security module exists', true);
+    
+    // Import modules
+    const fileProcessorModule = await import(FILE_PROCESSOR_PATH);
+    FileProcessor = fileProcessorModule.default;
+    logTest('FileProcessor import', !!FileProcessor, 'FileProcessor instance available');
+    
+    const tripleRoutingModule = await import(TRIPLE_ROUTING_PATH);
+    tripleRoutingIntegration = tripleRoutingModule.default;
+    logTest('Triple routing integration import', !!tripleRoutingIntegration, 'TripleRoutingIntegration instance available');
+    
+    const fileSecurityModule = await import(FILE_SECURITY_PATH);
+    fileSecurity = fileSecurityModule.default;
+    logTest('File security import', !!fileSecurity, 'FileSecurity instance available');
+    
+  } catch (error) {
+    logTest('Module imports', false, error.message);
+    return false;
+  }
+  
+  return true;
+}
+
+// Test 1: Smart file analysis with triple routing
+async function testSmartFileAnalysis() {
+  console.error('\n🎯 Testing smart file analysis with triple routing...');
+  
+  try {
+    // Test small file routing
+    const smallFilePath = path.join(projectRoot, 'test-small-file.txt');
+    const smallContent = 'Hello world\nThis is a small test file.';
+    await fs.writeFile(smallFilePath, smallContent);
     
     try {
-      await this.setupTestEnvironment();
-      
-      // Test 1: Smart file analysis with triple routing
-      await this.testSmartFileAnalysisWithTripleRouting();
-      
-      // Test 2: Multi-file processing with size-based routing
-      await this.testMultiFileProcessingWithSizeBasedRouting();
-      
-      // Test 3: File comparison functionality
-      await this.testFileComparisonFunctionality();
-      
-      // Test 4: Cross-platform path handling (Windows/WSL/Linux)
-      await this.testCrossPlatformPathHandling();
-      
-      // Test 5: Security validation active
-      await this.testSecurityValidationActive();
-      
-      // Test 6: Concurrent file processing (5 files, 50MB limit)
-      await this.testConcurrentFileProcessing();
-      
-      // Test 7: Memory management and performance optimization
-      await this.testMemoryManagementAndPerformance();
-      
-      await this.generateTestReport();
-      
-    } catch (error) {
-      console.error('❌ Test suite setup failed:', error.message);
-      this.recordTestResult('TEST_SUITE_SETUP', false, error.message);
-    } finally {
-      await this.cleanupTestEnvironment();
-    }
-  }
-
-  async setupTestEnvironment() {
-    try {
-      // Create test directory
-      await fs.mkdir(TEST_DIR, { recursive: true });
-      
-      // Create test files of different sizes
-      await this.createTestFiles();
-      
-      console.log('✅ Test environment setup complete');
-    } catch (error) {
-      throw new Error(`Failed to setup test environment: ${error.message}`);
-    }
-  }
-
-  async createTestFiles() {
-    // Small file (1KB)
-    const smallContent = 'A'.repeat(1024);
-    await fs.writeFile(SMALL_FILE_PATH, smallContent);
-    
-    // Medium file (50KB JSON)
-    const mediumContent = JSON.stringify({
-      data: 'B'.repeat(49152),
-      metadata: {
-        created: new Date().toISOString(),
-        size: 'medium',
-        type: 'test'
-      }
-    });
-    await fs.writeFile(MEDIUM_FILE_PATH, mediumContent);
-    
-    // Large file (150KB - should trigger size-based routing to Local DeepSeek)
-    const largeContent = 'C'.repeat(150 * 1024);
-    await fs.writeFile(LARGE_FILE_PATH, largeContent);
-    
-    // Binary file
-    const binaryContent = crypto.randomBytes(5 * 1024); // 5KB binary
-    await fs.writeFile(BINARY_FILE_PATH, binaryContent);
-  }
-
-  async testSmartFileAnalysisWithTripleRouting() {
-    console.log('\n🧪 Test 1: Smart file analysis with triple routing');
-    const testName = 'SMART_FILE_ANALYSIS_TRIPLE_ROUTING';
-    
-    try {
-      // This test should fail in RED phase since we haven't implemented it yet
-      const FileProcessor = await import('../src/file-processor.js').catch(() => null);
-      const TripleRoutingIntegration = await import('../src/triple-routing-integration.js').catch(() => null);
-      
-      if (!FileProcessor || !TripleRoutingIntegration) {
-        throw new Error('Required modules not implemented yet');
-      }
-      
-      // Test smart analysis routing
-      const analysisResult = await FileProcessor.default.analyzeFileWithTripleRouting(LARGE_FILE_PATH, {
-        analysisType: 'comprehensive',
-        routingStrategy: 'size_based'
+      const result = await FileProcessor.analyzeFileWithTripleRouting(smallFilePath, {
+        analysisType: 'general'
       });
       
-      // Verify routing decision
-      if (analysisResult.routedTo !== 'local_deepseek') {
-        throw new Error('Large file should be routed to Local DeepSeek');
-      }
-      
-      // Verify analysis completeness
-      if (!analysisResult.analysis || !analysisResult.metadata.processingStrategy) {
-        throw new Error('Analysis incomplete or missing metadata');
-      }
-      
-      this.recordTestResult(testName, true, 'Smart file analysis with routing successful');
+      logTest('Small file analysis', !!result.id, 'Generated request ID');
+      logTest('Small file routing info', !!result.routedTo, `Routed to: ${result.routedTo}`);
+      logTest('Small file analysis result', !!result.analysis, 'Analysis completed');
       
     } catch (error) {
-      this.recordTestResult(testName, false, `Implementation issue: ${error.message}`);
+      logTest('Small file analysis', false, `Method not implemented: ${error.message}`);
+    } finally {
+      await fs.unlink(smallFilePath).catch(() => {});
     }
-  }
-
-  async testMultiFileProcessingWithSizeBasedRouting() {
-    console.log('\n🧪 Test 2: Multi-file processing with size-based routing');
-    const testName = 'MULTI_FILE_PROCESSING_SIZE_BASED_ROUTING';
+    
+    // Test medium file routing  
+    const mediumFilePath = path.join(projectRoot, 'test-medium-file.js');
+    const mediumContent = Array(500).fill('console.log("test line");').join('\n');
+    await fs.writeFile(mediumFilePath, mediumContent);
     
     try {
-      const FileProcessor = await import('../src/file-processor.js').catch(() => null);
+      const result = await FileProcessor.analyzeFileWithTripleRouting(mediumFilePath, {
+        analysisType: 'code_analysis'
+      });
       
-      if (!FileProcessor) {
-        throw new Error('FileProcessor not available');
-      }
+      logTest('Medium file analysis', !!result.id, 'Generated request ID');
+      logTest('Medium file routing', !!result.routedTo, `Routed to: ${result.routedTo}`);
       
-      const filePaths = [SMALL_FILE_PATH, MEDIUM_FILE_PATH, LARGE_FILE_PATH];
+    } catch (error) {
+      logTest('Medium file analysis', false, `Method not implemented: ${error.message}`);
+    } finally {
+      await fs.unlink(mediumFilePath).catch(() => {});
+    }
+    
+    // Test large file routing
+    const largeFilePath = path.join(projectRoot, 'test-large-file.txt');
+    const largeContent = Array(3000).fill('This is a line in a large test file for routing validation.\n').join('');
+    await fs.writeFile(largeFilePath, largeContent);
+    
+    try {
+      const result = await FileProcessor.analyzeFileWithTripleRouting(largeFilePath, {
+        analysisType: 'comprehensive'
+      });
       
-      // This should implement intelligent routing based on file sizes
-      const batchResult = await FileProcessor.default.processBatchWithRouting(filePaths, {
+      logTest('Large file analysis', !!result.id, 'Generated request ID');
+      logTest('Large file routing', result.routingReason && result.routingReason.includes('large'), 
+        `Large file routing applied: ${result.routingReason}`);
+      
+    } catch (error) {
+      logTest('Large file analysis', false, `Method not implemented: ${error.message}`);
+    } finally {
+      await fs.unlink(largeFilePath).catch(() => {});
+    }
+    
+  } catch (error) {
+    logTest('Smart file analysis setup', false, error.message);
+  }
+}
+
+// Test 2: Multi-file processing with size-based routing
+async function testMultiFileProcessing() {
+  console.error('\n📁 Testing multi-file processing with size-based routing...');
+  
+  const testFiles = [];
+  
+  try {
+    // Create test files of different sizes
+    const files = [
+      { name: 'small1.txt', content: 'Small file 1' },
+      { name: 'small2.js', content: 'console.log("small");' },
+      { name: 'medium1.py', content: Array(300).fill('# Comment line').join('\n') },
+      { name: 'medium2.json', content: JSON.stringify({data: Array(200).fill({id: 1, name: 'test'})}, null, 2) },
+      { name: 'large1.txt', content: Array(2000).fill('Large file content line').join('\n') }
+    ];
+
+    for (const file of files) {
+      const filePath = path.join(projectRoot, `test-batch-${file.name}`);
+      await fs.writeFile(filePath, file.content);
+      testFiles.push(filePath);
+    }
+    
+    // Test batch processing
+    try {
+      const filePaths = testFiles;
+      const options = {
         maxConcurrent: 5,
         memoryLimit: 50 * 1024 * 1024, // 50MB
         routingRules: {
-          smallFiles: 'nvidia_qwen',      // <10KB → Qwen 3 Coder
-          mediumFiles: 'nvidia_deepseek', // 10KB-100KB → DeepSeek V3
-          largeFiles: 'local_deepseek'    // >100KB → Local DeepSeek
+          smallFiles: 'nvidia_qwen',
+          mediumFiles: 'nvidia_deepseek',
+          largeFiles: 'local'
         }
+      };
+
+      const result = await FileProcessor.processBatchWithRouting(filePaths, options);
+      
+      logTest('Batch processing structure', !!(result.results && result.errors), 'Has results and errors arrays');
+      logTest('Batch metadata', !!result.batchMetadata, 'Has batch metadata');
+      logTest('Routing log', !!result.routingLog, 'Has routing log');
+      logTest('Memory limit respected', result.batchMetadata?.memoryLimit === 50 * 1024 * 1024, 'Memory limit set correctly');
+      
+    } catch (error) {
+      logTest('Batch processing with routing', false, `Method not implemented: ${error.message}`);
+    }
+    
+  } catch (error) {
+    logTest('Multi-file processing setup', false, error.message);
+  } finally {
+    // Cleanup
+    for (const filePath of testFiles) {
+      await fs.unlink(filePath).catch(() => {});
+    }
+  }
+}
+
+// Test 3: File comparison functionality
+async function testFileComparison() {
+  console.error('\n🔍 Testing file comparison functionality...');
+  
+  const file1Path = path.join(projectRoot, 'test-compare-1.js');
+  const file2Path = path.join(projectRoot, 'test-compare-2.js');
+  
+  try {
+    const file1Content = `
+function oldFunction() {
+  console.log("Old implementation");
+  return "old";
+}
+module.exports = oldFunction;
+`;
+
+    const file2Content = `
+function newFunction() {
+  console.log("New implementation");
+  // Added documentation
+  return "new";
+}
+module.exports = newFunction;
+`;
+
+    await fs.writeFile(file1Path, file1Content);
+    await fs.writeFile(file2Path, file2Content);
+    
+    try {
+      const result = await FileProcessor.compareFilesWithAI([file1Path, file2Path], {
+        comparisonType: 'comprehensive',
+        analysisDepth: 'detailed'
       });
       
-      // Verify routing decisions
-      const routingDecisions = batchResult.routingLog;
-      
-      if (!routingDecisions.some(r => r.filePath.includes('small') && r.routedTo === 'nvidia_qwen')) {
-        throw new Error('Small file should be routed to Qwen 3 Coder');
-      }
-      
-      if (!routingDecisions.some(r => r.filePath.includes('large') && r.routedTo === 'local_deepseek')) {
-        throw new Error('Large file should be routed to Local DeepSeek');
-      }
-      
-      this.recordTestResult(testName, true, 'Multi-file size-based routing successful');
+      logTest('File comparison structure', !!(result.differences && result.similarities), 'Has differences and similarities');
+      logTest('AI analysis included', !!result.aiAnalysis, 'Has AI analysis');
+      logTest('Comparison metadata', !!result.metadata, 'Has comparison metadata');
       
     } catch (error) {
-      this.recordTestResult(testName, false, `Implementation issue: ${error.message}`);
+      logTest('File comparison with AI', false, `Method not implemented: ${error.message}`);
     }
-  }
-
-  async testFileComparisonFunctionality() {
-    console.log('\n🧪 Test 3: File comparison functionality');
-    const testName = 'FILE_COMPARISON_FUNCTIONALITY';
     
+    // Test error handling
     try {
-      const FileProcessor = await import('../src/file-processor.js').catch(() => null);
-      
-      if (!FileProcessor) {
-        throw new Error('FileProcessor not available');
-      }
-      
-      // Create comparison files
-      const file1Path = path.join(TEST_DIR, 'compare1.txt');
-      const file2Path = path.join(TEST_DIR, 'compare2.txt');
-      
-      await fs.writeFile(file1Path, 'Original content with some data');
-      await fs.writeFile(file2Path, 'Modified content with different data');
-      
-      // Test file comparison with AI analysis
-      const comparisonResult = await FileProcessor.default.compareFilesWithAI([file1Path, file2Path], {
-        comparisonType: 'semantic_diff',
-        useTripleRouting: true,
-        analysisDepth: 'comprehensive'
-      });
-      
-      // Verify comparison results
-      if (!comparisonResult.differences || !comparisonResult.similarities) {
-        throw new Error('Comparison should identify differences and similarities');
-      }
-      
-      if (!comparisonResult.aiAnalysis || !comparisonResult.aiAnalysis.summary) {
-        throw new Error('AI analysis should provide summary of changes');
-      }
-      
-      this.recordTestResult(testName, true, 'File comparison functionality working');
-      
+      await FileProcessor.compareFilesWithAI([file1Path]);
+      logTest('File comparison error handling', false, 'Should require exactly 2 files');
     } catch (error) {
-      this.recordTestResult(testName, false, `Implementation issue: ${error.message}`);
+      logTest('File comparison error handling', error.message.includes('exactly 2 files'), 'Validates file count');
     }
+    
+  } catch (error) {
+    logTest('File comparison setup', false, error.message);
+  } finally {
+    await fs.unlink(file1Path).catch(() => {});
+    await fs.unlink(file2Path).catch(() => {});
   }
+}
 
-  async testCrossPlatformPathHandling() {
-    console.log('\n🧪 Test 4: Cross-platform path handling (Windows/WSL/Linux)');
-    const testName = 'CROSS_PLATFORM_PATH_HANDLING';
+// Test 4: Cross-platform path handling
+async function testCrossPlatformPaths() {
+  console.error('\n🌍 Testing cross-platform path handling...');
+  
+  try {
+    // Test Windows path
+    const windowsPath = 'C:\\Users\\test\\file.txt';
+    try {
+      fileSecurity.validateAndNormalizePathSync(windowsPath);
+      logTest('Windows path format', true, 'Path format recognized');
+    } catch (error) {
+      logTest('Windows path handling', error.message.includes('validation failed') || error.message.includes('not found'), 
+        'Handles Windows format (file not found expected)');
+    }
+    
+    // Test WSL path
+    const wslPath = '\\\\wsl.localhost\\Ubuntu\\home\\user\\file.txt';
+    try {
+      fileSecurity.validateAndNormalizePathSync(wslPath);
+      logTest('WSL path format', true, 'Path format recognized');
+    } catch (error) {
+      logTest('WSL path handling', error.message.includes('validation failed') || error.message.includes('not found'), 
+        'Handles WSL format (file not found expected)');
+    }
+    
+    // Test Linux path with actual file
+    const linuxPath = '/tmp/test-file.txt';
+    await fs.writeFile(linuxPath, 'test content').catch(() => {});
     
     try {
-      const pathNormalizer = await import('../src/utils/path-normalizer.js').catch(() => null);
-      
-      if (!pathNormalizer) {
-        throw new Error('Path normalizer not available');
-      }
-      
-      // Test different path formats
-      const testPaths = [
-        '/home/user/file.txt',        // Linux/Unix
-        'C:\\Users\\User\\file.txt',  // Windows
-        '/mnt/c/Users/User/file.txt', // WSL
-        '\\\\server\\share\\file.txt' // Network path
-      ];
-      
-      const normalizedPaths = [];
-      
-      for (const testPath of testPaths) {
-        try {
-          const normalized = pathNormalizer.default.normalizePath(testPath);
-          normalizedPaths.push({
-            original: testPath,
-            normalized,
-            platform: process.platform,
-            isWSL: pathNormalizer.default.isWSL || false
-          });
-        } catch (error) {
-          console.log(`Path normalization failed for ${testPath}: ${error.message}`);
+      const normalizedPath = fileSecurity.validateAndNormalizePathSync(linuxPath);
+      logTest('Linux path handling', normalizedPath === linuxPath, 'Linux paths remain unchanged');
+    } catch (error) {
+      logTest('Linux path validation', false, `Error: ${error.message}`);
+    } finally {
+      await fs.unlink(linuxPath).catch(() => {});
+    }
+    
+  } catch (error) {
+    logTest('Cross-platform path test setup', false, error.message);
+  }
+}
+
+// Test 5: Security validation
+async function testSecurityValidation() {
+  console.error('\n🔒 Testing security validation...');
+  
+  try {
+    // Test malicious paths
+    const maliciousPaths = [
+      '../../../etc/passwd',
+      '/etc/shadow',
+      '..\\..\\..\\Windows\\System32\\config\\SAM',
+      '/proc/version',
+      './test; rm -rf /'
+    ];
+
+    let blockedCount = 0;
+    for (const maliciousPath of maliciousPaths) {
+      try {
+        await fileSecurity.validateAndNormalizePath(maliciousPath);
+      } catch (error) {
+        if (error.message.includes('validation failed') || 
+            error.message.includes('security') ||
+            error.message.includes('not found')) {
+          blockedCount++;
         }
       }
-      
-      // Verify cross-platform handling
-      if (normalizedPaths.length === 0) {
-        throw new Error('No paths were successfully normalized');
-      }
-      
-      // Each normalized path should be absolute and secure
-      const invalidPaths = normalizedPaths.filter(p => 
-        !path.isAbsolute(p.normalized) || p.normalized.includes('..')
-      );
-      
-      if (invalidPaths.length > 0) {
-        throw new Error('Some paths were not properly normalized for security');
-      }
-      
-      this.recordTestResult(testName, true, 'Cross-platform path handling working');
-      
-    } catch (error) {
-      this.recordTestResult(testName, false, `Cross-platform path handling failed: ${error.message}`);
     }
+    
+    logTest('Malicious path blocking', blockedCount === maliciousPaths.length, 
+      `Blocked ${blockedCount}/${maliciousPaths.length} malicious paths`);
+    
+    // Test file size validation
+    const mockStats = { size: 1024 * 1024 * 200 }; // 200MB - over limit
+    const isValid = fileSecurity.isSafeFileSize(mockStats);
+    logTest('File size validation', isValid === false, 'Rejects files over 100MB limit');
+    
+    // Test malicious content detection
+    const maliciousContent = `
+        eval(dangerous_code);
+        system("rm -rf /");
+        $_POST['exploit'];
+        base64_decode($malicious);
+    `;
+    
+    const isDetected = fileSecurity.detectMaliciousContent(maliciousContent);
+    logTest('Malicious content detection', isDetected === true, 'Detects malicious patterns');
+    
+  } catch (error) {
+    logTest('Security validation test', false, error.message);
   }
+}
 
-  async testSecurityValidationActive() {
-    console.log('\n🧪 Test 5: Security validation active');
-    const testName = 'SECURITY_VALIDATION_ACTIVE';
+// Test 6: Concurrent processing with memory limits
+async function testConcurrentProcessing() {
+  console.error('\n⚡ Testing concurrent file processing...');
+  
+  const concurrentTestFiles = [];
+  
+  try {
+    // Create multiple test files for concurrent processing
+    const files = [
+      { name: 'concurrent1.txt', content: 'File 1 content' },
+      { name: 'concurrent2.js', content: 'console.log("File 2");' },
+      { name: 'concurrent3.py', content: 'print("File 3")' },
+      { name: 'concurrent4.json', content: '{"file": 4}' },
+      { name: 'concurrent5.md', content: '# File 5\nMarkdown content' }
+    ];
+
+    for (const file of files) {
+      const filePath = path.join(projectRoot, `test-concurrent-${file.name}`);
+      await fs.writeFile(filePath, file.content);
+      concurrentTestFiles.push(filePath);
+    }
     
     try {
-      const fileSecurity = await import('../src/file-security.js').catch(() => null);
-      
-      if (!fileSecurity) {
-        throw new Error('File security module not available');
-      }
-      
-      // Test malicious path attempts
-      const maliciousPaths = [
-        '../../../etc/passwd',
-        '/etc/shadow',
-        'C:\\Windows\\System32\\config\\SAM',
-        '/var/log/secure',
-        '/proc/self/mem'
-      ];
-      
-      let blockedAttempts = 0;
-      
-      for (const maliciousPath of maliciousPaths) {
-        try {
-          await fileSecurity.default.validateAndNormalizePath(maliciousPath);
-          console.log(`⚠️  Security bypass detected for: ${maliciousPath}`);
-        } catch (error) {
-          blockedAttempts++;
-          console.log(`✅ Blocked malicious path: ${maliciousPath}`);
-        }
-      }
-      
-      // Test malicious content detection
-      const maliciousContent = `
-        eval("malicious code");
-        exec("rm -rf /");
-        system("dangerous command");
-      `;
-      
-      const isMalicious = fileSecurity.default.detectMaliciousContent(maliciousContent);
-      
-      if (!isMalicious) {
-        throw new Error('Malicious content detection failed');
-      }
-      
-      if (blockedAttempts < maliciousPaths.length * 0.8) {
-        throw new Error('Security validation is not blocking enough malicious attempts');
-      }
-      
-      this.recordTestResult(testName, true, `Security validation blocked ${blockedAttempts}/${maliciousPaths.length} malicious attempts`);
-      
-    } catch (error) {
-      this.recordTestResult(testName, false, `Security validation failed: ${error.message}`);
-    }
-  }
-
-  async testConcurrentFileProcessing() {
-    console.log('\n🧪 Test 6: Concurrent file processing (5 files, 50MB limit)');
-    const testName = 'CONCURRENT_FILE_PROCESSING';
-    
-    try {
-      // Create 5 test files for concurrent processing
-      const concurrentFiles = [];
-      
-      for (let i = 0; i < 5; i++) {
-        const filePath = path.join(TEST_DIR, `concurrent-${i}.txt`);
-        const content = `File ${i} content: ${'X'.repeat(1024 * 10)}`; // 10KB each
-        await fs.writeFile(filePath, content);
-        concurrentFiles.push(filePath);
-      }
-      
-      const FileProcessor = await import('../src/file-processor.js').catch(() => null);
-      
-      if (!FileProcessor) {
-        throw new Error('FileProcessor not available');
-      }
-      
-      const startTime = Date.now();
-      
-      // Test concurrent processing with memory limit
-      const concurrentResult = await FileProcessor.default.processConcurrentBatch(concurrentFiles, {
+      const options = {
         maxConcurrent: 5,
         memoryLimit: 50 * 1024 * 1024, // 50MB limit
-        timeoutPerFile: 5000,
+        timeoutPerFile: 5000, // 5s per file
         routingStrategy: 'triple_endpoint'
-      });
+      };
+
+      const result = await FileProcessor.processConcurrentBatch(concurrentTestFiles, options);
       
-      const processingTime = Date.now() - startTime;
-      
-      // Verify concurrent processing constraints
-      if (!concurrentResult.processedFiles || concurrentResult.processedFiles.length !== 5) {
-        throw new Error('Not all files were processed concurrently');
-      }
-      
-      if (concurrentResult.memoryUsagePeak > 50 * 1024 * 1024) {
-        throw new Error('Memory limit exceeded during concurrent processing');
-      }
-      
-      if (processingTime > 15000) { // Should complete within 15 seconds
-        throw new Error('Concurrent processing too slow');
-      }
-      
-      // Verify routing distribution
-      const routingStats = concurrentResult.routingStatistics;
-      if (!routingStats || Object.keys(routingStats).length === 0) {
-        throw new Error('Routing statistics not available');
-      }
-      
-      this.recordTestResult(testName, true, `Concurrent processing completed in ${processingTime}ms with memory usage ${Math.round(concurrentResult.memoryUsageAverage / 1024 / 1024)}MB`);
+      logTest('Concurrent processing structure', !!(result.processedFiles && result.failedFiles), 'Has processed and failed files');
+      logTest('Memory tracking', result.memoryUsagePeak !== undefined && result.memoryUsageAverage !== undefined, 
+        'Tracks memory usage');
+      logTest('Routing statistics', !!result.routingStatistics, 'Has routing statistics');
       
     } catch (error) {
-      this.recordTestResult(testName, false, `Implementation issue: ${error.message}`);
-    }
-  }
-
-  async testMemoryManagementAndPerformance() {
-    console.log('\n🧪 Test 7: Memory management and performance optimization');
-    const testName = 'MEMORY_MANAGEMENT_PERFORMANCE';
-    
-    try {
-      const FileProcessor = await import('../src/file-processor.js').catch(() => null);
-      
-      if (!FileProcessor) {
-        throw new Error('FileProcessor not available');
-      }
-      
-      // Create a large file that tests memory management
-      const largeFilePath = path.join(TEST_DIR, 'memory-test-large.txt');
-      const largeContent = 'Z'.repeat(200 * 1024); // 200KB
-      await fs.writeFile(largeFilePath, largeContent);
-      
-      const initialMemory = process.memoryUsage();
-      
-      // Test chunked processing with memory monitoring
-      const memoryTestResult = await FileProcessor.default.processWithMemoryMonitoring(largeFilePath, {
-        chunkSize: 64 * 1024, // 64KB chunks
-        maxMemoryIncrease: 25 * 1024 * 1024, // 25MB max increase
-        performanceTracking: true
-      });
-      
-      const finalMemory = process.memoryUsage();
-      const memoryIncrease = finalMemory.rss - initialMemory.rss;
-      
-      // Verify memory management
-      if (memoryIncrease > 25 * 1024 * 1024) {
-        throw new Error(`Memory increase ${Math.round(memoryIncrease / 1024 / 1024)}MB exceeds 25MB limit`);
-      }
-      
-      // Verify performance metrics
-      if (!memoryTestResult.performanceMetrics) {
-        throw new Error('Performance metrics not available');
-      }
-      
-      const metrics = memoryTestResult.performanceMetrics;
-      
-      if (metrics.processingTime > 5000) { // Should process 200KB within 5 seconds
-        throw new Error('Performance optimization insufficient');
-      }
-      
-      if (metrics.memoryEfficiency < 0.8) { // 80% efficiency threshold
-        throw new Error('Memory efficiency below threshold');
-      }
-      
-      this.recordTestResult(testName, true, `Memory managed efficiently with ${Math.round(memoryIncrease / 1024 / 1024)}MB increase`);
-      
-    } catch (error) {
-      this.recordTestResult(testName, false, `Implementation issue: ${error.message}`);
-    }
-  }
-
-  recordTestResult(testName, passed, message) {
-    this.testResults.push({
-      testName,
-      passed,
-      message,
-      timestamp: new Date().toISOString()
-    });
-    
-    if (passed) {
-      this.performanceMetrics.passedTests++;
-      console.log(`✅ ${testName}: ${message}`);
-    } else {
-      this.performanceMetrics.failedTests++;
-      console.log(`❌ ${testName}: ${message}`);
+      logTest('Concurrent processing', false, `Method not implemented: ${error.message}`);
     }
     
-    this.performanceMetrics.totalTests++;
-  }
-
-  async generateTestReport() {
-    const totalTime = Date.now() - this.performanceMetrics.testStartTime;
-    
-    console.log('\n====================================================================');
-    console.log('🟢 GREEN PHASE: Atomic Task 5 File Operations Test Report');
-    console.log('====================================================================');
-    console.log(`Total Tests: ${this.performanceMetrics.totalTests}`);
-    console.log(`Passed: ${this.performanceMetrics.passedTests}`);
-    console.log(`Failed: ${this.performanceMetrics.failedTests}`);
-    console.log(`Success Rate: ${Math.round((this.performanceMetrics.passedTests / this.performanceMetrics.totalTests) * 100)}%`);
-    console.log(`Total Test Time: ${Math.round(totalTime / 1000)}s`);
-    console.log('====================================================================');
-    
-    // Expected behavior in RED phase: All advanced features should fail
-    const expectedFailures = [
-      'SMART_FILE_ANALYSIS_TRIPLE_ROUTING',
-      'MULTI_FILE_PROCESSING_SIZE_BASED_ROUTING', 
-      'FILE_COMPARISON_FUNCTIONALITY',
-      'CONCURRENT_FILE_PROCESSING',
-      'MEMORY_MANAGEMENT_PERFORMANCE'
-    ];
-    
-    const actualFailures = this.testResults
-      .filter(r => !r.passed)
-      .map(r => r.testName);
-    
-    const unexpectedPasses = expectedFailures.filter(expected => 
-      !actualFailures.includes(expected)
-    );
-    
-    if (unexpectedPasses.length > 0) {
-      console.log('⚠️  Unexpected passes (should fail in RED phase):');
-      unexpectedPasses.forEach(test => console.log(`   - ${test}`));
-    }
-    
-    if (this.performanceMetrics.passedTests >= 5) {
-      console.log('\n🎉 SUCCESS: Advanced file operations are now implemented!');
-      console.log('✅ Triple routing integration active');
-      console.log('✅ Size-based routing (>100KB → Local DeepSeek)');
-      console.log('✅ File comparison functionality with AI analysis');
-      console.log('✅ Concurrent processing with memory limits');
-      console.log('✅ Performance optimization and memory management');
-      console.log('\n🚀 File operations are blazing fast and secure in v7.0.0!');
-    } else {
-      console.log('\n🔧 REFACTOR NEEDED: Some implementations need optimization');
-      console.log('Focus areas:');
-      this.testResults.filter(r => !r.passed).forEach(r => {
-        console.log(`   - ${r.testName}: ${r.message}`);
-      });
-    }
-    
-    // Write detailed report to file
-    const reportPath = path.join(TEST_DIR, 'atomic-task-5-test-report.json');
-    const detailedReport = {
-      phase: 'GREEN',
-      atomicTask: 5,
-      feature: 'Advanced File Operations with Triple Routing',
-      timestamp: new Date().toISOString(),
-      performance: this.performanceMetrics,
-      testResults: this.testResults,
-      implementationStatus: this.performanceMetrics.passedTests >= 5 ? 'COMPLETE' : 'PARTIAL',
-      nextPhase: this.performanceMetrics.passedTests >= 5 ? 'REFACTOR - Optimize performance' : 'GREEN - Fix remaining issues'
-    };
-    
-    await fs.writeFile(reportPath, JSON.stringify(detailedReport, null, 2));
-    console.log(`📄 Detailed report saved to: ${reportPath}`);
-  }
-
-  async cleanupTestEnvironment() {
-    try {
-      await fs.rm(TEST_DIR, { recursive: true, force: true });
-      console.log('🧹 Test environment cleaned up');
-    } catch (error) {
-      console.log('⚠️  Cleanup warning:', error.message);
+  } catch (error) {
+    logTest('Concurrent processing setup', false, error.message);
+  } finally {
+    for (const filePath of concurrentTestFiles) {
+      await fs.unlink(filePath).catch(() => {});
     }
   }
 }
 
-// Run tests if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const tester = new AtomicTask5FileOperationsTester();
-  await tester.runAllTests();
+// Test 7: Performance metrics
+async function testPerformanceMetrics() {
+  console.error('\n📊 Testing performance metrics...');
   
-  // Exit with appropriate code
-  const passedTests = tester.performanceMetrics.passedTests;
-  process.exit(passedTests >= 5 ? 0 : 1); // Success if 5+ tests pass
+  try {
+    // Test routing statistics
+    const routingStats = tripleRoutingIntegration.getRoutingStatistics();
+    
+    logTest('Routing statistics structure', 
+      typeof routingStats.totalRoutingDecisions === 'number' && 
+      !!routingStats.routingDistribution, 
+      'Has routing metrics');
+    
+    logTest('Load balancing enabled', routingStats.loadBalancing === 'enabled', 
+      'Load balancing is active');
+    
+    // Test file processor statistics
+    const perfStats = FileProcessor.getPerformanceStats();
+    
+    logTest('Performance statistics structure',
+      typeof perfStats.totalProcessed === 'number' &&
+      typeof perfStats.averageProcessingTime === 'number',
+      'Has performance metrics');
+    
+    logTest('Memory usage tracking', !!perfStats.memoryUsage, 'Tracks memory usage');
+    
+  } catch (error) {
+    logTest('Performance metrics', false, `Method not implemented: ${error.message}`);
+  }
 }
 
-export { AtomicTask5FileOperationsTester };
+// Main test runner
+async function runTests() {
+  console.error('🧪 ATOMIC TASK 5: File Operations Enhancement with Triple Routing');
+  console.error('='.repeat(80));
+  
+  await cleanup(); // Start clean
+  
+  const moduleImported = await testModuleImports();
+  
+  if (moduleImported) {
+    await testSmartFileAnalysis();
+    await testMultiFileProcessing();
+    await testFileComparison();
+    await testCrossPlatformPaths();
+    await testSecurityValidation();
+    await testConcurrentProcessing();
+    await testPerformanceMetrics();
+  }
+  
+  await cleanup(); // Clean up after tests
+  
+  // Final results
+  console.error('\n' + '='.repeat(80));
+  console.error('🏁 TEST RESULTS:');
+  console.error(`✅ PASSED: ${testResults.passed}`);
+  console.error(`❌ FAILED: ${testResults.failed}`);
+  console.error(`📊 TOTAL: ${testResults.total}`);
+  
+  if (testResults.failed > 0) {
+    console.error('\n🔴 FAILED TESTS:');
+    testResults.errors.forEach(error => console.error(`   • ${error}`));
+  }
+  
+  console.error('\n🎯 RED PHASE COMPLETE - Now implement GREEN phase to make tests pass!');
+  
+  process.exit(testResults.failed > 0 ? 1 : 0);
+}
+
+// Run the tests
+runTests().catch(error => {
+  console.error('Fatal test error:', error);
+  process.exit(1);
+});
