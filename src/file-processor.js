@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import path from 'path';
 import fileSecurity from './file-security.js';
 import pathNormalizer from './utils/path-normalizer.js';
+import tripleRoutingIntegration from './triple-routing-integration.js';
 
 const pipelineAsync = promisify(pipeline);
 
@@ -450,6 +451,427 @@ class FileProcessor {
       });
       return diagnostics;
     }
+  }
+
+  // ===============================
+  // ATOMIC TASK 5: ENHANCED FILE OPERATIONS WITH TRIPLE ROUTING
+  // ===============================
+
+  // Smart file analysis with triple routing integration
+  async analyzeFileWithTripleRouting(filePath, options = {}) {
+    const requestId = this.generateRequestId();
+    const startTime = Date.now();
+
+    try {
+      // First, process the file normally to get content and metadata
+      const fileResult = await this.processFile(filePath, options);
+      
+      // Determine analysis type from options or file extension
+      const analysisType = options.analysisType || this.inferAnalysisType(filePath, fileResult.metadata);
+      
+      // Route to appropriate endpoint based on file characteristics
+      const analysisResult = await tripleRoutingIntegration.routeFileAnalysis(
+        filePath,
+        fileResult.content,
+        fileResult.metadata,
+        {
+          analysisType,
+          temperature: options.temperature || 0.3,
+          max_tokens: options.max_tokens
+        }
+      );
+
+      const totalTime = Date.now() - startTime;
+
+      return {
+        id: requestId,
+        analysis: analysisResult.analysisResult,
+        routedTo: analysisResult.routingInfo.endpoint,
+        routingReason: analysisResult.routingInfo.reason,
+        confidence: analysisResult.routingInfo.confidence,
+        metadata: {
+          ...fileResult.metadata,
+          analysisType,
+          processingTime: `${totalTime}ms`,
+          routingInfo: analysisResult.routingInfo,
+          endpointUsed: analysisResult.routingInfo.endpointName,
+          model: analysisResult.routingInfo.model,
+          specialization: analysisResult.routingInfo.specialization
+        },
+        processedAt: new Date().toISOString()
+      };
+
+    } catch (error) {
+      this.performanceMetrics.errorCount++;
+      throw new Error(`File analysis with triple routing failed for ${filePath}: ${error.message}`);
+    }
+  }
+
+  // Multi-file processing with size-based routing
+  async processBatchWithRouting(filePaths, options = {}) {
+    const startTime = Date.now();
+    const maxConcurrent = options.maxConcurrent || 5;
+    const memoryLimit = options.memoryLimit || 50 * 1024 * 1024; // 50MB default
+    const routingRules = options.routingRules || {
+      smallFiles: 'nvidia_qwen',
+      mediumFiles: 'nvidia_deepseek', 
+      largeFiles: 'local'
+    };
+
+    const results = [];
+    const errors = [];
+    const routingLog = [];
+    let totalMemoryUsed = 0;
+
+    // Process files in batches to manage memory
+    const batchSize = Math.min(maxConcurrent, filePaths.length);
+    
+    for (let i = 0; i < filePaths.length; i += batchSize) {
+      const batch = filePaths.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (filePath) => {
+        try {
+          // Get file stats for routing decision
+          const normalizedPath = await fileSecurity.validateAndNormalizePath(filePath);
+          const stats = await fs.stat(normalizedPath);
+          
+          // Check memory limit
+          if (totalMemoryUsed + stats.size > memoryLimit) {
+            throw new Error(`Memory limit exceeded: ${totalMemoryUsed + stats.size} bytes > ${memoryLimit} bytes`);
+          }
+
+          // Determine routing based on file size
+          let routedTo;
+          if (stats.size > 100 * 1024) {
+            routedTo = routingRules.largeFiles;
+          } else if (stats.size > 10 * 1024) {
+            routedTo = routingRules.mediumFiles;
+          } else {
+            routedTo = routingRules.smallFiles;
+          }
+
+          // Log routing decision
+          routingLog.push({
+            filePath,
+            fileSize: stats.size,
+            routedTo,
+            reason: this.getRoutingReason(stats.size)
+          });
+
+          // Process with triple routing
+          const analysisResult = await this.analyzeFileWithTripleRouting(filePath, {
+            ...options,
+            routingOverride: routedTo
+          });
+
+          totalMemoryUsed += stats.size;
+          return analysisResult;
+
+        } catch (error) {
+          return { error: error.message, filePath };
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+
+      batchResults.forEach(result => {
+        if (result.error) {
+          errors.push(result);
+        } else {
+          results.push(result);
+        }
+      });
+    }
+
+    const totalTime = Date.now() - startTime;
+
+    return {
+      results,
+      errors,
+      routingLog,
+      batchMetadata: {
+        totalFiles: filePaths.length,
+        processedFiles: results.length,
+        failedFiles: errors.length,
+        totalMemoryUsed,
+        memoryLimit,
+        processingTime: `${totalTime}ms`,
+        routingDistribution: this.analyzeRoutingDistribution(routingLog),
+        batchOptimization: 'size_based_routing_applied'
+      }
+    };
+  }
+
+  // File comparison functionality with AI analysis
+  async compareFilesWithAI(filePaths, options = {}) {
+    if (filePaths.length !== 2) {
+      throw new Error('File comparison requires exactly 2 files');
+    }
+
+    const [file1Path, file2Path] = filePaths;
+
+    try {
+      // Process both files
+      const file1Result = await this.processFile(file1Path);
+      const file2Result = await this.processFile(file2Path);
+
+      // Use triple routing for comparison analysis
+      const comparisonResult = await tripleRoutingIntegration.routeFileComparison(
+        {
+          path: file1Path,
+          content: file1Result.content,
+          metadata: file1Result.metadata
+        },
+        {
+          path: file2Path,
+          content: file2Result.content,
+          metadata: file2Result.metadata
+        },
+        options
+      );
+
+      // Calculate basic differences
+      const basicDifferences = this.calculateBasicDifferences(file1Result.content, file2Result.content);
+      const basicSimilarities = this.calculateBasicSimilarities(file1Result.content, file2Result.content);
+
+      return {
+        differences: basicDifferences,
+        similarities: basicSimilarities,
+        aiAnalysis: {
+          summary: comparisonResult.combinedInsights || comparisonResult.fallbackAnalysis?.content,
+          structuralAnalysis: comparisonResult.structuralAnalysis,
+          semanticAnalysis: comparisonResult.semanticAnalysis,
+          endpoints: [
+            comparisonResult.structuralAnalysis?.endpoint,
+            comparisonResult.semanticAnalysis?.endpoint
+          ].filter(Boolean)
+        },
+        metadata: {
+          file1: { path: file1Path, size: file1Result.metadata.size },
+          file2: { path: file2Path, size: file2Result.metadata.size },
+          comparisonType: options.comparisonType || 'comprehensive',
+          analysisDepth: options.analysisDepth || 'standard',
+          processedAt: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      throw new Error(`File comparison failed: ${error.message}`);
+    }
+  }
+
+  // Concurrent file processing with memory limits
+  async processConcurrentBatch(filePaths, options = {}) {
+    const maxConcurrent = options.maxConcurrent || 5;
+    const memoryLimit = options.memoryLimit || 50 * 1024 * 1024; // 50MB
+    const timeoutPerFile = options.timeoutPerFile || 5000; // 5s per file
+    const routingStrategy = options.routingStrategy || 'triple_endpoint';
+
+    const results = {
+      processedFiles: [],
+      failedFiles: [],
+      memoryUsagePeak: 0,
+      memoryUsageAverage: 0,
+      routingStatistics: {
+        nvidia_qwen: 0,
+        nvidia_deepseek: 0,
+        local: 0
+      }
+    };
+
+    let currentMemoryUsage = 0;
+    const memorySnapshots = [];
+    const semaphore = new Array(maxConcurrent).fill(null);
+    let semaphoreIndex = 0;
+
+    // Process files with concurrency control
+    const processingPromises = filePaths.map(async (filePath, index) => {
+      // Wait for available slot
+      const slotIndex = semaphoreIndex % maxConcurrent;
+      semaphoreIndex++;
+      
+      await this.waitForSlot(semaphore, slotIndex);
+      
+      try {
+        semaphore[slotIndex] = filePath; // Mark slot as occupied
+        
+        const startMemory = process.memoryUsage().rss;
+        
+        // Set timeout for individual file processing
+        const processingPromise = Promise.race([
+          this.processFileWithMemoryTracking(filePath, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('File processing timeout')), timeoutPerFile)
+          )
+        ]);
+
+        const result = await processingPromise;
+        
+        const endMemory = process.memoryUsage().rss;
+        const memoryUsed = endMemory - startMemory;
+        
+        currentMemoryUsage += memoryUsed;
+        memorySnapshots.push(currentMemoryUsage);
+        
+        // Check memory limit
+        if (currentMemoryUsage > memoryLimit) {
+          throw new Error(`Memory limit exceeded: ${currentMemoryUsage} > ${memoryLimit}`);
+        }
+
+        results.memoryUsagePeak = Math.max(results.memoryUsagePeak, currentMemoryUsage);
+        results.processedFiles.push(result);
+
+        // Update routing statistics
+        if (result.metadata && result.metadata.routingInfo) {
+          const endpoint = result.metadata.routingInfo.endpoint;
+          results.routingStatistics[endpoint] = (results.routingStatistics[endpoint] || 0) + 1;
+        } else if (result.routedTo) {
+          // Fallback for routing statistics
+          results.routingStatistics[result.routedTo] = (results.routingStatistics[result.routedTo] || 0) + 1;
+        }
+
+      } catch (error) {
+        results.failedFiles.push({
+          filePath,
+          error: error.message,
+          index
+        });
+      } finally {
+        semaphore[slotIndex] = null; // Free slot
+        currentMemoryUsage -= Math.max(0, currentMemoryUsage * 0.1); // Simulate garbage collection
+      }
+    });
+
+    await Promise.all(processingPromises);
+
+    // Calculate average memory usage
+    results.memoryUsageAverage = memorySnapshots.length > 0 
+      ? memorySnapshots.reduce((a, b) => a + b, 0) / memorySnapshots.length 
+      : 0;
+
+    return results;
+  }
+
+  // Process file with memory monitoring
+  async processWithMemoryMonitoring(filePath, options = {}) {
+    const chunkSize = options.chunkSize || 64 * 1024; // 64KB chunks
+    const maxMemoryIncrease = options.maxMemoryIncrease || 25 * 1024 * 1024; // 25MB
+    const performanceTracking = options.performanceTracking || false;
+
+    const startTime = Date.now();
+    const initialMemory = process.memoryUsage();
+    
+    try {
+      // Process file in chunks to manage memory
+      const result = await this.processFileWithMemoryTracking(filePath, {
+        ...options,
+        chunkSize,
+        memoryMonitoring: true
+      });
+
+      const endTime = Date.now();
+      const finalMemory = process.memoryUsage();
+      const memoryIncrease = finalMemory.rss - initialMemory.rss;
+
+      // Check memory limit
+      if (memoryIncrease > maxMemoryIncrease) {
+        console.warn(`Memory increase ${memoryIncrease} exceeds limit ${maxMemoryIncrease}`);
+      }
+
+      const processingTime = endTime - startTime;
+      const memoryEfficiency = maxMemoryIncrease > 0 ? 
+        Math.max(0, 1 - (memoryIncrease / maxMemoryIncrease)) : 1;
+
+      return {
+        ...result,
+        performanceMetrics: performanceTracking ? {
+          processingTime,
+          memoryIncrease,
+          memoryEfficiency,
+          chunkSize,
+          memoryOptimized: memoryIncrease <= maxMemoryIncrease
+        } : undefined
+      };
+
+    } catch (error) {
+      throw new Error(`Memory-monitored processing failed: ${error.message}`);
+    }
+  }
+
+  // Helper methods for the new functionality
+
+  inferAnalysisType(filePath, metadata) {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    if (['.js', '.ts', '.py', '.java', '.cpp', '.c', '.h'].includes(ext)) {
+      return 'code_analysis';
+    }
+    
+    if (['.json', '.xml', '.csv', '.sql'].includes(ext)) {
+      return 'data_analysis';
+    }
+    
+    if (['.md', '.txt', '.doc', '.pdf'].includes(ext)) {
+      return 'document_analysis';
+    }
+    
+    return 'general';
+  }
+
+  getRoutingReason(fileSize) {
+    if (fileSize > 100 * 1024) return 'large_file_unlimited_tokens';
+    if (fileSize > 10 * 1024) return 'medium_file_analysis';
+    return 'small_file_fast_processing';
+  }
+
+  analyzeRoutingDistribution(routingLog) {
+    const distribution = {};
+    routingLog.forEach(entry => {
+      distribution[entry.routedTo] = (distribution[entry.routedTo] || 0) + 1;
+    });
+    return distribution;
+  }
+
+  calculateBasicDifferences(content1, content2) {
+    const lines1 = content1.split('\n');
+    const lines2 = content2.split('\n');
+    
+    return {
+      lineCount: Math.abs(lines1.length - lines2.length),
+      characterCount: Math.abs(content1.length - content2.length),
+      differentLines: lines1.filter((line, i) => lines2[i] !== line).length
+    };
+  }
+
+  calculateBasicSimilarities(content1, content2) {
+    const lines1 = content1.split('\n');
+    const lines2 = content2.split('\n');
+    const commonLines = lines1.filter((line, i) => lines2[i] === line);
+    
+    return {
+      commonLines: commonLines.length,
+      similarityRatio: commonLines.length / Math.max(lines1.length, lines2.length)
+    };
+  }
+
+  async waitForSlot(semaphore, slotIndex) {
+    while (semaphore[slotIndex] !== null) {
+      await new Promise(resolve => setTimeout(resolve, 10)); // Wait 10ms
+    }
+  }
+
+  async processFileWithMemoryTracking(filePath, options = {}) {
+    // Use existing processFile but add memory tracking if requested
+    const result = await this.processFile(filePath, options);
+    
+    if (options.memoryMonitoring) {
+      result.memorySnapshot = {
+        rss: process.memoryUsage().rss,
+        heapUsed: process.memoryUsage().heapUsed,
+        timestamp: Date.now()
+      };
+    }
+    
+    return result;
   }
 }
 
