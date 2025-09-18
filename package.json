@@ -91,7 +91,7 @@
         "deepseek": {
           "optimal": [
             "coding",
-            "debugging", 
+            "debugging",
             "file-analysis",
             "technical-implementation",
             "code-review"
@@ -156,7 +156,10 @@
       "status": "ACTIVE",
       "source": "server-enhanced-with-mathematical-fim.js",
       "backup": "server-backup-v6-1-1.js",
-      "newTools": ["calculate_game_balance", "intelligent_refactor"]
+      "newTools": [
+        "calculate_game_balance",
+        "intelligent_refactor"
+      ]
     },
     "consolidated": {
       "main": "server-consolidated-v7.js",
@@ -178,9 +181,9 @@
     }
   },
   "devDependencies": {
-    "vitest": "^3.2.4",
     "@vitest/coverage-v8": "^3.2.4",
-    "mocha": "^10.0.0",
-    "chai": "^4.3.0"
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
+    "vitest": "^3.2.4"
   }
 }
