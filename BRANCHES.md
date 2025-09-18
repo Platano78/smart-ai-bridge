@@ -1,8 +1,9 @@
 # Branch Strategy
 
 ## Branches
-- **main**: Production-ready DeepSeek MCP Bridge v6.2.0
+- **main**: Production-ready DeepSeek MCP Bridge v7.0.0 hybrid server foundation
 - **feature/dual-endpoint-routing**: NVIDIA API integration with local fallback
+- **feature/file-modification**: File modification capabilities for MKG server (write_file, edit_file, multi_edit, backup_restore, validate_changes)
 
 ## Safety Protocol
 - All changes in feature branch first
