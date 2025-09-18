@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "deepseek-hybrid-bridge": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\Aldwin\\AppData\\Roaming\\Claude\\deepseek-mcp-bridge\\server-hybrid-v7.js"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MCP_SERVER_NAME": "DeepSeek Hybrid Multi-Provider Bridge v7.0.0",
+        "DEEPSEEK_TIMEOUT": "120000",
+        "DEEPSEEK_COMPLEX_TIMEOUT": "180000",
+        "DEEPSEEK_MAX_REQUEST_SIZE": "50000",
+        "CIRCUIT_BREAKER_FAILURE_THRESHOLD": "3",
+        "FALLBACK_RESPONSE_ENABLED": "true",
+        "WILSON_SCORE_CONFIDENCE": "95",
+        "MULTI_PROVIDER_ROUTING": "true",
+        "HYBRID_ARCHITECTURE": "true",
+        "TRIPLE_ENDPOINT_ENABLED": "true",
+        "CONSOLIDATED_TOOLS_ENABLED": "true"
+      }
+    }
+  },
+  "global": {
+    "logging": {
+      "level": "info",
+      "file": "C:\\Users\\Aldwin\\AppData\\Local\\Claude\\Logs\\claude-desktop-hybrid-mcp.log"
+    },
+    "timeout": 30000,
+    "retries": 3
+  }
+}

@@ -2782,6 +2782,160 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ['codeContext', 'refactorObjective']
         }
+      },
+      {
+        name: 'analyze_file_with_triple_routing',
+        description: '🎯 **ENHANCED FILE ANALYSIS** - Smart file analysis with triple routing integration. Routes files based on size and content type to optimal AI endpoints (Qwen for code, DeepSeek V3 for analysis, Local for large files). Features intelligent routing, performance tracking, and specialized analysis.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filePath: {
+              type: 'string',
+              description: 'Path to the file to analyze'
+            },
+            analysisType: {
+              type: 'string',
+              enum: ['general', 'code_analysis', 'mathematical', 'comprehensive', 'debugging'],
+              default: 'general',
+              description: 'Type of analysis to perform'
+            },
+            temperature: {
+              type: 'number',
+              default: 0.3,
+              description: 'Temperature for AI analysis (0.0-1.0)'
+            },
+            max_tokens: {
+              type: 'number',
+              description: 'Maximum tokens for response (optional)'
+            }
+          },
+          required: ['filePath']
+        }
+      },
+      {
+        name: 'process_batch_with_routing',
+        description: '📁 **BATCH FILE PROCESSING** - Process multiple files concurrently with intelligent size-based routing. Features memory management (50MB limit), routing distribution tracking, and performance optimization. Routes small files to Qwen, medium files to DeepSeek V3, large files to Local endpoint.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filePaths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of file paths to process'
+            },
+            maxConcurrent: {
+              type: 'number',
+              default: 5,
+              description: 'Maximum concurrent file processing'
+            },
+            memoryLimit: {
+              type: 'number',
+              default: 52428800,
+              description: 'Memory limit in bytes (default 50MB)'
+            },
+            routingRules: {
+              type: 'object',
+              properties: {
+                smallFiles: {
+                  type: 'string',
+                  default: 'nvidia_qwen',
+                  description: 'Endpoint for small files (<10KB)'
+                },
+                mediumFiles: {
+                  type: 'string',
+                  default: 'nvidia_deepseek',
+                  description: 'Endpoint for medium files (10KB-100KB)'
+                },
+                largeFiles: {
+                  type: 'string',
+                  default: 'local',
+                  description: 'Endpoint for large files (>100KB)'
+                }
+              },
+              description: 'Routing rules for different file sizes'
+            }
+          },
+          required: ['filePaths']
+        }
+      },
+      {
+        name: 'compare_files_with_ai',
+        description: '🔍 **AI FILE COMPARISON** - Compare two files using multiple AI endpoints for comprehensive analysis. Provides structural analysis (Qwen), semantic analysis (DeepSeek V3), basic differences calculation, and combined insights for thorough file comparison.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filePaths: {
+              type: 'array',
+              items: { type: 'string' },
+              minItems: 2,
+              maxItems: 2,
+              description: 'Array of exactly 2 file paths to compare'
+            },
+            comparisonType: {
+              type: 'string',
+              enum: ['structural', 'semantic', 'comprehensive'],
+              default: 'comprehensive',
+              description: 'Type of comparison analysis'
+            },
+            analysisDepth: {
+              type: 'string',
+              enum: ['basic', 'standard', 'detailed'],
+              default: 'standard',
+              description: 'Depth of analysis to perform'
+            }
+          },
+          required: ['filePaths']
+        }
+      },
+      {
+        name: 'process_concurrent_batch',
+        description: '⚡ **CONCURRENT PROCESSING** - Process multiple files concurrently with advanced memory tracking and routing statistics. Features semaphore-based concurrency control, per-file timeouts, memory usage monitoring, and detailed routing distribution analysis.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filePaths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of file paths to process concurrently'
+            },
+            maxConcurrent: {
+              type: 'number',
+              default: 5,
+              description: 'Maximum concurrent file processing'
+            },
+            memoryLimit: {
+              type: 'number',
+              default: 52428800,
+              description: 'Memory limit in bytes (default 50MB)'
+            },
+            timeoutPerFile: {
+              type: 'number',
+              default: 5000,
+              description: 'Timeout per file in milliseconds'
+            },
+            routingStrategy: {
+              type: 'string',
+              enum: ['triple_endpoint', 'size_based', 'content_based'],
+              default: 'triple_endpoint',
+              description: 'Strategy for routing files to endpoints'
+            }
+          },
+          required: ['filePaths']
+        }
+      },
+      {
+        name: 'diagnose_file_access',
+        description: '🔧 **FILE ACCESS DIAGNOSTICS** - Diagnose file access issues with comprehensive validation. Tests path normalization, security validation, file access permissions, and size validation. Provides detailed diagnostic information for troubleshooting file operations.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filePath: {
+              type: 'string',
+              description: 'Path to the file to diagnose'
+            }
+          },
+          required: ['filePath']
+        }
       }
     ]
   };
@@ -2916,6 +3070,67 @@ class MCPToolPerformanceOptimizer {
         return {
           context: args.context || '',
           goal: args.goal || ''
+        };
+      },
+      
+      analyze_file_with_triple_routing: (args) => {
+        if (!args.filePath || typeof args.filePath !== 'string') {
+          throw new Error('Invalid filePath parameter');
+        }
+        return {
+          filePath: args.filePath,
+          analysisType: args.analysisType || 'general',
+          temperature: args.temperature || 0.3,
+          max_tokens: args.max_tokens
+        };
+      },
+      
+      process_batch_with_routing: (args) => {
+        if (!Array.isArray(args.filePaths) || args.filePaths.length === 0) {
+          throw new Error('Invalid filePaths parameter');
+        }
+        return {
+          filePaths: args.filePaths,
+          maxConcurrent: Math.min(args.maxConcurrent || 5, 10),
+          memoryLimit: args.memoryLimit || 52428800,
+          routingRules: args.routingRules || {
+            smallFiles: 'nvidia_qwen',
+            mediumFiles: 'nvidia_deepseek',
+            largeFiles: 'local'
+          }
+        };
+      },
+      
+      compare_files_with_ai: (args) => {
+        if (!Array.isArray(args.filePaths) || args.filePaths.length !== 2) {
+          throw new Error('Invalid filePaths parameter - exactly 2 files required');
+        }
+        return {
+          filePaths: args.filePaths,
+          comparisonType: args.comparisonType || 'comprehensive',
+          analysisDepth: args.analysisDepth || 'standard'
+        };
+      },
+      
+      process_concurrent_batch: (args) => {
+        if (!Array.isArray(args.filePaths) || args.filePaths.length === 0) {
+          throw new Error('Invalid filePaths parameter');
+        }
+        return {
+          filePaths: args.filePaths,
+          maxConcurrent: Math.min(args.maxConcurrent || 5, 10),
+          memoryLimit: args.memoryLimit || 52428800,
+          timeoutPerFile: args.timeoutPerFile || 5000,
+          routingStrategy: args.routingStrategy || 'triple_endpoint'
+        };
+      },
+      
+      diagnose_file_access: (args) => {
+        if (!args.filePath || typeof args.filePath !== 'string') {
+          throw new Error('Invalid filePath parameter');
+        }
+        return {
+          filePath: args.filePath
         };
       }
     };
@@ -3093,6 +3308,21 @@ class MCPToolPerformanceOptimizer {
         
       case 'youtu_agent_analyze_files':
         return await this.executeYoutuAgentAnalysis(params);
+        
+      case 'analyze_file_with_triple_routing':
+        return await this.executeAnalyzeFileWithTripleRouting(params);
+        
+      case 'process_batch_with_routing':
+        return await this.executeProcessBatchWithRouting(params);
+        
+      case 'compare_files_with_ai':
+        return await this.executeCompareFilesWithAI(params);
+        
+      case 'process_concurrent_batch':
+        return await this.executeProcessConcurrentBatch(params);
+        
+      case 'diagnose_file_access':
+        return await this.executeDiagnoseFileAccess(params);
         
       default:
         throw new Error(`Tool ${toolName} not implemented in optimizer`);
@@ -3406,6 +3636,161 @@ Please provide the complete code with the insertion, followed by your analysis.`
     prompt += "Focus on providing concrete, technical insights rather than generic programming advice.";
 
     return prompt;
+  }
+  
+  // ===============================
+  // ATOMIC TASK 5: ENHANCED FILE OPERATIONS EXECUTION METHODS
+  // ===============================
+  
+  async executeAnalyzeFileWithTripleRouting(params) {
+    try {
+      // Import FileProcessor
+      const fileProcessorModule = await import('./src/file-processor.js');
+      const FileProcessor = fileProcessorModule.default;
+      
+      const result = await FileProcessor.analyzeFileWithTripleRouting(params.filePath, {
+        analysisType: params.analysisType,
+        temperature: params.temperature,
+        max_tokens: params.max_tokens
+      });
+      
+      return {
+        success: true,
+        analysis: result,
+        metadata: {
+          toolUsed: 'analyze_file_with_triple_routing',
+          executionTime: Date.now()
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `File analysis failed: ${error.message}`,
+        filePath: params.filePath
+      };
+    }
+  }
+  
+  async executeProcessBatchWithRouting(params) {
+    try {
+      // Import FileProcessor
+      const fileProcessorModule = await import('./src/file-processor.js');
+      const FileProcessor = fileProcessorModule.default;
+      
+      const result = await FileProcessor.processBatchWithRouting(params.filePaths, {
+        maxConcurrent: params.maxConcurrent,
+        memoryLimit: params.memoryLimit,
+        routingRules: params.routingRules
+      });
+      
+      return {
+        success: true,
+        batchResults: result,
+        metadata: {
+          toolUsed: 'process_batch_with_routing',
+          filesProcessed: result.batchMetadata?.processedFiles || 0,
+          executionTime: Date.now()
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `Batch processing failed: ${error.message}`,
+        filePaths: params.filePaths
+      };
+    }
+  }
+  
+  async executeCompareFilesWithAI(params) {
+    try {
+      // Import FileProcessor
+      const fileProcessorModule = await import('./src/file-processor.js');
+      const FileProcessor = fileProcessorModule.default;
+      
+      const result = await FileProcessor.compareFilesWithAI(params.filePaths, {
+        comparisonType: params.comparisonType,
+        analysisDepth: params.analysisDepth
+      });
+      
+      return {
+        success: true,
+        comparison: result,
+        metadata: {
+          toolUsed: 'compare_files_with_ai',
+          filesCompared: params.filePaths.length,
+          executionTime: Date.now()
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `File comparison failed: ${error.message}`,
+        filePaths: params.filePaths
+      };
+    }
+  }
+  
+  async executeProcessConcurrentBatch(params) {
+    try {
+      // Import FileProcessor
+      const fileProcessorModule = await import('./src/file-processor.js');
+      const FileProcessor = fileProcessorModule.default;
+      
+      const result = await FileProcessor.processConcurrentBatch(params.filePaths, {
+        maxConcurrent: params.maxConcurrent,
+        memoryLimit: params.memoryLimit,
+        timeoutPerFile: params.timeoutPerFile,
+        routingStrategy: params.routingStrategy
+      });
+      
+      return {
+        success: true,
+        concurrentResults: result,
+        metadata: {
+          toolUsed: 'process_concurrent_batch',
+          filesProcessed: result.processedFiles?.length || 0,
+          filesFailed: result.failedFiles?.length || 0,
+          memoryPeak: result.memoryUsagePeak,
+          executionTime: Date.now()
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `Concurrent processing failed: ${error.message}`,
+        filePaths: params.filePaths
+      };
+    }
+  }
+  
+  async executeDiagnoseFileAccess(params) {
+    try {
+      // Import FileProcessor
+      const fileProcessorModule = await import('./src/file-processor.js');
+      const FileProcessor = fileProcessorModule.default;
+      
+      const result = await FileProcessor.diagnoseFileAccess(params.filePath);
+      
+      return {
+        success: true,
+        diagnostics: result,
+        metadata: {
+          toolUsed: 'diagnose_file_access',
+          executionTime: Date.now()
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `File access diagnosis failed: ${error.message}`,
+        filePath: params.filePath
+      };
+    }
   }
 }
 
@@ -3856,6 +4241,178 @@ Ready for UNLIMITED HIGH-PERFORMANCE development with all optimization features 
       };
     }
 
+    case 'analyze_file_with_triple_routing': {
+      const analysisResult = result.analysis || {};
+      
+      let responseText = `🎯 **ENHANCED FILE ANALYSIS** - Triple Routing Optimization\n\n`;
+      
+      if (result.success) {
+        responseText += `**File Analysis Results:**\n`;
+        responseText += `- File: ${analysisResult.metadata?.filePath || 'N/A'}\n`;
+        responseText += `- Analysis Type: ${analysisResult.metadata?.analysisType || 'general'}\n`;
+        responseText += `- Routed To: ${analysisResult.routedTo || 'N/A'}\n`;
+        responseText += `- Routing Reason: ${analysisResult.routingReason || 'N/A'}\n`;
+        responseText += `- Confidence: ${analysisResult.confidence || 'N/A'}\n`;
+        responseText += `- Processing Time: ${analysisResult.metadata?.processingTime || 'N/A'}\n\n`;
+        
+        if (analysisResult.analysis) {
+          const preview = analysisResult.analysis.length > 1500 ? analysisResult.analysis.substring(0, 1500) + '...' : analysisResult.analysis;
+          responseText += `**Analysis Results:**\n${preview}\n\n`;
+        }
+      } else {
+        responseText += `❌ **Analysis Failed:** ${result.error}\n\n`;
+      }
+      
+      responseText += `⚡ **OPTIMIZER METRICS:**\n- Execution Time: ${Math.round(executionTime)}ms\n- Cache Hit Rate: ${Math.round(performanceMetrics.cacheHitRate * 100)}%`;
+      responseText += `\n\n*🎯 Triple Routing powered by Enhanced File Operations v7.0.0*`;
+      
+      return {
+        content: [{
+          type: 'text',
+          text: responseText
+        }]
+      };
+    }
+
+    case 'process_batch_with_routing': {
+      const batchResults = result.batchResults || {};
+      
+      let responseText = `📁 **BATCH FILE PROCESSING** - Size-Based Routing\n\n`;
+      
+      if (result.success) {
+        responseText += `**Batch Processing Results:**\n`;
+        responseText += `- Total Files: ${batchResults.batchMetadata?.totalFiles || 0}\n`;
+        responseText += `- Processed: ${batchResults.batchMetadata?.processedFiles || 0}\n`;
+        responseText += `- Failed: ${batchResults.batchMetadata?.failedFiles || 0}\n`;
+        responseText += `- Memory Used: ${Math.round((batchResults.batchMetadata?.totalMemoryUsed || 0)/1024)}KB\n`;
+        responseText += `- Processing Time: ${batchResults.batchMetadata?.processingTime || 'N/A'}\n\n`;
+        
+        if (batchResults.batchMetadata?.routingDistribution) {
+          responseText += `**Routing Distribution:**\n`;
+          Object.entries(batchResults.batchMetadata.routingDistribution).forEach(([endpoint, count]) => {
+            responseText += `- ${endpoint}: ${count} files\n`;
+          });
+          responseText += `\n`;
+        }
+      } else {
+        responseText += `❌ **Batch Processing Failed:** ${result.error}\n\n`;
+      }
+      
+      responseText += `⚡ **OPTIMIZER METRICS:**\n- Execution Time: ${Math.round(executionTime)}ms\n- Files Processed: ${result.metadata?.filesProcessed || 0}`;
+      responseText += `\n\n*📁 Enhanced Batch Processing with Memory Management*`;
+      
+      return {
+        content: [{
+          type: 'text',
+          text: responseText
+        }]
+      };
+    }
+
+    case 'compare_files_with_ai': {
+      const comparison = result.comparison || {};
+      
+      let responseText = `🔍 **AI FILE COMPARISON** - Multi-Endpoint Analysis\n\n`;
+      
+      if (result.success) {
+        responseText += `**Comparison Results:**\n`;
+        responseText += `- Files Compared: ${result.metadata?.filesCompared || 0}\n`;
+        
+        if (comparison.differences) {
+          responseText += `- Line Differences: ${comparison.differences.lineCount || 0}\n`;
+          responseText += `- Character Differences: ${comparison.differences.characterCount || 0}\n`;
+        }
+        
+        if (comparison.similarities) {
+          responseText += `- Common Lines: ${comparison.similarities.commonLines || 0}\n`;
+          responseText += `- Similarity Ratio: ${Math.round((comparison.similarities.similarityRatio || 0) * 100)}%\n\n`;
+        }
+        
+        if (comparison.aiAnalysis?.summary) {
+          const preview = comparison.aiAnalysis.summary.length > 1000 ? comparison.aiAnalysis.summary.substring(0, 1000) + '...' : comparison.aiAnalysis.summary;
+          responseText += `**AI Analysis Summary:**\n${preview}\n\n`;
+        }
+      } else {
+        responseText += `❌ **Comparison Failed:** ${result.error}\n\n`;
+      }
+      
+      responseText += `⚡ **OPTIMIZER METRICS:**\n- Execution Time: ${Math.round(executionTime)}ms\n- Files Analyzed: ${result.metadata?.filesCompared || 0}`;
+      responseText += `\n\n*🔍 Multi-Endpoint AI Analysis for Comprehensive Comparison*`;
+      
+      return {
+        content: [{
+          type: 'text',
+          text: responseText
+        }]
+      };
+    }
+
+    case 'process_concurrent_batch': {
+      const concurrentResults = result.concurrentResults || {};
+      
+      let responseText = `⚡ **CONCURRENT PROCESSING** - Advanced Memory Tracking\n\n`;
+      
+      if (result.success) {
+        responseText += `**Concurrent Processing Results:**\n`;
+        responseText += `- Files Processed: ${result.metadata?.filesProcessed || 0}\n`;
+        responseText += `- Files Failed: ${result.metadata?.filesFailed || 0}\n`;
+        responseText += `- Memory Peak: ${Math.round((result.metadata?.memoryPeak || 0)/1024)}KB\n`;
+        responseText += `- Memory Average: ${Math.round((concurrentResults.memoryUsageAverage || 0)/1024)}KB\n\n`;
+        
+        if (concurrentResults.routingStatistics) {
+          responseText += `**Routing Statistics:**\n`;
+          Object.entries(concurrentResults.routingStatistics).forEach(([endpoint, count]) => {
+            responseText += `- ${endpoint}: ${count} files\n`;
+          });
+          responseText += `\n`;
+        }
+      } else {
+        responseText += `❌ **Concurrent Processing Failed:** ${result.error}\n\n`;
+      }
+      
+      responseText += `⚡ **OPTIMIZER METRICS:**\n- Execution Time: ${Math.round(executionTime)}ms\n- Concurrency Control: Active`;
+      responseText += `\n\n*⚡ High-Performance Concurrent Processing with Memory Management*`;
+      
+      return {
+        content: [{
+          type: 'text',
+          text: responseText
+        }]
+      };
+    }
+
+    case 'diagnose_file_access': {
+      const diagnostics = result.diagnostics || {};
+      
+      let responseText = `🔧 **FILE ACCESS DIAGNOSTICS**\n\n`;
+      
+      if (result.success) {
+        responseText += `**Diagnostic Results for: ${diagnostics.path || 'N/A'}**\n`;
+        responseText += `- Timestamp: ${diagnostics.timestamp || 'N/A'}\n\n`;
+        
+        if (diagnostics.checks && Array.isArray(diagnostics.checks)) {
+          responseText += `**Security Checks:**\n`;
+          diagnostics.checks.forEach((check, index) => {
+            const status = check.passed ? '✅' : '❌';
+            responseText += `${index + 1}. ${status} ${check.test}: ${check.result}\n`;
+          });
+          responseText += `\n`;
+        }
+      } else {
+        responseText += `❌ **Diagnostics Failed:** ${result.error}\n\n`;
+      }
+      
+      responseText += `⚡ **OPTIMIZER METRICS:**\n- Execution Time: ${Math.round(executionTime)}ms\n- Security Validation: Active`;
+      responseText += `\n\n*🔧 Comprehensive File Access Validation and Diagnostics*`;
+      
+      return {
+        content: [{
+          type: 'text',
+          text: responseText
+        }]
+      };
+    }
+
     default:
       return {
         content: [{
@@ -3971,8 +4528,8 @@ async function startServer() {
     const transport = new StdioServerTransport();
     transport.start(server);
     
-    console.error('⚡ TDD GREEN PHASE COMPLETED - DeepSeek MCP Bridge v6.2.0 with Mathematical + FIM Enhancement!');
-    console.error('🚀 ALL 8 TOOLS PERFORMANCE OPTIMIZED:');
+    console.error('⚡ ATOMIC TASK 5 COMPLETED - DeepSeek MCP Bridge v7.0.0 with Enhanced File Operations!');
+    console.error('🚀 ALL 14 TOOLS PERFORMANCE OPTIMIZED:');
     console.error('   1. enhanced_query_deepseek - Parameter caching + youtu routing');
     console.error('   2. analyze_files - Concurrent processing + smart chunking');  
     console.error('   3. query_deepseek - Legacy optimization + performance tracking');
@@ -3981,6 +4538,11 @@ async function startServer() {
     console.error('   6. youtu_agent_analyze_files - Maximum speed chunking + parallelization');
     console.error('   7. calculate_game_balance - Mathematical reasoning with statistical validation');
     console.error('   8. intelligent_refactor - Fill-in-the-Middle code enhancement');
+    console.error('   9. analyze_file_with_triple_routing - Smart routing with AI endpoints');
+    console.error('  10. process_batch_with_routing - Size-based batch processing');
+    console.error('  11. compare_files_with_ai - Multi-endpoint file comparison');
+    console.error('  12. process_concurrent_batch - Advanced concurrent processing');
+    console.error('  13. diagnose_file_access - File access diagnostics');
     console.error('');
     console.error('⚡ PERFORMANCE FEATURES ACTIVE:');
     console.error('   📈 Parameter caching with 80%+ hit rates');

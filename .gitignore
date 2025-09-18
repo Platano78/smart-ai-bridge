@@ -1,0 +1,234 @@
+# ========================================
+# DeepSeek MCP Bridge - Professional .gitignore
+# ========================================
+
+# ========================================
+# Node.js Dependencies & Build Artifacts
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Dependency directories
+jspm_packages/
+
+# Package manager lock files (keep only one)
+# npm
+package-lock.json
+
+# Yarn (if using yarn, uncomment)
+# yarn.lock
+
+# pnpm (if using pnpm, uncomment)
+# pnpm-lock.yaml
+
+# ========================================
+# Runtime & Process Files
+# ========================================
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# ========================================
+# Environment & Configuration
+# ========================================
+# Environment variables (keep .env.example)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.staging
+
+# Configuration files with sensitive data
+config/local.json
+config/production.json
+config/development.json
+
+# ========================================
+# MCP Server Specific
+# ========================================
+# MCP context storage
+dev_context_storage/
+context_storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# MCP logs
+logs/
+*.log
+mcp-*.log
+
+# Tool execution artifacts
+tool-cache/
+temp-files/
+
+# ========================================
+# Development & Debug Files
+# ========================================
+# Debug output
+debug/
+*.debug
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+
+# Test artifacts
+test-results/
+test-output/
+*.test.log
+
+# ========================================
+# Build & Distribution
+# ========================================
+# Build output
+build/
+dist/
+out/
+
+# Webpack build info
+.next/
+
+# Rollup build cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# ========================================
+# Documentation & Reports (Generated)
+# ========================================
+# Keep important docs, ignore generated ones
+ATOMIC-TASK-*.md
+*-COMPLETION*.md
+*-REPORT*.md
+*-SUMMARY*.md
+*-GUIDE*.md
+DEPLOYMENT*.md
+TDD-*.md
+PHASE*.md
+FINAL*.md
+QA-*.md
+
+# Generated documentation
+docs/generated/
+api-docs/
+
+# ========================================
+# Monitoring & Diagnostics
+# ========================================
+# Diagnostic files
+diagnostics/
+monitoring-*.json
+performance-*.json
+health-check-*.log
+
+# Profiling output
+*.cpuprofile
+*.heapprofile
+
+# ========================================
+# Security & Certificates
+# ========================================
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+certificates/
+keys/
+
+# ========================================
+# Archive & Backup (Exclude embedded repos)
+# ========================================
+archive/
+*.git/
+
+# ========================================
+# Operating System Files
+# ========================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Linux
+*~
+
+# ========================================
+# Version Control & Backup
+# ========================================
+# Git merge artifacts
+*.orig
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# ========================================
+# Claude Desktop Configurations (Dynamic)
+# ========================================
+# Keep main config, ignore variations
+claude-desktop-config-*.json
+claude_desktop_config_*.json
+!claude-desktop-config.json
+
+# ========================================
+# Testing & Quality Assurance
+# ========================================
+# Test coverage
+coverage/
+.nyc_output/
+
+# Playwright
+test-results/
+playwright-report/
+
+# ========================================
+# Deployment & Scripts
+# ========================================
+# Deployment scripts (temporary)
+deploy-*.sh
+activate-*.sh
+*-test.js
+debug-*.js
+fix_*.js
+enhanced-routing/
+
+# ========================================
+# Zone Identifier (Windows Security)
+# ========================================
+*:Zone.Identifier
