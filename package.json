@@ -32,7 +32,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "tiktoken": "^1.0.22"
   },
   "keywords": [
     "mcp",
@@ -184,6 +185,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "chai": "^4.5.0",
     "mocha": "^10.8.2",
+    "node-fetch": "^3.3.2",
     "vitest": "^3.2.4"
   }
 }

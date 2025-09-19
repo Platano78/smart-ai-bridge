@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  qwen25-coder-7b-8001:
+    image: vllm/vllm-openai:latest
+    container_name: qwen25-coder-7b-8001
+    ports:
+      - "8001:8000"  # Map host port 8001 to container port 8000
+      - "3018:3018"  # Monitor port
+    environment:
+      # Model configuration
+      - MODEL_NAME=wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
+      - SERVED_MODEL_NAME=qwen2.5-coder-7b-fp8-dynamic
+
+      # YARN Configuration for 90k context (optimized for available memory)
+      - MAX_MODEL_LEN=90720
+      - ROPE_SCALING_TYPE=yarn
+      - ROPE_SCALING_FACTOR=2.8
+      - ROPE_THETA=500000
+
+      # Performance and GPU settings
+      - GPU_MEMORY_UTILIZATION=0.90
+      - TENSOR_PARALLEL_SIZE=1
+      - DTYPE=auto
+
+      # API configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - WORKER_USE_RAY=false
+      - ENGINE_USE_RAY=false
+
+      # Cache and performance optimizations
+      - ENABLE_PREFIX_CACHING=true
+      - MAX_PADDINGS=256
+
+      # Health monitoring
+      - HEALTH_CHECK_GRACE_PERIOD=30
+
+      # Memory optimization flags
+      # - KV_CACHE_DTYPE=fp8  # Disabled due to compatibility issues
+
+      # Allow long context with YARN scaling
+      - VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+
+      # Use FlashInfer backend for better compatibility
+      - VLLM_ATTENTION_BACKEND=FLASHINFER
+
+    volumes:
+      # Model cache volume for persistence
+      - model_cache:/root/.cache/huggingface
+      # Optional: Mount local model directory if pre-downloaded
+      # - ./model_cache:/root/.cache/huggingface:rw
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    command: >
+      --model wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
+      --served-model-name qwen2.5-coder-7b-fp8-dynamic
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len 90720
+      --gpu-memory-utilization 0.90
+      --dtype auto
+      --tensor-parallel-size 1
+      --enable-prefix-caching
+      --enforce-eager
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+    restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    labels:
+      - "traefik.enable=false"
+      - "service.name=yarn-128k-production"
+      - "service.version=1.0.0"
+      - "service.description=Qwen2.5-Coder-7B with YARN 131k context"
+
+volumes:
+  model_cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/model_cache
+
+networks:
+  default:
+    name: vllm-network
+    external: true
