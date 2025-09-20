@@ -1089,7 +1089,7 @@ Provide:
       }
 
       // Analyze validation complexity before proceeding
-      const validationComplexity = this.analyzeValidationComplexity(edits, currentContent, detectedLang);
+      const validationComplexity = this.analyzeValidationComplexity(edits, originalContent, detectedLang);
 
       // Validate edits using AI before applying
       const validationResult = await this.validateCodeChanges(
