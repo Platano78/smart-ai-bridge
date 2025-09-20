@@ -86,11 +86,41 @@ class FileModificationManager {
           );
           break;
         case 'validation':
+          // Calculate complexity analysis for direct validation requests
+          let validationComplexityAnalysis;
+          try {
+            // Read file content if needed for complexity analysis
+            let fileContent = '';
+            try {
+              fileContent = await require('fs/promises').readFile(params.file_path, 'utf8');
+            } catch (error) {
+              // File might not exist yet - use empty content
+              fileContent = '';
+            }
+
+            validationComplexityAnalysis = this.router.analyzeValidationComplexity(
+              params.proposed_changes,
+              fileContent,
+              params.language
+            );
+          } catch (error) {
+            console.error(`⚠️ Complexity analysis failed in validation: ${error.message}`);
+            // Fallback complexity analysis
+            validationComplexityAnalysis = {
+              score: 50,
+              level: 'medium',
+              factors: { changeVolume: 0, syntaxComplexity: 0, semanticComplexity: 0, riskLevel: 0, languageSpecificRisk: 5 },
+              requiresCloudEscalation: false,
+              confidenceThreshold: 0.70
+            };
+          }
+
           result = await this.router.validateCodeChanges(
             params.file_path,
             params.proposed_changes,
             params.validation_rules,
-            params.language
+            params.language,
+            validationComplexityAnalysis
           );
           break;
         case 'backup_management':
