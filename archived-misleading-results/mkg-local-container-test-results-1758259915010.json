@@ -1,0 +1,80 @@
+{
+  "totalTests": 11,
+  "passed": 10,
+  "failed": 1,
+  "errors": [],
+  "performance": {
+    "mcpStartup": "195.86ms",
+    "simple": {
+      "success": true,
+      "responseTime": "180.95ms",
+      "expectedRouting": "local"
+    },
+    "medium": {
+      "success": true,
+      "responseTime": "194.32ms",
+      "expectedRouting": "local"
+    },
+    "complex": {
+      "success": true,
+      "responseTime": "201.44ms",
+      "expectedRouting": "local"
+    }
+  },
+  "routing": {
+    "portAccessible": true,
+    "healthEndpoint": false
+  },
+  "tools": {
+    "analyze": {
+      "success": true,
+      "responseTime": "175.67ms",
+      "localRouting": true
+    },
+    "generate": {
+      "success": false,
+      "responseTime": "197.40ms",
+      "localRouting": false
+    },
+    "review": {
+      "success": true,
+      "responseTime": "201.54ms",
+      "localRouting": true
+    },
+    "read": {
+      "success": true,
+      "responseTime": "51.67ms",
+      "localRouting": true
+    },
+    "health": {
+      "success": true,
+      "responseTime": "184.75ms",
+      "localRouting": true
+    },
+    "write_files_atomic": {
+      "success": true,
+      "responseTime": "55.05ms",
+      "localRouting": true
+    },
+    "edit_file": {
+      "success": true,
+      "responseTime": "195.08ms",
+      "localRouting": true
+    },
+    "validate_changes": {
+      "success": true,
+      "responseTime": "185.61ms",
+      "localRouting": true
+    },
+    "multi_edit": {
+      "success": true,
+      "responseTime": "185.14ms",
+      "localRouting": true
+    },
+    "backup_restore": {
+      "success": true,
+      "responseTime": "56.15ms",
+      "localRouting": true
+    }
+  }
+}
