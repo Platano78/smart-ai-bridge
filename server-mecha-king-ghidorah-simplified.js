@@ -1088,8 +1088,25 @@ Provide:
         await fs.copyFile(filePath, backupPath);
       }
 
-      // Analyze validation complexity before proceeding
-      const validationComplexity = this.analyzeValidationComplexity(edits, originalContent, detectedLang);
+      // Analyze validation complexity before proceeding with fallback protection
+      let complexityAnalysis;
+      try {
+        complexityAnalysis = this.analyzeValidationComplexity(edits, originalContent, detectedLang);
+        // Ensure we have a valid complexity object with required properties
+        if (!complexityAnalysis || typeof complexityAnalysis.level === 'undefined') {
+          throw new Error('Invalid complexity analysis result');
+        }
+      } catch (complexityError) {
+        console.error(`⚠️ Complexity analysis failed: ${complexityError.message}`);
+        // Provide fallback complexity object to prevent undefined references
+        complexityAnalysis = {
+          score: 50,
+          level: 'medium',
+          factors: { changeVolume: 0, syntaxComplexity: 0, semanticComplexity: 0, riskLevel: 0, languageSpecificRisk: 5 },
+          requiresCloudEscalation: false,
+          confidenceThreshold: 0.70
+        };
+      }
 
       // Validate edits using AI before applying
       const validationResult = await this.validateCodeChanges(
@@ -1097,23 +1114,38 @@ Provide:
         edits,
         ['syntax', 'logic', 'security'],
         detectedLang,
-        validationComplexity
+        complexityAnalysis
       );
 
-      // Intelligent validation analysis with escalation capability
-      const responseAnalysis = this.analyzeValidationResponse(validationResult, validationComplexity);
+      // Intelligent validation analysis with escalation capability and fallback protection
+      let responseAnalysis;
+      try {
+        responseAnalysis = this.analyzeValidationResponse(validationResult, complexityAnalysis);
+        // Ensure we have a valid analysis object with required properties
+        if (!responseAnalysis || typeof responseAnalysis.confidence === 'undefined') {
+          throw new Error('Invalid response analysis result');
+        }
+      } catch (analysisError) {
+        console.error(`⚠️ Response analysis failed: ${analysisError.message}`);
+        // Provide fallback response analysis to prevent undefined references
+        responseAnalysis = {
+          confidence: 0.5,
+          needsEscalation: false,
+          escalationReason: null
+        };
+      }
       const isCloudEnhanced = validationResult.includes('ASSESSMENT:') || validationResult.includes('CONFIDENCE:');
 
       // Parse cloud-enhanced assessment if available
       let finalAssessment = 'NEEDS_REVIEW';
-      let finalConfidence = responseAnalysis.confidence;
+      let finalConfidence = responseAnalysis?.confidence || 0.5;
 
       if (isCloudEnhanced) {
         const assessmentMatch = validationResult.match(/ASSESSMENT:\s*(APPROVED|REJECTED|NEEDS_REVIEW)/i);
         finalAssessment = assessmentMatch ? assessmentMatch[1].toUpperCase() : 'NEEDS_REVIEW';
 
         const confidenceMatch = validationResult.match(/CONFIDENCE:\s*(\d+)%/i);
-        finalConfidence = confidenceMatch ? parseInt(confidenceMatch[1]) / 100 : responseAnalysis.confidence;
+        finalConfidence = confidenceMatch ? parseInt(confidenceMatch[1]) / 100 : responseAnalysis?.confidence || 0.5;
       } else {
         // Legacy keyword-based analysis for non-escalated results
         const hasCriticalIssues = validationResult.toLowerCase().includes('critical') ||
@@ -1138,7 +1170,7 @@ Provide:
             reason: 'High-confidence validation rejection',
             assessment: finalAssessment,
             confidence: `${(finalConfidence * 100).toFixed(1)}%`,
-            complexity: validationComplexity.level,
+            complexity: complexityAnalysis?.level || 'unknown',
             validation: validationResult,
             appliedEdits: 0,
             totalEdits: edits.length,
@@ -1153,7 +1185,7 @@ Provide:
             reason: 'Validation concerns detected - review recommended',
             assessment: finalAssessment,
             confidence: `${(finalConfidence * 100).toFixed(1)}%`,
-            complexity: validationComplexity.level,
+            complexity: complexityAnalysis?.level || 'unknown',
             validation: validationResult,
             appliedEdits: 0,
             totalEdits: edits.length,
@@ -1255,7 +1287,7 @@ Provide:
    * ✅ INTELLIGENT CODE CHANGE VALIDATION
    * Enhanced validation with complexity analysis and cloud escalation capability
    */
-  async validateCodeChanges(filePath, proposedChanges, validationRules = ['syntax', 'logic', 'security', 'performance'], language, validationComplexity = null) {
+  async validateCodeChanges(filePath, proposedChanges, validationRules = ['syntax', 'logic', 'security', 'performance'], language, complexityAnalysis = null) {
     const startTime = performance.now();
     console.error(`✅ Validating ${proposedChanges.length} changes for: ${path.basename(filePath)}`);
 
@@ -1272,7 +1304,7 @@ Provide:
       const detectedLang = language || this.detectLanguage(currentContent, filePath);
 
       // Use provided complexity analysis or calculate if not provided
-      const complexity = validationComplexity || this.analyzeValidationComplexity(proposedChanges, currentContent, detectedLang);
+      const complexity = complexityAnalysis || this.analyzeValidationComplexity(proposedChanges, currentContent, detectedLang);
 
       // Simulate the changes to create the proposed new content
       let proposedContent = currentContent;
@@ -1355,18 +1387,18 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
       // Analyze the validation response for confidence and escalation needs
       const responseAnalysis = this.analyzeValidationResponse(validationResult, complexity);
 
-      console.error(`🧠 Validation complexity: ${complexity.level} (score: ${complexity.score})`);
-      console.error(`🎯 Validation confidence: ${(responseAnalysis.confidence * 100).toFixed(1)}%`);
+      console.error(`🧠 Validation complexity: ${complexity?.level || 'unknown'} (score: ${complexity?.score || 0})`);
+      console.error(`🎯 Validation confidence: ${((responseAnalysis?.confidence || 0.5) * 100).toFixed(1)}%`);
 
       // Check if escalation to cloud APIs is needed
-      if (responseAnalysis.needsEscalation) {
-        console.error(`🚀 Escalating to cloud for expert analysis (reason: ${responseAnalysis.escalationReason})`);
+      if (responseAnalysis?.needsEscalation || false) {
+        console.error(`🚀 Escalating to cloud for expert analysis (reason: ${responseAnalysis?.escalationReason || 'unknown'})`);
 
         // Track escalation metrics
         this.metrics.validationEscalations.attempted++;
-        if (responseAnalysis.escalationReason === 'low_confidence') {
+        if ((responseAnalysis?.escalationReason || 'unknown') === 'low_confidence') {
           this.metrics.validationEscalations.lowConfidenceTriggered++;
-        } else if (responseAnalysis.escalationReason === 'complexity_trigger') {
+        } else if ((responseAnalysis?.escalationReason || 'unknown') === 'complexity_trigger') {
           this.metrics.validationEscalations.complexityTriggered++;
         }
 
@@ -1384,7 +1416,7 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
           this.metrics.validationEscalations.successful++;
 
           // Track confidence improvement
-          const confidenceImprovement = cloudValidation.finalConfidence - responseAnalysis.confidence;
+          const confidenceImprovement = cloudValidation.finalConfidence - (responseAnalysis?.confidence || 0.5);
           if (confidenceImprovement > 0) {
             this.metrics.validationEscalations.confidenceImprovement += confidenceImprovement;
           }
@@ -1394,7 +1426,7 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
           this.metrics.validationEscalations.failed++;
           console.error(`⚠️ Cloud escalation failed: ${escalationError.message}, using local result`);
           // Add escalation failure context to result
-          validationResult += `\n\n[ESCALATION NOTE] Attempted cloud validation but failed: ${escalationError.message}. Local validation confidence: ${(responseAnalysis.confidence * 100).toFixed(1)}%`;
+          validationResult += `\n\n[ESCALATION NOTE] Attempted cloud validation but failed: ${escalationError.message}. Local validation confidence: ${((responseAnalysis?.confidence || 0.5) * 100).toFixed(1)}%`;
         }
       }
 
@@ -1523,15 +1555,15 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
 **Context:**
 - File: ${path.basename(filePath)}
 - Language: ${language}
-- Change complexity: ${complexityAnalysis.level} (score: ${complexityAnalysis.score})
-- Local validation confidence: ${(responseAnalysis.confidence * 100).toFixed(1)}%
-- Escalation reason: ${responseAnalysis.escalationReason}
+- Change complexity: ${complexityAnalysis?.level || 'unknown'} (score: ${complexityAnalysis?.score || 0})
+- Local validation confidence: ${((responseAnalysis?.confidence || 0.5) * 100).toFixed(1)}%
+- Escalation reason: ${responseAnalysis?.escalationReason || 'unknown'}
 
 **Complexity Factors:**
-- Change volume: ${complexityAnalysis.factors.changeVolume}
-- Syntax complexity: ${complexityAnalysis.factors.syntaxComplexity}
-- Semantic complexity: ${complexityAnalysis.factors.semanticComplexity}
-- Risk level: ${complexityAnalysis.factors.riskLevel}
+- Change volume: ${complexityAnalysis?.factors?.changeVolume || 0}
+- Syntax complexity: ${complexityAnalysis?.factors?.syntaxComplexity || 0}
+- Semantic complexity: ${complexityAnalysis?.factors?.semanticComplexity || 0}
+- Risk level: ${complexityAnalysis?.factors?.riskLevel || 0}
 
 **Local Validation Result:**
 ${localValidation}
@@ -1606,7 +1638,7 @@ RECOMMENDATIONS: [Specific actions]`;
 
       // Parse the enhanced result to extract confidence
       const confidenceMatch = enhancedResult.match(/CONFIDENCE:\s*(\d+)%/i);
-      const finalConfidence = confidenceMatch ? parseInt(confidenceMatch[1]) / 100 : responseAnalysis.confidence;
+      const finalConfidence = confidenceMatch ? parseInt(confidenceMatch[1]) / 100 : responseAnalysis?.confidence || 0.5;
 
       // Parse assessment result
       const assessmentMatch = enhancedResult.match(/ASSESSMENT:\s*(APPROVED|REJECTED|NEEDS_REVIEW)/i);
@@ -1681,15 +1713,15 @@ RECOMMENDATIONS: [Specific actions]`;
     }
 
     // Force escalation for high complexity with low confidence
-    if (complexityAnalysis.level === 'high' && confidenceScore < complexityAnalysis.confidenceThreshold) {
+    if (complexityAnalysis?.level === 'high' && confidenceScore < (complexityAnalysis?.confidenceThreshold || 0.7)) {
       needsEscalation = true;
     }
 
     return {
       confidence: Math.max(0, Math.min(1, confidenceScore)),
-      needsEscalation: needsEscalation || complexityAnalysis.requiresCloudEscalation,
+      needsEscalation: needsEscalation || complexityAnalysis?.requiresCloudEscalation || false,
       escalationReason: needsEscalation ?
-        (confidenceScore < complexityAnalysis.confidenceThreshold ? 'low_confidence' : 'complexity_trigger') :
+        (confidenceScore < (complexityAnalysis?.confidenceThreshold || 0.7) ? 'low_confidence' : 'complexity_trigger') :
         null
     };
   }
@@ -1776,11 +1808,26 @@ Keep the analysis concise and focused on the most important aspects.`;
 
         const validationPromises = fileOperations.map(async (op, index) => {
           try {
+            // Read current file content for complexity analysis
+            let currentContent = '';
+            try {
+              currentContent = await fs.readFile(op.file_path, 'utf8');
+            } catch (error) {
+              // File might not exist yet - that's okay for validation
+              currentContent = '// New file';
+            }
+
+            const detectedLang = this.detectLanguage(currentContent, op.file_path);
+
+            // Calculate validation complexity before validation
+            const complexityAnalysis = this.analyzeValidationComplexity(op.edits, currentContent, detectedLang);
+
             const validation = await this.validateCodeChanges(
               op.file_path,
               op.edits,
               ['syntax', 'logic', 'security'],
-              this.detectLanguage('', op.file_path)
+              detectedLang,
+              complexityAnalysis
             );
 
             // Use intelligent validation analysis instead of crude keyword matching
