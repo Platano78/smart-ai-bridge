@@ -1088,12 +1088,16 @@ Provide:
         await fs.copyFile(filePath, backupPath);
       }
 
+      // Analyze validation complexity before proceeding
+      const validationComplexity = this.analyzeValidationComplexity(edits, currentContent, detectedLang);
+
       // Validate edits using AI before applying
       const validationResult = await this.validateCodeChanges(
         filePath,
         edits,
         ['syntax', 'logic', 'security'],
-        detectedLang
+        detectedLang,
+        validationComplexity
       );
 
       // Intelligent validation analysis with escalation capability
@@ -1251,7 +1255,7 @@ Provide:
    * ✅ INTELLIGENT CODE CHANGE VALIDATION
    * Enhanced validation with complexity analysis and cloud escalation capability
    */
-  async validateCodeChanges(filePath, proposedChanges, validationRules = ['syntax', 'logic', 'security', 'performance'], language) {
+  async validateCodeChanges(filePath, proposedChanges, validationRules = ['syntax', 'logic', 'security', 'performance'], language, validationComplexity = null) {
     const startTime = performance.now();
     console.error(`✅ Validating ${proposedChanges.length} changes for: ${path.basename(filePath)}`);
 
@@ -1267,8 +1271,8 @@ Provide:
 
       const detectedLang = language || this.detectLanguage(currentContent, filePath);
 
-      // Analyze validation complexity before proceeding
-      const validationComplexity = this.analyzeValidationComplexity(proposedChanges, currentContent, detectedLang);
+      // Use provided complexity analysis or calculate if not provided
+      const complexity = validationComplexity || this.analyzeValidationComplexity(proposedChanges, currentContent, detectedLang);
 
       // Simulate the changes to create the proposed new content
       let proposedContent = currentContent;
@@ -1349,9 +1353,9 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
       let validationResult = response.choices[0]?.message?.content || 'Validation analysis failed';
 
       // Analyze the validation response for confidence and escalation needs
-      const responseAnalysis = this.analyzeValidationResponse(validationResult, validationComplexity);
+      const responseAnalysis = this.analyzeValidationResponse(validationResult, complexity);
 
-      console.error(`🧠 Validation complexity: ${validationComplexity.level} (score: ${validationComplexity.score})`);
+      console.error(`🧠 Validation complexity: ${complexity.level} (score: ${complexity.score})`);
       console.error(`🎯 Validation confidence: ${(responseAnalysis.confidence * 100).toFixed(1)}%`);
 
       // Check if escalation to cloud APIs is needed
@@ -1371,7 +1375,7 @@ Focus on ${detectedLang}-specific best practices and provide actionable feedback
             filePath,
             proposedChanges,
             validationResult,
-            validationComplexity,
+            complexity,
             responseAnalysis,
             detectedLang
           );
