@@ -10,7 +10,7 @@
  * ⚡ FileModificationManager Orchestrator for Unified Operations
  * ⚡ Enhanced File Modification Tools with Parallel Processing
  * ⚡ Local Caching with 15-minute Response Optimization
- * ⚡ Qwen3-Coder-30B-A3B-Instruct-FP8 Primary Model
+ * ⚡ Qwen2.5-Coder-7B-Instruct-FP8-Dynamic Primary Model
  *
  * 🎯 ENHANCED PERFORMANCE TARGETS:
  * • <5 second startup (MCP compliance)
@@ -198,7 +198,7 @@ class MechaKingGhidorahRouter {
     // Smart AI Routing System - NVIDIA Cloud + Local
     this.endpoints = {
       local: {
-        name: 'Qwen3-Coder-30B-A3B-Instruct-FP8',
+        name: 'Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
         url: 'http://localhost:8001/v1/chat/completions',
         healthUrl: 'http://localhost:8001/health',
         maxTokens: 131072,
@@ -811,7 +811,7 @@ Focus on Unity 6 compatibility and mobile performance optimization.`;
       activeEndpoint: Object.entries(this.endpoints).find(([k, ep]) => ep.isHealthy)?.[1]?.name || 'None',
       tools: ["analyze", "generate", "review", "read", "health", "write_files_atomic", "edit_file", "validate_changes", "multi_edit", "backup_restore"],
       smartRouting: {
-        priorityOrder: ['Local (Qwen3-Coder-30B)', 'NVIDIA DeepSeek-V3', 'NVIDIA Qwen-3-Coder-480B'],
+        priorityOrder: ['Local (Qwen2.5-Coder-7B)', 'NVIDIA DeepSeek-V3', 'NVIDIA Qwen-3-Coder-480B'],
         localFirst: this.routingConfig.localFirstThreshold * 100 + '%',
         nvidiaIntegration: !!(this.endpoints.nvidiaDeepSeek.isHealthy || this.endpoints.nvidiaQwen.isHealthy),
         endpointHealth: Object.fromEntries(
@@ -2553,7 +2553,7 @@ class MechaKingGhidorahServer {
           },
           {
             name: 'generate',
-            description: '⚡ ENHANCED Smart code generation - Qwen3-Coder-30B-A3B-Instruct-FP8 primary model with NVIDIA cloud escalation for complex tasks. Context-aware code creation with AI-driven complexity analysis and intelligent routing for optimal performance.',
+            description: '⚡ ENHANCED Smart code generation - Qwen2.5-Coder-7B-Instruct-FP8-Dynamic primary model with NVIDIA cloud escalation for complex tasks. Context-aware code creation with AI-driven complexity analysis and intelligent routing for optimal performance.',
             inputSchema: {
               type: 'object',
               properties: {
