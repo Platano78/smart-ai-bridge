@@ -1,0 +1,101 @@
+{
+  "timestamp": "2025-09-20T21:48:25.412Z",
+  "summary": {
+    "totalTests": 9,
+    "passed": 9,
+    "failed": 0,
+    "successRate": 100,
+    "performance": {
+      "times": [
+        0.11895300000000475,
+        0.04521700000000095,
+        0.06762299999999755,
+        0.07223700000000122,
+        0.06838800000000589,
+        0.05386500000000183,
+        0.02866499999999661,
+        0.06786100000000062,
+        0.03701300000000174,
+        0.02315099999999859
+      ],
+      "average": 0.058297300000000975,
+      "min": 0.02315099999999859,
+      "max": 0.11895300000000475
+    }
+  },
+  "results": [
+    {
+      "sample": "Simple Function",
+      "language": "javascript",
+      "shouldPass": true,
+      "passed": true,
+      "error": null,
+      "duration": 2.221674
+    },
+    {
+      "sample": "Async Function",
+      "language": "javascript",
+      "shouldPass": true,
+      "passed": true,
+      "error": null,
+      "duration": 0.4087890000000023
+    },
+    {
+      "sample": "Class Definition",
+      "language": "javascript",
+      "shouldPass": true,
+      "passed": true,
+      "error": null,
+      "duration": 0.9842189999999995
+    },
+    {
+      "sample": "C# Class",
+      "language": "csharp",
+      "shouldPass": true,
+      "passed": true,
+      "error": null,
+      "duration": 0.122914999999999
+    },
+    {
+      "sample": "Unclosed Brace JS",
+      "language": "javascript",
+      "shouldPass": false,
+      "passed": false,
+      "error": "Unexpected token (2:31)",
+      "duration": 0.2767610000000005
+    },
+    {
+      "sample": "Invalid Assignment JS",
+      "language": "javascript",
+      "shouldPass": false,
+      "passed": false,
+      "error": "Unexpected token (1:14)",
+      "duration": 0.05181699999999978
+    },
+    {
+      "sample": "Unclosed String JS",
+      "language": "javascript",
+      "shouldPass": false,
+      "passed": false,
+      "error": "Unterminated string constant (1:16)",
+      "duration": 0.07722299999999649
+    },
+    {
+      "sample": "Invalid Assignment C#",
+      "language": "csharp",
+      "shouldPass": false,
+      "passed": false,
+      "error": "Incomplete statement",
+      "duration": 0.007614000000003784
+    },
+    {
+      "sample": "Unmatched Braces C#",
+      "language": "csharp",
+      "shouldPass": false,
+      "passed": false,
+      "error": "Unclosed {",
+      "duration": 0.008244999999995173
+    }
+  ],
+  "targetAchieved": true
+}

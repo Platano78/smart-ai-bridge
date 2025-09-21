@@ -1,0 +1,888 @@
+{
+  "timestamp": "2025-09-20T21:37:48.017Z",
+  "testType": "Validation System Deep Dive",
+  "summary": {
+    "totalTests": 12,
+    "correctResults": 9,
+    "accuracy": 75,
+    "falseNegatives": 0,
+    "falsePositives": 3,
+    "avgDuration": 65.43434966666665,
+    "detailedResults": [
+      {
+        "testName": "Simple function rename",
+        "description": "Basic function name change - should be valid",
+        "changes": [
+          {
+            "find": "function hello(name)",
+            "replace": "function greet(name)"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 65.57844300000001,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 65.57844300000001,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Parameter addition",
+        "description": "Adding optional parameter - should be valid",
+        "changes": [
+          {
+            "find": "function hello(name)",
+            "replace": "function hello(name, greeting = \"Hello\")"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 65.58026799999999,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 65.58026799999999,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "String literal change",
+        "description": "Changing string content - should be valid",
+        "changes": [
+          {
+            "find": "\"Hello \" + name",
+            "replace": "\"Hi there \" + name"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 66.856821,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 66.856821,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Config property change",
+        "description": "Changing configuration value - should be valid",
+        "changes": [
+          {
+            "find": "timeout: 5000",
+            "replace": "timeout: 10000"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 61.64064399999998,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 61.64064399999998,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Method rename",
+        "description": "Renaming method - should be valid",
+        "changes": [
+          {
+            "find": "process(data)",
+            "replace": "processData(data)"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 64.22995299999997,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 64.22995299999997,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Invalid syntax - missing brace",
+        "description": "Introducing syntax error - should be invalid",
+        "changes": [
+          {
+            "find": "function hello(name) {",
+            "replace": "function hello(name) ["
+          }
+        ],
+        "expectedValid": false,
+        "actualValid": true,
+        "correct": false,
+        "duration": 65.70844600000004,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 65.70844600000004,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Invalid syntax - incomplete statement",
+        "description": "Incomplete function call - should be invalid",
+        "changes": [
+          {
+            "find": "return name.toUpperCase();",
+            "replace": "return name.toUpperCase("
+          }
+        ],
+        "expectedValid": false,
+        "actualValid": true,
+        "correct": false,
+        "duration": 65.696913,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 65.696913,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Non-existent code",
+        "description": "Trying to replace non-existent code - should be invalid",
+        "changes": [
+          {
+            "find": "nonExistentFunction()",
+            "replace": "newFunction()"
+          }
+        ],
+        "expectedValid": false,
+        "actualValid": true,
+        "correct": false,
+        "duration": 67.20142999999996,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 67.20142999999996,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Empty replacement",
+        "description": "Replacing with comment - should be valid",
+        "changes": [
+          {
+            "find": "console.log(\"Hello \" + name);",
+            "replace": "// Removed logging"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 65.87357099999997,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 65.87357099999997,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Complex refactor",
+        "description": "Multiple related changes - should be valid",
+        "changes": [
+          {
+            "find": "this.config = {",
+            "replace": "this.configuration = {"
+          },
+          {
+            "find": "this.config.enabled",
+            "replace": "this.configuration.enabled"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 64.41500699999995,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 2,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 2,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 64.41500699999995,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Logic-breaking change",
+        "description": "Inverting condition - syntactically valid but changes logic",
+        "changes": [
+          {
+            "find": "if (!this.config.enabled)",
+            "replace": "if (this.config.enabled)"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 64.80941099999995,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 64.80941099999995,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      },
+      {
+        "testName": "Type error introduction",
+        "description": "Valid syntax but potential runtime error",
+        "changes": [
+          {
+            "find": "return data.map(item => item * 2);",
+            "replace": "return data.map(item => item.notAMethod());"
+          }
+        ],
+        "expectedValid": true,
+        "actualValid": true,
+        "correct": true,
+        "duration": 67.62128900000005,
+        "success": true,
+        "validationDetails": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "rawResponse": {
+          "success": true,
+          "result": {
+            "file": "/tmp/validation-test.js",
+            "language": "javascript",
+            "changes": 1,
+            "issues": [],
+            "warnings": [],
+            "passed": true
+          },
+          "duration": 67.62128900000005,
+          "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+        }
+      }
+    ]
+  },
+  "detailedResults": [
+    {
+      "testName": "Simple function rename",
+      "description": "Basic function name change - should be valid",
+      "changes": [
+        {
+          "find": "function hello(name)",
+          "replace": "function greet(name)"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 65.57844300000001,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 65.57844300000001,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Parameter addition",
+      "description": "Adding optional parameter - should be valid",
+      "changes": [
+        {
+          "find": "function hello(name)",
+          "replace": "function hello(name, greeting = \"Hello\")"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 65.58026799999999,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 65.58026799999999,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "String literal change",
+      "description": "Changing string content - should be valid",
+      "changes": [
+        {
+          "find": "\"Hello \" + name",
+          "replace": "\"Hi there \" + name"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 66.856821,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 66.856821,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Config property change",
+      "description": "Changing configuration value - should be valid",
+      "changes": [
+        {
+          "find": "timeout: 5000",
+          "replace": "timeout: 10000"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 61.64064399999998,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 61.64064399999998,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Method rename",
+      "description": "Renaming method - should be valid",
+      "changes": [
+        {
+          "find": "process(data)",
+          "replace": "processData(data)"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 64.22995299999997,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 64.22995299999997,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Invalid syntax - missing brace",
+      "description": "Introducing syntax error - should be invalid",
+      "changes": [
+        {
+          "find": "function hello(name) {",
+          "replace": "function hello(name) ["
+        }
+      ],
+      "expectedValid": false,
+      "actualValid": true,
+      "correct": false,
+      "duration": 65.70844600000004,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 65.70844600000004,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Invalid syntax - incomplete statement",
+      "description": "Incomplete function call - should be invalid",
+      "changes": [
+        {
+          "find": "return name.toUpperCase();",
+          "replace": "return name.toUpperCase("
+        }
+      ],
+      "expectedValid": false,
+      "actualValid": true,
+      "correct": false,
+      "duration": 65.696913,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 65.696913,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Non-existent code",
+      "description": "Trying to replace non-existent code - should be invalid",
+      "changes": [
+        {
+          "find": "nonExistentFunction()",
+          "replace": "newFunction()"
+        }
+      ],
+      "expectedValid": false,
+      "actualValid": true,
+      "correct": false,
+      "duration": 67.20142999999996,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 67.20142999999996,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Empty replacement",
+      "description": "Replacing with comment - should be valid",
+      "changes": [
+        {
+          "find": "console.log(\"Hello \" + name);",
+          "replace": "// Removed logging"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 65.87357099999997,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 65.87357099999997,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Complex refactor",
+      "description": "Multiple related changes - should be valid",
+      "changes": [
+        {
+          "find": "this.config = {",
+          "replace": "this.configuration = {"
+        },
+        {
+          "find": "this.config.enabled",
+          "replace": "this.configuration.enabled"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 64.41500699999995,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 2,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 2,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 64.41500699999995,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Logic-breaking change",
+      "description": "Inverting condition - syntactically valid but changes logic",
+      "changes": [
+        {
+          "find": "if (!this.config.enabled)",
+          "replace": "if (this.config.enabled)"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 64.80941099999995,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 64.80941099999995,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    },
+    {
+      "testName": "Type error introduction",
+      "description": "Valid syntax but potential runtime error",
+      "changes": [
+        {
+          "find": "return data.map(item => item * 2);",
+          "replace": "return data.map(item => item.notAMethod());"
+        }
+      ],
+      "expectedValid": true,
+      "actualValid": true,
+      "correct": true,
+      "duration": 67.62128900000005,
+      "success": true,
+      "validationDetails": {
+        "file": "/tmp/validation-test.js",
+        "language": "javascript",
+        "changes": 1,
+        "issues": [],
+        "warnings": [],
+        "passed": true
+      },
+      "rawResponse": {
+        "success": true,
+        "result": {
+          "file": "/tmp/validation-test.js",
+          "language": "javascript",
+          "changes": 1,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "duration": 67.62128900000005,
+        "stderr": "🧠 Enhanced AI Router initialized with NVIDIA cloud integration\n🛠️ FileModificationManager initialized\n🦖 Mecha King Ghidorah Server initialized\n🦖 Starting Mecha King Ghidorah v8.0.0...\n⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases\n🚀 NVIDIA cloud integration active\n🛠️ FileModificationManager orchestrator ready\n🎯 Smart routing system operational\n🎉 Mecha King Ghidorah server ready!\n✅ Validating code changes for validation-test.js\n"
+      }
+    }
+  ]
+}

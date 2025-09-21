@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""
+Direct AI Query Tool - Simple command-line interface
+Usage:
+  ./ask deepseek3.1 "What is the meaning of life?"
+  ./ask qwen3 "Write a Python function to sort a list"
+  ./ask deepseek "Fix this bug in my code: ..."
+"""
+
+import sys
+import os
+import json
+from openai import OpenAI
+
+# Color codes for output
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def print_usage():
+    print(f"{Colors.CYAN}🤖 Direct AI Query Tool{Colors.ENDC}")
+    print(f"{Colors.YELLOW}Usage:{Colors.ENDC}")
+    print(f"  ./ask deepseek3.1 \"Your question here\"")
+    print(f"  ./ask qwen3 \"Your coding question\"")
+    print(f"  ./ask deepseek \"Your question\" (direct DeepSeek API)")
+    print(f"\n{Colors.YELLOW}Available Models:{Colors.ENDC}")
+    print(f"  • deepseek3.1  - NVIDIA DeepSeek V3.1 (with thinking mode)")
+    print(f"  • qwen3        - NVIDIA Qwen3 Coder 480B")
+    print(f"  • deepseek     - DeepSeek Direct API")
+    print(f"\n{Colors.YELLOW}Examples:{Colors.ENDC}")
+    print(f"  ./ask deepseek3.1 \"Explain quantum computing\"")
+    print(f"  ./ask qwen3 \"Write a sorting algorithm in Python\"")
+    print(f"  ./ask deepseek \"What's the weather like?\"")
+
+def setup_nvidia_client():
+    """Setup NVIDIA API client"""
+    api_key = os.getenv('NVIDIA_API_KEY')
+    if not api_key:
+        print(f"{Colors.RED}❌ NVIDIA_API_KEY environment variable not set{Colors.ENDC}")
+        return None
+
+    return OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key=api_key
+    )
+
+def query_deepseek_nvidia(client, prompt, thinking=True):
+    """Query NVIDIA DeepSeek V3.1"""
+    try:
+        print(f"{Colors.BLUE}🧠 Querying NVIDIA DeepSeek V3.1 (thinking={thinking})...{Colors.ENDC}")
+
+        extra_body = {"chat_template_kwargs": {"thinking": thinking}} if thinking else {}
+
+        completion = client.chat.completions.create(
+            model="deepseek-ai/deepseek-v3.1",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            top_p=0.7,
+            max_tokens=8192,
+            extra_body=extra_body,
+            stream=True
+        )
+
+        print(f"{Colors.GREEN}💭 Response:{Colors.ENDC}")
+        print("-" * 60)
+
+        for chunk in completion:
+            # Handle reasoning content (thinking mode)
+            reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+            if reasoning:
+                print(f"{Colors.CYAN}{reasoning}{Colors.ENDC}", end="")
+
+            # Handle main response content
+            if chunk.choices[0].delta.content is not None:
+                print(chunk.choices[0].delta.content, end="")
+
+        print(f"\n{'-' * 60}")
+        print(f"{Colors.GREEN}✅ Complete{Colors.ENDC}")
+
+    except Exception as e:
+        print(f"{Colors.RED}❌ Error: {str(e)}{Colors.ENDC}")
+
+def query_qwen_nvidia(client, prompt):
+    """Query NVIDIA Qwen3 Coder 480B"""
+    try:
+        print(f"{Colors.BLUE}⚡ Querying NVIDIA Qwen3 Coder 480B...{Colors.ENDC}")
+
+        completion = client.chat.completions.create(
+            model="qwen/qwen3-coder-480b-a35b-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            top_p=0.8,
+            max_tokens=4096,
+            stream=True
+        )
+
+        print(f"{Colors.GREEN}💭 Response:{Colors.ENDC}")
+        print("-" * 60)
+
+        for chunk in completion:
+            if chunk.choices[0].delta.content is not None:
+                print(chunk.choices[0].delta.content, end="")
+
+        print(f"\n{'-' * 60}")
+        print(f"{Colors.GREEN}✅ Complete{Colors.ENDC}")
+
+    except Exception as e:
+        print(f"{Colors.RED}❌ Error: {str(e)}{Colors.ENDC}")
+
+def query_deepseek_direct(prompt):
+    """Query DeepSeek Direct API"""
+    try:
+        import requests
+
+        api_key = os.getenv('DEEPSEEK_API_KEY')
+        if not api_key:
+            print(f"{Colors.RED}❌ DEEPSEEK_API_KEY environment variable not set{Colors.ENDC}")
+            return
+
+        print(f"{Colors.BLUE}🚀 Querying DeepSeek Direct API...{Colors.ENDC}")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.2,
+            "stream": True
+        }
+
+        response = requests.post(
+            "https://api.deepseek.com/chat/completions",
+            headers=headers,
+            json=data,
+            stream=True,
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            print(f"{Colors.GREEN}💭 Response:{Colors.ENDC}")
+            print("-" * 60)
+
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data_str = line[6:]
+                        if data_str == '[DONE]':
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            content = data['choices'][0]['delta'].get('content', '')
+                            if content:
+                                print(content, end="")
+                        except:
+                            continue
+
+            print(f"\n{'-' * 60}")
+            print(f"{Colors.GREEN}✅ Complete{Colors.ENDC}")
+        else:
+            print(f"{Colors.RED}❌ API Error: {response.status_code} - {response.text}{Colors.ENDC}")
+
+    except Exception as e:
+        print(f"{Colors.RED}❌ Error: {str(e)}{Colors.ENDC}")
+
+def main():
+    if len(sys.argv) < 3:
+        print_usage()
+        sys.exit(1)
+
+    model = sys.argv[1].lower()
+    prompt = " ".join(sys.argv[2:])
+
+    # Remove quotes if user added them
+    if prompt.startswith('"') and prompt.endswith('"'):
+        prompt = prompt[1:-1]
+    elif prompt.startswith("'") and prompt.endswith("'"):
+        prompt = prompt[1:-1]
+
+    print(f"{Colors.HEADER}🤖 AI Query Tool{Colors.ENDC}")
+    print(f"{Colors.YELLOW}Model: {model}{Colors.ENDC}")
+    print(f"{Colors.YELLOW}Prompt: {prompt}{Colors.ENDC}")
+    print()
+
+    if model in ['deepseek3.1', 'deepseek-v3.1', 'nvidia-deepseek']:
+        client = setup_nvidia_client()
+        if client:
+            query_deepseek_nvidia(client, prompt)
+
+    elif model in ['qwen3', 'qwen3-coder', 'nvidia-qwen']:
+        client = setup_nvidia_client()
+        if client:
+            query_qwen_nvidia(client, prompt)
+
+    elif model in ['deepseek', 'deepseek-direct']:
+        query_deepseek_direct(prompt)
+
+    else:
+        print(f"{Colors.RED}❌ Unknown model: {model}{Colors.ENDC}")
+        print(f"{Colors.YELLOW}Available models: deepseek3.1, qwen3, deepseek{Colors.ENDC}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

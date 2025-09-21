@@ -17,6 +17,13 @@
     "test:file-modification": "mocha tests/file-modification-tools.test.js --timeout 10000",
     "test:file-modification:watch": "mocha tests/file-modification-tools.test.js --watch --timeout 10000",
     "test:tdd": "npm run test:file-modification",
+    "test:memory": "./run-memory-tests.sh",
+    "test:memory:quick": "./run-memory-tests.sh --quick",
+    "test:memory:pre-deployment": "./run-memory-tests.sh --pre-deployment-only",
+    "test:memory:pressure": "./run-memory-tests.sh --memory-pressure-only",
+    "test:memory:stability": "./run-memory-tests.sh --stability-only",
+    "test:memory:bar1": "./run-memory-tests.sh --bar1-only",
+    "test:memory:comprehensive": "./run-memory-tests.sh --comprehensive",
     "start:consolidated": "node server-consolidated-v7.js",
     "start:enhanced": "node server-enhanced-routing.js",
     "start:legacy": "node server-backup-phase3-20250902.js",
@@ -32,6 +39,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "acorn": "^8.15.0",
     "openai": "^4.0.0",
     "tiktoken": "^1.0.22"
   },
