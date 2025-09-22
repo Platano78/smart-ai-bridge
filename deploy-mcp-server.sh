@@ -67,20 +67,69 @@ log_step() {
 }
 
 # =============================================================================
+# WSL IP DISCOVERY INTEGRATION
+# =============================================================================
+
+setup_ip_discovery() {
+    log_step "Setting up WSL IP discovery system..."
+
+    # Make IP discovery script executable
+    local ip_discovery_script="${PROJECT_ROOT}/wsl-ip-discovery.sh"
+    if [[ -f "$ip_discovery_script" ]]; then
+        chmod +x "$ip_discovery_script"
+        log_success "IP discovery script initialized"
+    else
+        log_warning "IP discovery script not found, deployment may have connectivity issues"
+    fi
+}
+
+validate_wsl_connectivity() {
+    log_step "Validating WSL IP connectivity..."
+
+    local ip_discovery_script="${PROJECT_ROOT}/wsl-ip-discovery.sh"
+    if [[ -f "$ip_discovery_script" ]]; then
+        local wsl_host_ip
+        if wsl_host_ip=$("$ip_discovery_script" get --quiet 2>/dev/null); then
+            log_success "WSL host IP discovered: $wsl_host_ip"
+
+            # Validate connectivity to common services
+            if "$ip_discovery_script" validate "$wsl_host_ip" --quiet >/dev/null 2>&1; then
+                log_success "WSL connectivity validation passed"
+
+                # Store IP for environment configuration
+                export WSL_HOST_IP="$wsl_host_ip"
+                echo "WSL_HOST_IP=$wsl_host_ip" >> "${LOG_DIR}/deployment-env.log"
+
+                return 0
+            else
+                log_warning "WSL connectivity validation failed"
+                return 1
+            fi
+        else
+            log_warning "Could not discover WSL host IP"
+            return 1
+        fi
+    else
+        log_warning "IP discovery system not available"
+        return 1
+    fi
+}
+
+# =============================================================================
 # SETUP AND VALIDATION
 # =============================================================================
 
 setup_directories() {
     log_step "Setting up deployment directories..."
-    
+
     mkdir -p "$LOG_DIR" "$BACKUP_DIR" "$CONFIG_DIR"
-    
+
     # Initialize deployment log
     echo "=== DeepSeek MCP Bridge Deployment Started ===" > "${LOG_DIR}/deployment.log"
     echo "Timestamp: $(date)" >> "${LOG_DIR}/deployment.log"
     echo "Environment: ${ENVIRONMENT:-production}" >> "${LOG_DIR}/deployment.log"
     echo "=============================================" >> "${LOG_DIR}/deployment.log"
-    
+
     log_success "Directories initialized"
 }
 
@@ -128,13 +177,19 @@ DEEPSEEK_API_URL=https://api.deepseek.com
 DEEPSEEK_API_TIMEOUT=30000
 DEEPSEEK_MAX_RETRIES=3
 
+# WSL IP Discovery Configuration
+WSL_HOST_IP=${WSL_HOST_IP:-auto}
+IP_DISCOVERY_ENABLED=true
+IP_CACHE_TTL=3600
+IP_VALIDATION_TIMEOUT=5
+
 # Performance Configuration
 WORKER_THREADS=4
 CONNECTION_POOL_SIZE=20
 REQUEST_TIMEOUT=60000
 MAX_CONCURRENT_REQUESTS=100
 
-# Security Configuration  
+# Security Configuration
 CORS_ENABLED=true
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_MAX=1000
@@ -145,6 +200,13 @@ METRICS_ENABLED=true
 HEALTH_CHECK_ENABLED=true
 PERFORMANCE_MONITORING=true
 EOF
+
+    # Update WSL_HOST_IP if discovered
+    if [[ -n "${WSL_HOST_IP:-}" ]]; then
+        sed -i "s/WSL_HOST_IP=auto/WSL_HOST_IP=$WSL_HOST_IP/" .env.production
+        log_info "Updated production environment with WSL IP: $WSL_HOST_IP"
+    fi
+
     log_info "Created production environment configuration"
 }
 
@@ -644,7 +706,9 @@ main() {
     
     # Setup and validation
     setup_directories
+    setup_ip_discovery
     validate_environment
+    validate_wsl_connectivity
     
     # Pre-deployment backup
     backup_current_deployment

@@ -361,15 +361,60 @@ check_resource_usage() {
     return $status
 }
 
+check_wsl_connectivity() {
+    local status=$STATUS_HEALTHY
+    local warnings=()
+
+    log_info "Checking WSL IP connectivity..."
+
+    # Check if WSL IP discovery system is available
+    local ip_discovery_script="${PROJECT_ROOT}/wsl-ip-discovery.sh"
+    if [[ ! -f "$ip_discovery_script" ]]; then
+        echo "WSL IP Discovery: System not available"
+        return $STATUS_DEGRADED
+    fi
+
+    # Get current cached IP
+    local wsl_host_ip
+    if wsl_host_ip=$("$ip_discovery_script" get --quiet 2>/dev/null); then
+        echo "WSL Host IP: $wsl_host_ip (cached)"
+
+        # Validate current IP
+        if "$ip_discovery_script" validate "$wsl_host_ip" --quiet >/dev/null 2>&1; then
+            echo "WSL Connectivity: Validated successfully"
+        else
+            status=$STATUS_DEGRADED
+            warnings+=("WSL IP validation failed, connectivity may be impacted")
+        fi
+    else
+        # Try to discover new IP
+        if wsl_host_ip=$("$ip_discovery_script" discover --quiet 2>/dev/null); then
+            status=$STATUS_DEGRADED
+            warnings+=("WSL IP cache was invalid, rediscovered: $wsl_host_ip")
+        else
+            status=$STATUS_UNHEALTHY
+            warnings+=("WSL IP discovery completely failed")
+        fi
+    fi
+
+    if [[ ${#warnings[@]} -eq 0 ]]; then
+        echo "WSL Connectivity: All checks passed"
+    else
+        echo "WSL Issues: ${warnings[*]}"
+    fi
+
+    return $status
+}
+
 check_log_health() {
     local status=$STATUS_HEALTHY
     local warnings=()
-    
+
     # Check for recent errors in logs
     if [[ -f "${LOG_DIR}/rust-server.log" ]]; then
         local error_count
         error_count=$(tail -100 "${LOG_DIR}/rust-server.log" 2>/dev/null | grep -i "error\|panic\|fatal" | wc -l || echo "0")
-        
+
         if [[ $error_count -gt 10 ]]; then
             status=$STATUS_UNHEALTHY
             warnings+=("High error count in logs: $error_count recent errors")
@@ -378,24 +423,24 @@ check_log_health() {
             warnings+=("Some errors in logs: $error_count recent errors")
         fi
     fi
-    
+
     # Check log file sizes
     if [[ -d "$LOG_DIR" ]]; then
         local large_logs
         large_logs=$(find "$LOG_DIR" -name "*.log" -size +100M 2>/dev/null | wc -l || echo "0")
-        
+
         if [[ $large_logs -gt 0 ]]; then
             [[ $status -eq $STATUS_HEALTHY ]] && status=$STATUS_DEGRADED
             warnings+=("Large log files detected: $large_logs files > 100MB")
         fi
     fi
-    
+
     if [[ ${#warnings[@]} -eq 0 ]]; then
         echo "Log Health: No issues detected"
     else
         echo "Log Issues: ${warnings[*]}"
     fi
-    
+
     return $status
 }
 
@@ -562,27 +607,49 @@ run_comprehensive_check() {
     ((checks_run++))
     
     echo ""
-    
+
+    # WSL Connectivity Check
+    log_step "Checking WSL connectivity..."
+    echo ""
+
+    local wsl_result wsl_status
+    wsl_result=$(check_wsl_connectivity)
+    wsl_status=$?
+    echo "$(status_icon $wsl_status) $wsl_result"
+
+    if [[ $wsl_status -gt $overall_status ]]; then
+        overall_status=$wsl_status
+    fi
+
+    case $wsl_status in
+        0) ((checks_passed++)) ;;
+        1) ((checks_degraded++)) ;;
+        2) ((checks_failed++)) ;;
+    esac
+    ((checks_run++))
+
+    echo ""
+
     # Log Health Check
     log_step "Checking log health..."
     echo ""
-    
+
     local log_result log_status
     log_result=$(check_log_health)
     log_status=$?
     echo "$(status_icon $log_status) $log_result"
-    
+
     if [[ $log_status -gt $overall_status ]]; then
         overall_status=$log_status
     fi
-    
+
     case $log_status in
         0) ((checks_passed++)) ;;
         1) ((checks_degraded++)) ;;
         2) ((checks_failed++)) ;;
     esac
     ((checks_run++))
-    
+
     echo ""
     
     # Summary
