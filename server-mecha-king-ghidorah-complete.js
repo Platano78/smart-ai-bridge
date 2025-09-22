@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * MECHA KING GHIDORAH COMPLETE v8.0.0 🔥
- * The Ultimate Coding Monster - FULLY RESTORED with All Features
+ * MECHA KING GHIDORAH COMPLETE v8.1.0 🔥
+ * The Ultimate Coding Monster - OPTIMIZED with Smart Differentiated Health Checking!
  *
  * 🦖 ENHANCED AI KAIJU WITH BLAZING FAST CAPABILITIES:
  * ⚡ Smart AI Routing System with NVIDIA Cloud Integration
  * ⚡ FileModificationManager Orchestrator for Unified Operations
  * ⚡ Enhanced File Modification Tools with Parallel Processing
- * ⚡ All 18 Tools: 8 Core + 10 Aliases (MKG_ and deepseek_)
+ * ⚡ All 19 Tools: 9 Core + 5 MKG aliases + 5 DeepSeek aliases
  * ⚡ Local Caching with 15-minute Response Optimization
  * ⚡ Qwen2.5-Coder-7B-Instruct-FP8-Dynamic Primary Model
+ * ⚡ SMART DIFFERENTIATED HEALTH CHECKING - Local (10s comprehensive) vs Cloud (3s ping)
  *
  * 🎯 PERFORMANCE TARGETS:
  * • <5 second startup (MCP compliance)
@@ -18,13 +19,14 @@
  * • <100ms routing decisions with 95% local processing
  * • <16ms response times for real-time applications
  * • Parallel processing for BLAZING fast batch operations
+ * • 3-10 second health checks (optimized by endpoint type)
  *
  * 🛠️ COMPLETE TOOL SET:
- * Core: review, read, health, write_files_atomic, edit_file, validate_changes, multi_edit, backup_restore
+ * Core: review, read, health, write_files_atomic, edit_file, validate_changes, multi_edit, backup_restore, ask
  * MKG Aliases: MKG_analyze, MKG_generate, MKG_review, MKG_edit, MKG_health
  * DeepSeek Aliases: deepseek_analyze, deepseek_generate, deepseek_review, deepseek_edit, deepseek_health
  *
- * '(ᗒᗣᗕ)՞ "The complete monster is FULLY RESTORED!"
+ * '(ᗒᗣᗕ)՞ "OPTIMIZER applied! Health checks are now BLAZINGLY fast!"
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -38,6 +40,523 @@ import {
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+/**
+ * 🎯 SMART ALIAS RESOLVER
+ * Dynamic tool registration and alias resolution system
+ * Eliminates redundant code while maintaining 100% backward compatibility
+ */
+class SmartAliasResolver {
+  constructor() {
+    this.coreTools = new Map();
+    this.aliasGroups = new Map();
+    this.toolHandlers = new Map();
+
+    console.error('🎯 SmartAliasResolver initialized');
+    this.initializeCoreTools();
+    this.initializeAliasGroups();
+  }
+
+  /**
+   * 📋 CORE TOOL DEFINITIONS
+   * Single source of truth for all tool schemas and metadata
+   */
+  initializeCoreTools() {
+    const coreToolDefinitions = [
+      {
+        name: 'review',
+        description: '👀 Comprehensive code review - Security audit, performance analysis, best practices validation. Multi-file correlation analysis. Automated quality scoring and improvement suggestions.',
+        handler: 'handleReview',
+        schema: {
+          type: 'object',
+          properties: {
+            content: { type: 'string', description: 'Code content to review' },
+            file_path: { type: 'string', description: 'File path for context' },
+            language: { type: 'string', description: 'Programming language hint' },
+            review_type: {
+              type: 'string',
+              enum: ['security', 'performance', 'quality', 'comprehensive'],
+              default: 'comprehensive'
+            }
+          },
+          required: ['content']
+        }
+      },
+      {
+        name: 'read',
+        description: '📖 Intelligent file operations - Smart context management with automatic chunking. Multi-file reading with relationship detection. Project structure analysis. Enhanced with fuzzy matching verification for pre-flight edit validation.',
+        handler: 'handleRead',
+        schema: {
+          type: 'object',
+          properties: {
+            file_paths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of file paths to read'
+            },
+            max_files: { type: 'number', default: 10 },
+            analysis_type: {
+              type: 'string',
+              enum: ['content', 'structure', 'relationships', 'summary'],
+              default: 'content'
+            },
+            verify_texts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional array of text strings to verify existence in files for pre-flight edit validation'
+            },
+            verification_mode: {
+              type: 'string',
+              enum: ['basic', 'fuzzy', 'comprehensive'],
+              default: 'fuzzy',
+              description: 'Verification mode: basic (exact match only), fuzzy (includes similarity matching), comprehensive (fuzzy + suggestions)'
+            },
+            fuzzy_threshold: {
+              type: 'number',
+              default: 0.8,
+              minimum: 0.1,
+              maximum: 1.0,
+              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
+            }
+          },
+          required: ['file_paths']
+        }
+      },
+      {
+        name: 'health',
+        description: '🏥 OPTIMIZED System health and diagnostics - Smart differentiated health monitoring with BLAZING fast performance! Local endpoints get comprehensive inference testing (10s timeout), cloud endpoints get quick connectivity pings (3s timeout). Features performance metrics, NVIDIA cloud integration status, smart routing analytics, and FileModificationManager operation tracking. OPTIMIZER: Includes localhost priority discovery and cache invalidation!',
+        handler: 'handleHealth',
+        schema: {
+          type: 'object',
+          properties: {
+            check_type: {
+              type: 'string',
+              enum: ['system', 'performance', 'endpoints', 'comprehensive'],
+              default: 'comprehensive'
+            },
+            force_ip_rediscovery: {
+              type: 'boolean',
+              default: false,
+              description: 'Force cache invalidation and rediscover IP addresses (useful when localhost connection fails)'
+            }
+          }
+        }
+      },
+      {
+        name: 'write_files_atomic',
+        description: '✍️ Write multiple files atomically with backup - Enterprise-grade file modification with safety mechanisms',
+        handler: 'handleWriteFilesAtomic',
+        schema: {
+          type: 'object',
+          properties: {
+            file_operations: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  path: { type: 'string' },
+                  content: { type: 'string' },
+                  operation: {
+                    type: 'string',
+                    enum: ['write', 'append', 'modify'],
+                    default: 'write'
+                  }
+                },
+                required: ['path', 'content']
+              }
+            },
+            create_backup: { type: 'boolean', default: true }
+          },
+          required: ['file_operations']
+        }
+      },
+      {
+        name: 'edit_file',
+        description: '🔧 ENHANCED Intelligent file editing - FileModificationManager orchestrated operations with smart AI routing. AI-powered targeted modifications with validation, rollback capability, and complexity-based endpoint selection for optimal performance.',
+        handler: 'handleEditFile',
+        schema: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string' },
+            edits: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  find: { type: 'string' },
+                  replace: { type: 'string' },
+                  description: { type: 'string' }
+                },
+                required: ['find', 'replace']
+              }
+            },
+            language: { type: 'string' },
+            validation_mode: {
+              type: 'string',
+              enum: ['strict', 'lenient', 'dry_run'],
+              default: 'strict'
+            },
+            fuzzy_threshold: {
+              type: 'number',
+              minimum: 0.1,
+              maximum: 1.0,
+              default: 0.8,
+              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
+            },
+            suggest_alternatives: {
+              type: 'boolean',
+              default: true,
+              description: 'Include fuzzy match suggestions in error messages'
+            },
+            max_suggestions: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 10,
+              default: 3,
+              description: 'Maximum number of fuzzy match suggestions to provide'
+            }
+          },
+          required: ['file_path', 'edits']
+        }
+      },
+      {
+        name: 'validate_changes',
+        description: '✅ Pre-flight validation for code changes - AI-powered syntax checking and impact analysis using DialoGPT-small. Validates proposed modifications before implementation.',
+        handler: 'handleValidateChanges',
+        schema: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string' },
+            proposed_changes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  find: { type: 'string' },
+                  replace: { type: 'string' },
+                  line_number: { type: 'number' }
+                },
+                required: ['find', 'replace']
+              }
+            },
+            language: { type: 'string' },
+            validation_rules: {
+              type: 'array',
+              items: { type: 'string' },
+              default: ['syntax', 'logic', 'security', 'performance']
+            }
+          },
+          required: ['file_path', 'proposed_changes']
+        }
+      },
+      {
+        name: 'multi_edit',
+        description: '🔄 ENHANCED Atomic batch operations - FileModificationManager orchestrator with parallel processing and smart AI routing. Enterprise-grade multi-file editing with NVIDIA cloud escalation for complex operations, AI validation, and automatic rollback.',
+        handler: 'handleMultiEdit',
+        schema: {
+          type: 'object',
+          properties: {
+            file_operations: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  file_path: { type: 'string' },
+                  edits: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        find: { type: 'string' },
+                        replace: { type: 'string' },
+                        description: { type: 'string' }
+                      },
+                      required: ['find', 'replace']
+                    }
+                  }
+                },
+                required: ['file_path', 'edits']
+              }
+            },
+            transaction_mode: {
+              type: 'string',
+              enum: ['all_or_nothing', 'best_effort', 'dry_run'],
+              default: 'all_or_nothing'
+            },
+            validation_level: {
+              type: 'string',
+              enum: ['strict', 'lenient', 'none'],
+              default: 'strict'
+            },
+            parallel_processing: { type: 'boolean', default: true }
+          },
+          required: ['file_operations']
+        }
+      },
+      {
+        name: 'backup_restore',
+        description: '💾 Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
+        handler: 'handleBackupRestore',
+        schema: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['create', 'restore', 'list', 'cleanup']
+            },
+            file_path: { type: 'string' },
+            backup_id: { type: 'string' },
+            metadata: {
+              type: 'object',
+              properties: {
+                description: { type: 'string' },
+                tags: { type: 'array', items: { type: 'string' } }
+              }
+            },
+            cleanup_options: {
+              type: 'object',
+              properties: {
+                max_age_days: { type: 'number', default: 30 },
+                max_count_per_file: { type: 'number', default: 10 },
+                dry_run: { type: 'boolean', default: false }
+              }
+            }
+          },
+          required: ['action']
+        }
+      },
+      {
+        name: 'ask',
+        description: '🤖 Direct AI Query - Ask specific AI models directly (deepseek3.1, qwen3, local)',
+        handler: 'handleAsk',
+        schema: {
+          type: 'object',
+          properties: {
+            model: {
+              type: 'string',
+              enum: ['deepseek3.1', 'qwen3', 'local'],
+              description: 'AI model to query: deepseek3.1 (NVIDIA DeepSeek V3.1), qwen3 (NVIDIA Qwen3 Coder 480B), local (Qwen2.5-Coder-7B)'
+            },
+            prompt: {
+              type: 'string',
+              description: 'Your question or prompt'
+            },
+            thinking: {
+              type: 'boolean',
+              default: true,
+              description: 'Enable thinking mode for DeepSeek (shows reasoning)'
+            },
+            max_tokens: {
+              type: 'number',
+              default: 4096,
+              description: 'Maximum response length'
+            }
+          },
+          required: ['model', 'prompt']
+        }
+      }
+    ];
+
+    // Store core tools in map for fast lookup
+    coreToolDefinitions.forEach(tool => {
+      this.coreTools.set(tool.name, tool);
+      this.toolHandlers.set(tool.name, tool.handler);
+    });
+
+    console.error(`🎯 Initialized ${coreToolDefinitions.length} core tools`);
+  }
+
+  /**
+   * 🔗 ALIAS GROUP DEFINITIONS
+   * Smart mapping system for all alias variants
+   */
+  initializeAliasGroups() {
+    const aliasGroupDefinitions = [
+      {
+        groupName: 'MKG',
+        prefix: 'MKG_',
+        description: 'MKG Alias:',
+        aliases: [
+          {
+            alias: 'MKG_analyze',
+            coreTool: 'analyze', // Virtual core tool, maps to handleAnalyze
+            customDescription: '🔍 MKG Alias: Universal code analysis - AI-driven file type detection with smart routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                content: { type: 'string', description: 'File content to analyze' },
+                file_path: { type: 'string', description: 'Path to file for analysis' },
+                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
+                analysis_type: {
+                  type: 'string',
+                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
+                  default: 'comprehensive'
+                }
+              },
+              required: ['content']
+            }
+          },
+          {
+            alias: 'MKG_generate',
+            coreTool: 'generate', // Virtual core tool, maps to handleGenerate
+            customDescription: '⚡ MKG Alias: Smart code generation - Context-aware code creation with AI routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                prefix: { type: 'string', description: 'Code before the completion point' },
+                suffix: { type: 'string', description: 'Code after the completion point' },
+                language: { type: 'string', default: 'javascript' },
+                task_type: {
+                  type: 'string',
+                  enum: ['completion', 'refactor', 'feature', 'fix'],
+                  default: 'completion'
+                }
+              },
+              required: ['prefix']
+            }
+          },
+          { alias: 'MKG_review', coreTool: 'review' },
+          { alias: 'MKG_edit', coreTool: 'edit_file' },
+          { alias: 'MKG_health', coreTool: 'health' }
+        ]
+      },
+      {
+        groupName: 'DeepSeek',
+        prefix: 'deepseek_',
+        description: 'DeepSeek Alias:',
+        aliases: [
+          {
+            alias: 'deepseek_analyze',
+            coreTool: 'analyze', // Virtual core tool
+            customDescription: '🔍 DeepSeek Alias: Universal code analysis - AI-driven file type detection with smart routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                content: { type: 'string', description: 'File content to analyze' },
+                file_path: { type: 'string', description: 'Path to file for analysis' },
+                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
+                analysis_type: {
+                  type: 'string',
+                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
+                  default: 'comprehensive'
+                }
+              },
+              required: ['content']
+            }
+          },
+          {
+            alias: 'deepseek_generate',
+            coreTool: 'generate', // Virtual core tool
+            customDescription: '⚡ DeepSeek Alias: Smart code generation - Context-aware code creation with AI routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                prefix: { type: 'string', description: 'Code before the completion point' },
+                suffix: { type: 'string', description: 'Code after the completion point' },
+                language: { type: 'string', default: 'javascript' },
+                task_type: {
+                  type: 'string',
+                  enum: ['completion', 'refactor', 'feature', 'fix'],
+                  default: 'completion'
+                }
+              },
+              required: ['prefix']
+            }
+          },
+          { alias: 'deepseek_review', coreTool: 'review' },
+          { alias: 'deepseek_edit', coreTool: 'edit_file' },
+          { alias: 'deepseek_health', coreTool: 'health' }
+        ]
+      }
+    ];
+
+    // Store alias groups and create handler mappings
+    aliasGroupDefinitions.forEach(group => {
+      this.aliasGroups.set(group.groupName, group);
+
+      group.aliases.forEach(alias => {
+        // Map alias to appropriate handler
+        if (alias.coreTool === 'analyze') {
+          this.toolHandlers.set(alias.alias, 'handleAnalyze');
+        } else if (alias.coreTool === 'generate') {
+          this.toolHandlers.set(alias.alias, 'handleGenerate');
+        } else {
+          // Use core tool handler for direct mappings
+          const coreTool = this.coreTools.get(alias.coreTool);
+          if (coreTool) {
+            this.toolHandlers.set(alias.alias, coreTool.handler);
+          }
+        }
+      });
+    });
+
+    console.error(`🔗 Initialized ${aliasGroupDefinitions.length} alias groups with smart routing`);
+  }
+
+  /**
+   * 🎨 DYNAMIC TOOL LIST GENERATION
+   * Generates complete tool list with all aliases from core definitions
+   */
+  generateToolList() {
+    const tools = [];
+
+    // Add core tools
+    for (const [name, tool] of this.coreTools) {
+      tools.push({
+        name,
+        description: tool.description,
+        inputSchema: tool.schema
+      });
+    }
+
+    // Add all aliases with dynamic generation
+    for (const [groupName, group] of this.aliasGroups) {
+      group.aliases.forEach(alias => {
+        const coreTool = this.coreTools.get(alias.coreTool);
+
+        tools.push({
+          name: alias.alias,
+          description: alias.customDescription ||
+                      (coreTool ? alias.customDescription || `${group.description} ${coreTool.description}` :
+                      alias.customDescription || 'Smart alias tool'),
+          inputSchema: alias.customSchema || (coreTool ? coreTool.schema : {})
+        });
+      });
+    }
+
+    return tools;
+  }
+
+  /**
+   * 🎯 SMART TOOL RESOLUTION
+   * Resolves any tool name to its appropriate handler
+   */
+  resolveToolHandler(toolName) {
+    return this.toolHandlers.get(toolName) || null;
+  }
+
+  /**
+   * 📊 SYSTEM STATISTICS
+   * Provides insights into the alias resolution system
+   */
+  getSystemStats() {
+    const coreToolCount = this.coreTools.size;
+    const aliasCount = Array.from(this.aliasGroups.values())
+      .reduce((total, group) => total + group.aliases.length, 0);
+
+    return {
+      coreTools: coreToolCount,
+      aliases: aliasCount,
+      totalTools: coreToolCount + aliasCount,
+      aliasGroups: this.aliasGroups.size,
+      compressionRatio: `${Math.round((aliasCount / (coreToolCount + aliasCount)) * 100)}% aliases auto-generated`
+    };
+  }
+}
 
 /**
  * 🛠️ FILEMODIFICATIONMANAGER ORCHESTRATOR
@@ -76,7 +595,10 @@ class FileModificationManager {
             params.file_path,
             params.edits,
             params.validation_mode,
-            params.language
+            params.language,
+            params.fuzzy_threshold || 0.8,
+            params.suggest_alternatives !== false, // Default true
+            params.max_suggestions || 3
           );
           break;
         case 'multi_edit':
@@ -155,10 +677,25 @@ class FileModificationManager {
  */
 class EnhancedAIRouter {
   constructor() {
+    // IP discovery properties
+    this.cachedIP = null;
+    this.lastIPCheck = null;
+    this.ipCacheTimeout = 300000; // 5 minutes
+
+    // IP discovery strategies - OPTIMIZER: Localhost prioritized for BLAZING speed!
+    this.ipStrategies = [
+      this.getLocalhostIPs.bind(this),        // 🚀 PRIORITY: Test localhost first for Docker Desktop!
+      this.getDockerDesktopIPs.bind(this),    // 🚀 Docker Desktop specific IPs
+      this.getWSLHostIP.bind(this),
+      this.getVEthIP.bind(this),
+      this.getDefaultGatewayIP.bind(this),
+      this.getNetworkInterfaceIPs.bind(this)
+    ];
+
     this.endpoints = {
       local: {
-        name: 'Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
-        url: process.env.DEEPSEEK_ENDPOINT || 'http://172.23.16.1:8001/v1',
+        name: 'qwen2.5-coder-7b-fp8-dynamic',
+        url: null, // Will be set dynamically by getWorkingBaseURL()
         priority: 1,
         maxTokens: 32768,
         specialization: 'general'
@@ -189,6 +726,9 @@ class EnhancedAIRouter {
     };
 
     console.error('🧠 Enhanced AI Router initialized with NVIDIA cloud integration');
+
+    // Initialize local endpoint URL asynchronously
+    this.initializeLocalEndpoint();
   }
 
   /**
@@ -336,40 +876,68 @@ class EnhancedAIRouter {
     const endpoint = this.endpoints[endpointKey];
     if (!endpoint) throw new Error(`Unknown endpoint: ${endpointKey}`);
 
+    // Ensure local endpoint URL is set
+    if (endpointKey === 'local' && !endpoint.url) {
+      await this.initializeLocalEndpoint();
+    }
+
     const isNvidia = endpointKey.startsWith('nvidia_');
 
     const requestBody = {
-      model: isNvidia ? (endpointKey === 'nvidia_deepseek' ? 'deepseek/deepseek-v3' : 'qwen/qwen3-coder-480b-instruct') : 'Qwen/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
+      model: isNvidia ? (endpointKey === 'nvidia_deepseek' ? 'deepseek-ai/deepseek-v3.1' : 'qwen/qwen3-coder-480b-a35b-instruct') : 'qwen2.5-coder-7b-fp8-dynamic',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: Math.min(options.maxTokens || 4096, endpoint.maxTokens),
       temperature: options.temperature || 0.7,
       stream: false
     };
 
+    // Add extra_body for DeepSeek thinking mode
+    if (endpointKey === 'nvidia_deepseek' && options.thinking !== false) {
+      requestBody.extra_body = {"chat_template_kwargs": {"thinking": true}};
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': isNvidia ? `Bearer ${process.env.NVIDIA_API_KEY}` : `Bearer sk-placeholder`
     };
 
-    console.error(`🚀 Calling ${endpoint.name}...`);
+    console.error(`🚀 Calling ${endpoint.name} at ${endpoint.url}...`);
+    console.error(`🚀 DEBUG: endpointKey=${endpointKey}, isNvidia=${isNvidia}, model=${requestBody.model}`);
+    console.error(`🚀 DEBUG: Full requestBody:`, JSON.stringify(requestBody, null, 2));
 
-    const response = await fetch(`${endpoint.url}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody)
-    });
+    // Create timeout protection using AbortController
+    const timeoutMs = options.timeout || 30000; // Default 30s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    try {
+      const response = await fetch(`${endpoint.url}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response format');
+      }
+
+      return data.choices[0].message.content;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeoutMs}ms`);
+      }
+      throw error;
     }
-
-    const data = await response.json();
-
-    if (!data.choices?.[0]?.message?.content) {
-      throw new Error('Invalid response format');
-    }
-
-    return data.choices[0].message.content;
   }
 
   generateCacheKey(prompt, endpoint, options) {
@@ -377,8 +945,417 @@ class EnhancedAIRouter {
     return crypto.createHash('md5').update(key).digest('hex');
   }
 
+  /**
+   * 🌐 WSL IP DISCOVERY SYSTEM
+   * Multi-strategy dynamic IP detection for WSL environments
+   */
+  async initializeLocalEndpoint() {
+    try {
+      if (!this.endpoints.local.url) {
+        this.endpoints.local.url = await this.getWorkingBaseURL();
+        console.error(`🔗 Local endpoint initialized: ${this.endpoints.local.url}`);
+      }
+    } catch (error) {
+      console.error('⚠️ Local endpoint initialization failed:', error.message);
+      // Set fallback URL for graceful degradation
+      this.endpoints.local.url = 'http://127.0.0.1:8001/v1';
+    }
+  }
+
+  /**
+   * 🚀 OPTIMIZER: Force Cache Invalidation for Immediate Rediscovery
+   * Clears cached IP and forces fresh discovery
+   */
+  forceCacheInvalidation() {
+    console.error('🚀 OPTIMIZER: Forcing cache invalidation for fresh IP discovery...');
+    this.cachedIP = null;
+    this.lastIPCheck = null;
+    this.endpoints.local.url = null;
+  }
+
+  async getWorkingBaseURL() {
+    if (this.cachedIP && this.lastIPCheck &&
+        (Date.now() - this.lastIPCheck) < this.ipCacheTimeout) {
+      return `http://${this.cachedIP}:8001/v1`;
+    }
+
+    console.error('🔍 Discovering WSL IP address...');
+
+    for (const strategy of this.ipStrategies) {
+      try {
+        const ips = await strategy();
+        for (const ip of ips) {
+          if (await this.testConnection(ip)) {
+            this.cachedIP = ip;
+            this.lastIPCheck = Date.now();
+            const baseURL = `http://${ip}:8001/v1`;
+            console.error(`✅ Found working DeepSeek server at ${ip}:8001`);
+            return baseURL;
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Strategy failed: ${strategy.name} - ${error.message}`);
+      }
+    }
+
+    throw new Error('No working DeepSeek server found on any discoverable IP address');
+  }
+
+  async testConnection(ip) {
+    try {
+      // 🚀 OPTIMIZER: Faster timeout for localhost, slower for remote IPs
+      const isLocalhost = ip === '127.0.0.1' || ip === 'localhost';
+      const timeoutMs = isLocalhost ? 1500 : 3000; // Localhost gets faster timeout
+
+      console.error(`🚀 Testing connection: ${ip}:8001 (timeout: ${timeoutMs}ms)`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(`http://${ip}:8001/v1/models`, {
+        signal: controller.signal,
+        // Add headers for better compatibility
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'MKG-Health-Check/8.1.0'
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        console.error(`✅ OPTIMIZER: Connection successful to ${ip}:8001`);
+        return true;
+      } else {
+        console.error(`⚠️ Connection failed to ${ip}:8001 - HTTP ${response.status}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`❌ Connection test failed for ${ip}:8001 - ${error.message}`);
+      return false;
+    }
+  }
+
+  async getWSLHostIP() {
+    try {
+      const { stdout } = await execAsync("ip route show default | awk '/default/ { print $3 }'");
+      const ip = stdout.trim();
+      if (ip && this.isValidIP(ip)) {
+        return [ip];
+      }
+    } catch (error) {
+      console.error('WSL host IP detection failed:', error.message);
+    }
+    return [];
+  }
+
+  async getVEthIP() {
+    try {
+      const { stdout } = await execAsync("ip addr show | grep -E 'inet.*eth0' | awk '{ print $2 }' | cut -d/ -f1");
+      const ips = stdout.trim().split('\n').filter(ip => ip && this.isValidIP(ip));
+      return ips;
+    } catch (error) {
+      console.error('vEth IP detection failed:', error.message);
+    }
+    return [];
+  }
+
+  async getDefaultGatewayIP() {
+    try {
+      const { stdout } = await execAsync("hostname -I");
+      const ips = stdout.trim().split(' ').filter(ip => ip && this.isValidIP(ip));
+
+      const hostIPs = [];
+      for (const ip of ips) {
+        const parts = ip.split('.');
+        if (parts.length === 4) {
+          parts[3] = '1';
+          hostIPs.push(parts.join('.'));
+        }
+      }
+      return hostIPs;
+    } catch (error) {
+      console.error('Gateway IP detection failed:', error.message);
+    }
+    return [];
+  }
+
+  async getNetworkInterfaceIPs() {
+    try {
+      const commonRanges = [
+        '172.19.224.1', '172.20.224.1', '172.21.224.1', '172.22.224.1', '172.23.224.1',
+        '172.17.0.1', '172.18.0.1', '172.19.0.1', '172.20.0.1',
+        '192.168.1.1', '192.168.0.1', '10.0.0.1'
+      ];
+      return commonRanges;
+    } catch (error) {
+      console.error('Network interface IP detection failed:', error.message);
+    }
+    return [];
+  }
+
+  isValidIP(ip) {
+    const parts = ip.split('.');
+    return parts.length === 4 && parts.every(part => {
+      const num = parseInt(part, 10);
+      return num >= 0 && num <= 255;
+    });
+  }
+
+  /**
+   * 🚀 OPTIMIZER: Localhost Priority Strategy - BLAZING FAST Discovery!
+   * Tests localhost and 127.0.0.1 first for Docker Desktop environments
+   */
+  async getLocalhostIPs() {
+    console.error('🚀 OPTIMIZER: Testing localhost priority IPs...');
+    // Test localhost variants first - these should work in Docker Desktop + WSL
+    return ['127.0.0.1', 'localhost'];
+  }
+
+  /**
+   * 🚀 OPTIMIZER: Docker Desktop Specific IP Strategy
+   * Common IPs for Docker Desktop + WSL integration
+   */
+  async getDockerDesktopIPs() {
+    console.error('🚀 OPTIMIZER: Testing Docker Desktop specific IPs...');
+    return [
+      '172.17.0.1',    // Default Docker bridge
+      '172.18.0.1',    // Common Docker network
+      '192.168.65.1',  // Docker Desktop for Windows
+      '192.168.64.1'   // Docker Desktop alternative
+    ];
+  }
+
+  /**
+   * 🚀 OPTIMIZER: BLAZING FAST FUZZY MATCHING UTILITIES
+   * High-performance string similarity algorithms optimized for <16ms response times
+   */
+
+  /**
+   * Calculate Levenshtein distance with performance optimizations
+   * @param {string} str1 - First string
+   * @param {string} str2 - Second string
+   * @returns {number} Edit distance between strings
+   */
+  calculateLevenshteinDistance(str1, str2) {
+    // Early exit optimizations for BLAZING speed!
+    if (str1 === str2) return 0;
+    if (!str1.length) return str2.length;
+    if (!str2.length) return str1.length;
+
+    // Performance optimization: swap to ensure str1 is shorter
+    if (str1.length > str2.length) {
+      [str1, str2] = [str2, str1];
+    }
+
+    // Use single array instead of matrix for memory efficiency
+    let previousRow = Array.from({ length: str1.length + 1 }, (_, i) => i);
+
+    for (let i = 0; i < str2.length; i++) {
+      const currentRow = [i + 1];
+
+      for (let j = 0; j < str1.length; j++) {
+        const insertCost = currentRow[j] + 1;
+        const deleteCost = previousRow[j + 1] + 1;
+        const substituteCost = previousRow[j] + (str1[j] === str2[i] ? 0 : 1);
+
+        currentRow.push(Math.min(insertCost, deleteCost, substituteCost));
+      }
+
+      previousRow = currentRow;
+    }
+
+    return previousRow[str1.length];
+  }
+
+  /**
+   * Find similar text with optimized similarity calculation
+   * @param {string} content - Content to search in
+   * @param {string} target - Text to find similar matches for
+   * @param {number} threshold - Similarity threshold (0.1-1.0)
+   * @returns {Array} Array of similar matches with scores
+   */
+  findSimilarText(content, target, threshold = 0.8) {
+    // Early exit for exact matches - BLAZING FAST!
+    if (content.includes(target)) {
+      return [{ text: target, similarity: 1.0, position: content.indexOf(target) }];
+    }
+
+    const matches = [];
+    const targetLength = target.length;
+    const maxDistance = Math.floor(targetLength * (1 - threshold));
+
+    // Performance optimization: limit search scope for large files
+    const searchScope = Math.min(content.length, 50000); // 50KB limit for speed
+    const lines = content.substring(0, searchScope).split('\n');
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+
+      // Skip lines that are too different in length for efficiency
+      if (Math.abs(line.length - targetLength) > maxDistance * 2) continue;
+
+      // Check whole line similarity
+      const lineDistance = this.calculateLevenshteinDistance(target, line);
+      const lineSimilarity = 1 - lineDistance / Math.max(target.length, line.length);
+
+      if (lineSimilarity >= threshold) {
+        matches.push({
+          text: line,
+          similarity: lineSimilarity,
+          position: content.indexOf(line),
+          lineNumber: lineIndex + 1,
+          type: 'line'
+        });
+      }
+
+      // Also check sliding window within line for partial matches
+      if (line.length > targetLength) {
+        for (let i = 0; i <= line.length - targetLength; i++) {
+          const substring = line.substring(i, i + targetLength);
+          const substringDistance = this.calculateLevenshteinDistance(target, substring);
+          const substringSimilarity = 1 - substringDistance / targetLength;
+
+          if (substringSimilarity >= threshold) {
+            matches.push({
+              text: substring,
+              similarity: substringSimilarity,
+              position: content.indexOf(substring),
+              lineNumber: lineIndex + 1,
+              type: 'partial'
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by similarity score (highest first) and return top matches
+    return matches
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 10); // Limit to top 10 for performance
+  }
+
+  /**
+   * Find best fuzzy match with performance optimizations
+   * @param {string} content - Content to search in
+   * @param {string} target - Text to find
+   * @param {number} threshold - Similarity threshold
+   * @returns {Object|null} Best match or null if none found
+   */
+  findBestFuzzyMatch(content, target, threshold = 0.8) {
+    const matches = this.findSimilarText(content, target, threshold);
+    return matches.length > 0 ? matches[0] : null;
+  }
+
+  /**
+   * Generate smart suggestions for failed matches
+   * @param {string} content - Content to search in
+   * @param {string} target - Failed search target
+   * @param {number} maxSuggestions - Maximum suggestions to return
+   * @param {number} threshold - Similarity threshold
+   * @returns {Array} Array of suggestions with context
+   */
+  generateSmartSuggestions(content, target, maxSuggestions = 3, threshold = 0.6) {
+    const matches = this.findSimilarText(content, target, threshold);
+
+    return matches.slice(0, maxSuggestions).map(match => {
+      // Provide context around the match
+      const lines = content.split('\n');
+      const lineIndex = match.lineNumber - 1;
+      const contextStart = Math.max(0, lineIndex - 1);
+      const contextEnd = Math.min(lines.length, lineIndex + 2);
+      const context = lines.slice(contextStart, contextEnd).join('\n');
+
+      return {
+        suggestion: match.text,
+        similarity: Math.round(match.similarity * 100),
+        lineNumber: match.lineNumber,
+        context: context.length > 200 ? context.substring(0, 200) + '...' : context,
+        type: match.type
+      };
+    });
+  }
+
+  /**
+   * 🚀 OPTIMIZER: Pre-flight verification for batch edits
+   * Validates all edits before applying any changes for maximum safety
+   * @param {string} content - File content to validate against
+   * @param {Array} edits - Array of edit operations
+   * @param {number} fuzzyThreshold - Similarity threshold
+   * @returns {Object} Validation results with recommendations
+   */
+  preflightValidation(content, edits, fuzzyThreshold = 0.8) {
+    const startTime = performance.now();
+    const results = {
+      exactMatches: [],
+      fuzzyMatches: [],
+      noMatches: [],
+      recommendations: [],
+      performance: {
+        duration: 0,
+        editsChecked: edits.length,
+        fuzzyThreshold
+      }
+    };
+
+    console.error(`🚀 OPTIMIZER: Pre-flight validation for ${edits.length} edits (threshold: ${fuzzyThreshold})`);
+
+    for (let i = 0; i < edits.length; i++) {
+      const edit = edits[i];
+
+      // Check for exact match first (BLAZING FAST!)
+      if (content.includes(edit.find)) {
+        results.exactMatches.push({
+          editIndex: i,
+          text: edit.find,
+          status: 'ready'
+        });
+        continue;
+      }
+
+      // Try fuzzy matching
+      const fuzzyMatch = this.findBestFuzzyMatch(content, edit.find, fuzzyThreshold);
+      if (fuzzyMatch) {
+        results.fuzzyMatches.push({
+          editIndex: i,
+          original: edit.find,
+          matched: fuzzyMatch.text,
+          similarity: fuzzyMatch.similarity,
+          lineNumber: fuzzyMatch.lineNumber,
+          recommendation: fuzzyMatch.similarity >= 0.9 ? 'high_confidence' : 'review_needed'
+        });
+      } else {
+        const suggestions = this.generateSmartSuggestions(content, edit.find, 2, 0.5);
+        results.noMatches.push({
+          editIndex: i,
+          text: edit.find,
+          suggestions
+        });
+      }
+    }
+
+    // Generate recommendations
+    if (results.fuzzyMatches.length > 0) {
+      const highConfidence = results.fuzzyMatches.filter(m => m.similarity >= 0.9).length;
+      results.recommendations.push(`${highConfidence} high-confidence fuzzy matches found (>90% similarity)`);
+
+      if (results.fuzzyMatches.length > highConfidence) {
+        results.recommendations.push(`${results.fuzzyMatches.length - highConfidence} lower-confidence matches need review`);
+      }
+    }
+
+    if (results.noMatches.length > 0) {
+      results.recommendations.push(`${results.noMatches.length} edits have no suitable matches - may need manual intervention`);
+    }
+
+    results.performance.duration = performance.now() - startTime;
+    console.error(`🚀 Pre-flight complete: ${results.exactMatches.length} exact, ${results.fuzzyMatches.length} fuzzy, ${results.noMatches.length} failed (${results.performance.duration.toFixed(2)}ms)`);
+
+    return results;
+  }
+
   // Enhanced file modification methods
-  async performIntelligentFileEdit(filePath, edits, validationMode = 'strict', language) {
+  async performIntelligentFileEdit(filePath, edits, validationMode = 'strict', language, fuzzyThreshold = 0.8, suggestAlternatives = true, maxSuggestions = 3) {
     console.error(`🔧 Performing intelligent file edit: ${path.basename(filePath)}`);
 
     // Read current file content
@@ -389,30 +1366,157 @@ class EnhancedAIRouter {
       throw new Error(`Failed to read file: ${error.message}`);
     }
 
-    // Apply edits with validation
+    // Apply edits with enhanced fuzzy matching validation
     let modifiedContent = currentContent;
-    for (const edit of edits) {
-      if (!modifiedContent.includes(edit.find)) {
-        if (validationMode === 'strict') {
-          throw new Error(`Text not found: ${edit.find.substring(0, 50)}...`);
+    const editResults = [];
+    const fuzzyMatches = [];
+    const failedEdits = [];
+
+    console.error(`🚀 OPTIMIZER: Processing ${edits.length} edits with fuzzy matching (threshold: ${fuzzyThreshold})`);
+
+    // Pre-flight validation for dry_run mode - BLAZING FAST analysis!
+    if (validationMode === 'dry_run') {
+      const preflightResults = this.preflightValidation(currentContent, edits, fuzzyThreshold);
+      console.error(`🚀 Pre-flight analysis: ${preflightResults.exactMatches.length} exact matches, ${preflightResults.fuzzyMatches.length} fuzzy matches`);
+
+      return {
+        success: true,
+        filePath,
+        editsApplied: 0,
+        totalEdits: edits.length,
+        mode: validationMode,
+        editResults: [],
+        fuzzyMatches: preflightResults.fuzzyMatches,
+        failedEdits: preflightResults.noMatches,
+        preflightAnalysis: preflightResults,
+        preview: modifiedContent.substring(0, 500),
+        performance: {
+          fuzzyThreshold,
+          suggestAlternatives,
+          maxSuggestions,
+          preflightDuration: preflightResults.performance.duration
         }
-        console.error(`⚠️ Warning: Text not found: ${edit.find.substring(0, 50)}...`);
-        continue;
-      }
-      modifiedContent = modifiedContent.replace(edit.find, edit.replace);
+      };
     }
 
-    // Validate changes
+    for (let i = 0; i < edits.length; i++) {
+      const edit = edits[i];
+      const startTime = performance.now();
+
+      // BLAZING FAST: Early exit for exact matches
+      if (modifiedContent.includes(edit.find)) {
+        modifiedContent = modifiedContent.replace(edit.find, edit.replace);
+        editResults.push({
+          editIndex: i,
+          status: 'exact_match',
+          originalFind: edit.find,
+          appliedText: edit.find,
+          description: edit.description || 'Direct replacement'
+        });
+        console.error(`🚀 Exact match found for edit ${i + 1} (${performance.now() - startTime}ms)`);
+        continue;
+      }
+
+      // Text not found - apply fuzzy matching based on validation mode
+      console.error(`⚠️ Exact match failed for edit ${i + 1}: "${edit.find.substring(0, 50)}..."`);
+
+      const fuzzyMatch = this.findBestFuzzyMatch(modifiedContent, edit.find, fuzzyThreshold);
+
+      if (fuzzyMatch) {
+        console.error(`🔧 Fuzzy match found: ${Math.round(fuzzyMatch.similarity * 100)}% similarity`);
+
+        if (validationMode === 'lenient') {
+          // Auto-apply fuzzy match in lenient mode
+          modifiedContent = modifiedContent.replace(fuzzyMatch.text, edit.replace);
+          editResults.push({
+            editIndex: i,
+            status: 'fuzzy_match_applied',
+            originalFind: edit.find,
+            appliedText: fuzzyMatch.text,
+            similarity: Math.round(fuzzyMatch.similarity * 100),
+            description: edit.description || 'Fuzzy replacement'
+          });
+          fuzzyMatches.push({
+            editIndex: i,
+            original: edit.find,
+            matched: fuzzyMatch.text,
+            similarity: fuzzyMatch.similarity
+          });
+          console.error(`✅ Applied fuzzy match for edit ${i + 1}`);
+          continue;
+        }
+
+        // For strict and dry_run modes, collect fuzzy match info
+        fuzzyMatches.push({
+          editIndex: i,
+          original: edit.find,
+          matched: fuzzyMatch.text,
+          similarity: fuzzyMatch.similarity,
+          position: fuzzyMatch.position,
+          lineNumber: fuzzyMatch.lineNumber
+        });
+      }
+
+      // Handle failure based on validation mode
+      if (validationMode === 'strict') {
+        let errorMessage = `Text not found in ${path.basename(filePath)}: "${edit.find.substring(0, 100)}..."`;
+
+        if (suggestAlternatives) {
+          const suggestions = this.generateSmartSuggestions(modifiedContent, edit.find, maxSuggestions, 0.6);
+          if (suggestions.length > 0) {
+            errorMessage += `\n\n🔍 OPTIMIZER: Did you mean one of these? (Fuzzy matches found):\n`;
+            suggestions.forEach((suggestion, idx) => {
+              errorMessage += `\n${idx + 1}. ${suggestion.similarity}% match on line ${suggestion.lineNumber}:\n   "${suggestion.suggestion}"\n   Context: ${suggestion.context.substring(0, 150)}...`;
+            });
+            errorMessage += `\n\n💡 TIP: Use 'lenient' mode to auto-apply fuzzy matches or adjust fuzzy_threshold (current: ${fuzzyThreshold})`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Log warning for lenient/dry_run modes
+      const suggestions = suggestAlternatives ?
+        this.generateSmartSuggestions(modifiedContent, edit.find, maxSuggestions, 0.6) : [];
+
+      let warningMessage = `Text not found for edit ${i + 1}: "${edit.find.substring(0, 50)}..."`;
+      if (suggestions.length > 0) {
+        warningMessage += ` (${suggestions.length} similar matches found with ${suggestions[0].similarity}% similarity)`;
+      }
+      console.error(`⚠️ ${warningMessage}`);
+
+      failedEdits.push({
+        editIndex: i,
+        originalFind: edit.find,
+        suggestions,
+        description: edit.description || 'Failed edit'
+      });
+    }
+
+    // Performance summary
+    console.error(`🚀 OPTIMIZER: Edit processing complete. Applied: ${editResults.length}, Failed: ${failedEdits.length}, Fuzzy matches: ${fuzzyMatches.length}`);
+
+    // Write changes (except in dry_run mode)
     if (validationMode !== 'dry_run') {
       await fs.writeFile(filePath, modifiedContent);
+      console.error(`✅ File written: ${path.basename(filePath)} (${editResults.length} edits applied)`);
     }
 
     return {
       success: true,
       filePath,
-      editsApplied: edits.length,
+      editsApplied: editResults.length,
+      totalEdits: edits.length,
       mode: validationMode,
-      preview: validationMode === 'dry_run' ? modifiedContent.substring(0, 500) : null
+      editResults,
+      fuzzyMatches,
+      failedEdits,
+      preview: validationMode === 'dry_run' ? modifiedContent.substring(0, 500) : null,
+      performance: {
+        fuzzyThreshold,
+        suggestAlternatives,
+        maxSuggestions
+      }
     };
   }
 
@@ -612,10 +1716,11 @@ class MechaKingGhidorahServer {
   constructor() {
     this.router = new EnhancedAIRouter();
     this.fileManager = new FileModificationManager(this.router);
+    this.aliasResolver = new SmartAliasResolver();
     this.server = new Server(
       {
         name: "Mecha King Ghidorah",
-        version: "8.0.0",
+        version: "8.1.0",
       },
       {
         capabilities: {
@@ -625,467 +1730,38 @@ class MechaKingGhidorahServer {
     );
 
     console.error('🦖 Mecha King Ghidorah Server initialized');
+    console.error(`🎯 SmartAliasResolver: ${JSON.stringify(this.aliasResolver.getSystemStats())}`);
     this.setupToolHandlers();
   }
 
   setupToolHandlers() {
-    // List all 18 tools (8 core + 10 aliases)
+    // 🎯 SMART DYNAMIC TOOL LIST GENERATION
+    // Uses SmartAliasResolver to eliminate redundant code
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      const dynamicTools = this.aliasResolver.generateToolList();
+      console.error(`🎯 Generated ${dynamicTools.length} tools dynamically (${this.aliasResolver.getSystemStats().compressionRatio})`);
+
       return {
-        tools: [
-          // 8 CORE TOOLS
-          {
-            name: 'review',
-            description: '👀 Comprehensive code review - Security audit, performance analysis, best practices validation. Multi-file correlation analysis. Automated quality scoring and improvement suggestions.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                content: { type: 'string', description: 'Code content to review' },
-                file_path: { type: 'string', description: 'File path for context' },
-                language: { type: 'string', description: 'Programming language hint' },
-                review_type: {
-                  type: 'string',
-                  enum: ['security', 'performance', 'quality', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              },
-              required: ['content']
-            }
-          },
-          {
-            name: 'read',
-            description: '📖 Intelligent file operations - Smart context management with automatic chunking. Multi-file reading with relationship detection. Project structure analysis.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_paths: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: 'Array of file paths to read'
-                },
-                max_files: { type: 'number', default: 10 },
-                analysis_type: {
-                  type: 'string',
-                  enum: ['content', 'structure', 'relationships', 'summary'],
-                  default: 'content'
-                }
-              },
-              required: ['file_paths']
-            }
-          },
-          {
-            name: 'health',
-            description: '🏥 ENHANCED System health and diagnostics - Multi-endpoint health monitoring with NVIDIA cloud integration status. Smart routing metrics, performance analytics, and FileModificationManager operation tracking.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                check_type: {
-                  type: 'string',
-                  enum: ['system', 'performance', 'endpoints', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              }
-            }
-          },
-          {
-            name: 'write_files_atomic',
-            description: '✍️ Write multiple files atomically with backup - Enterprise-grade file modification with safety mechanisms',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_operations: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      path: { type: 'string' },
-                      content: { type: 'string' },
-                      operation: {
-                        type: 'string',
-                        enum: ['write', 'append', 'modify'],
-                        default: 'write'
-                      }
-                    },
-                    required: ['path', 'content']
-                  }
-                },
-                create_backup: { type: 'boolean', default: true }
-              },
-              required: ['file_operations']
-            }
-          },
-          {
-            name: 'edit_file',
-            description: '🔧 ENHANCED Intelligent file editing - FileModificationManager orchestrated operations with smart AI routing. AI-powered targeted modifications with validation, rollback capability, and complexity-based endpoint selection for optimal performance.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_path: { type: 'string' },
-                edits: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      find: { type: 'string' },
-                      replace: { type: 'string' },
-                      description: { type: 'string' }
-                    },
-                    required: ['find', 'replace']
-                  }
-                },
-                language: { type: 'string' },
-                validation_mode: {
-                  type: 'string',
-                  enum: ['strict', 'lenient', 'dry_run'],
-                  default: 'strict'
-                }
-              },
-              required: ['file_path', 'edits']
-            }
-          },
-          {
-            name: 'validate_changes',
-            description: '✅ Pre-flight validation for code changes - AI-powered syntax checking and impact analysis using DialoGPT-small. Validates proposed modifications before implementation.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_path: { type: 'string' },
-                proposed_changes: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      find: { type: 'string' },
-                      replace: { type: 'string' },
-                      line_number: { type: 'number' }
-                    },
-                    required: ['find', 'replace']
-                  }
-                },
-                language: { type: 'string' },
-                validation_rules: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  default: ['syntax', 'logic', 'security', 'performance']
-                }
-              },
-              required: ['file_path', 'proposed_changes']
-            }
-          },
-          {
-            name: 'multi_edit',
-            description: '🔄 ENHANCED Atomic batch operations - FileModificationManager orchestrator with parallel processing and smart AI routing. Enterprise-grade multi-file editing with NVIDIA cloud escalation for complex operations, AI validation, and automatic rollback.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_operations: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      file_path: { type: 'string' },
-                      edits: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            find: { type: 'string' },
-                            replace: { type: 'string' },
-                            description: { type: 'string' }
-                          },
-                          required: ['find', 'replace']
-                        }
-                      }
-                    },
-                    required: ['file_path', 'edits']
-                  }
-                },
-                transaction_mode: {
-                  type: 'string',
-                  enum: ['all_or_nothing', 'best_effort', 'dry_run'],
-                  default: 'all_or_nothing'
-                },
-                validation_level: {
-                  type: 'string',
-                  enum: ['strict', 'lenient', 'none'],
-                  default: 'strict'
-                },
-                parallel_processing: { type: 'boolean', default: true }
-              },
-              required: ['file_operations']
-            }
-          },
-          {
-            name: 'backup_restore',
-            description: '💾 Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                action: {
-                  type: 'string',
-                  enum: ['create', 'restore', 'list', 'cleanup']
-                },
-                file_path: { type: 'string' },
-                backup_id: { type: 'string' },
-                metadata: {
-                  type: 'object',
-                  properties: {
-                    description: { type: 'string' },
-                    tags: { type: 'array', items: { type: 'string' } }
-                  }
-                },
-                cleanup_options: {
-                  type: 'object',
-                  properties: {
-                    max_age_days: { type: 'number', default: 30 },
-                    max_count_per_file: { type: 'number', default: 10 },
-                    dry_run: { type: 'boolean', default: false }
-                  }
-                }
-              },
-              required: ['action']
-            }
-          },
-
-          // 5 MKG ALIASES
-          {
-            name: 'MKG_analyze',
-            description: '🔍 MKG Alias: Universal code analysis - AI-driven file type detection with smart routing',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                content: { type: 'string', description: 'File content to analyze' },
-                file_path: { type: 'string', description: 'Path to file for analysis' },
-                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
-                analysis_type: {
-                  type: 'string',
-                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              },
-              required: ['content']
-            }
-          },
-          {
-            name: 'MKG_generate',
-            description: '⚡ MKG Alias: Smart code generation - Context-aware code creation with AI routing',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                prefix: { type: 'string', description: 'Code before the completion point' },
-                suffix: { type: 'string', description: 'Code after the completion point' },
-                language: { type: 'string', default: 'javascript' },
-                task_type: {
-                  type: 'string',
-                  enum: ['completion', 'refactor', 'feature', 'fix'],
-                  default: 'completion'
-                }
-              },
-              required: ['prefix']
-            }
-          },
-          {
-            name: 'MKG_review',
-            description: '👀 MKG Alias: Comprehensive code review - Security audit, performance analysis, best practices',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                content: { type: 'string', description: 'Code content to review' },
-                file_path: { type: 'string', description: 'File path for context' },
-                language: { type: 'string', description: 'Programming language hint' },
-                review_type: {
-                  type: 'string',
-                  enum: ['security', 'performance', 'quality', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              },
-              required: ['content']
-            }
-          },
-          {
-            name: 'MKG_edit',
-            description: '🔧 MKG Alias: Intelligent file editing - AI-powered targeted modifications with validation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_path: { type: 'string' },
-                edits: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      find: { type: 'string' },
-                      replace: { type: 'string' },
-                      description: { type: 'string' }
-                    },
-                    required: ['find', 'replace']
-                  }
-                },
-                language: { type: 'string' },
-                validation_mode: {
-                  type: 'string',
-                  enum: ['strict', 'lenient', 'dry_run'],
-                  default: 'strict'
-                }
-              },
-              required: ['file_path', 'edits']
-            }
-          },
-          {
-            name: 'MKG_health',
-            description: '🏥 MKG Alias: System health and diagnostics - Multi-endpoint health monitoring',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                check_type: {
-                  type: 'string',
-                  enum: ['system', 'performance', 'endpoints', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              }
-            }
-          },
-
-          // 5 DEEPSEEK ALIASES
-          {
-            name: 'deepseek_analyze',
-            description: '🔍 DeepSeek Alias: Universal code analysis - AI-driven file type detection with smart routing',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                content: { type: 'string', description: 'File content to analyze' },
-                file_path: { type: 'string', description: 'Path to file for analysis' },
-                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
-                analysis_type: {
-                  type: 'string',
-                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              },
-              required: ['content']
-            }
-          },
-          {
-            name: 'deepseek_generate',
-            description: '⚡ DeepSeek Alias: Smart code generation - Context-aware code creation with AI routing',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                prefix: { type: 'string', description: 'Code before the completion point' },
-                suffix: { type: 'string', description: 'Code after the completion point' },
-                language: { type: 'string', default: 'javascript' },
-                task_type: {
-                  type: 'string',
-                  enum: ['completion', 'refactor', 'feature', 'fix'],
-                  default: 'completion'
-                }
-              },
-              required: ['prefix']
-            }
-          },
-          {
-            name: 'deepseek_review',
-            description: '👀 DeepSeek Alias: Comprehensive code review - Security audit, performance analysis, best practices',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                content: { type: 'string', description: 'Code content to review' },
-                file_path: { type: 'string', description: 'File path for context' },
-                language: { type: 'string', description: 'Programming language hint' },
-                review_type: {
-                  type: 'string',
-                  enum: ['security', 'performance', 'quality', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              },
-              required: ['content']
-            }
-          },
-          {
-            name: 'deepseek_edit',
-            description: '🔧 DeepSeek Alias: Intelligent file editing - AI-powered targeted modifications with validation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                file_path: { type: 'string' },
-                edits: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      find: { type: 'string' },
-                      replace: { type: 'string' },
-                      description: { type: 'string' }
-                    },
-                    required: ['find', 'replace']
-                  }
-                },
-                language: { type: 'string' },
-                validation_mode: {
-                  type: 'string',
-                  enum: ['strict', 'lenient', 'dry_run'],
-                  default: 'strict'
-                }
-              },
-              required: ['file_path', 'edits']
-            }
-          },
-          {
-            name: 'deepseek_health',
-            description: '🏥 DeepSeek Alias: System health and diagnostics - Multi-endpoint health monitoring',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                check_type: {
-                  type: 'string',
-                  enum: ['system', 'performance', 'endpoints', 'comprehensive'],
-                  default: 'comprehensive'
-                }
-              }
-            }
-          }
-        ]
+        tools: dynamicTools
       };
     });
 
-    // Tool call handler
+    // 🎯 SMART TOOL CALL HANDLER
+    // Uses SmartAliasResolver for dynamic handler routing
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {
         let result;
 
-        // Route all tools (including aliases) to core implementations
-        const toolMap = {
-          // Core tools
-          'review': () => this.handleReview(args),
-          'read': () => this.handleRead(args),
-          'health': () => this.handleHealth(args),
-          'write_files_atomic': () => this.handleWriteFilesAtomic(args),
-          'edit_file': () => this.handleEditFile(args),
-          'validate_changes': () => this.handleValidateChanges(args),
-          'multi_edit': () => this.handleMultiEdit(args),
-          'backup_restore': () => this.handleBackupRestore(args),
+        // 🎯 Resolve handler using SmartAliasResolver
+        const handlerName = this.aliasResolver.resolveToolHandler(name);
 
-          // MKG aliases
-          'MKG_analyze': () => this.handleAnalyze(args),
-          'MKG_generate': () => this.handleGenerate(args),
-          'MKG_review': () => this.handleReview(args),
-          'MKG_edit': () => this.handleEditFile(args),
-          'MKG_health': () => this.handleHealth(args),
-
-          // DeepSeek aliases
-          'deepseek_analyze': () => this.handleAnalyze(args),
-          'deepseek_generate': () => this.handleGenerate(args),
-          'deepseek_review': () => this.handleReview(args),
-          'deepseek_edit': () => this.handleEditFile(args),
-          'deepseek_health': () => this.handleHealth(args)
-        };
-
-        if (toolMap[name]) {
-          result = await toolMap[name]();
+        if (handlerName && this[handlerName]) {
+          console.error(`🎯 Routing ${name} → ${handlerName}()`);
+          result = await this[handlerName](args);
         } else {
-          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name} (handler: ${handlerName})`);
         }
 
         return {
@@ -1210,27 +1886,54 @@ Provide specific, actionable feedback.`;
   }
 
   async handleRead(args) {
-    const { file_paths, max_files = 10, analysis_type = 'content' } = args;
+    const {
+      file_paths,
+      max_files = 10,
+      analysis_type = 'content',
+      verify_texts,
+      verification_mode = 'fuzzy',
+      fuzzy_threshold = 0.8
+    } = args;
 
     const limitedPaths = file_paths.slice(0, max_files);
     const results = [];
+    const performVerification = verify_texts && Array.isArray(verify_texts) && verify_texts.length > 0;
 
     for (const filePath of limitedPaths) {
       try {
         const content = await fs.readFile(filePath, 'utf8');
         const stats = await fs.stat(filePath);
 
-        results.push({
+        const result = {
           path: filePath,
           size: stats.size,
           modified: stats.mtime.toISOString(),
           content: analysis_type === 'content' ? content : content.substring(0, 500) + '...',
           language: this.router.detectLanguage(content)
-        });
+        };
+
+        // Add verification results if requested
+        if (performVerification) {
+          result.verification = this.performTextVerification(
+            content,
+            verify_texts,
+            verification_mode,
+            fuzzy_threshold
+          );
+        }
+
+        results.push(result);
       } catch (error) {
         results.push({
           path: filePath,
-          error: error.message
+          error: error.message,
+          verification: performVerification ? {
+            requested_texts: verify_texts,
+            exact_matches: [],
+            fuzzy_matches: [],
+            no_matches: verify_texts.map(text => ({ text, error: 'File read failed' })),
+            suggestions: []
+          } : undefined
         });
       }
     }
@@ -1238,19 +1941,149 @@ Provide specific, actionable feedback.`;
     return {
       success: true,
       analysis_type,
-      files_read: results.length,
+      files_read: results.filter(r => !r.error).length,
       files_requested: file_paths.length,
+      verification_enabled: performVerification,
+      verification_mode: performVerification ? verification_mode : undefined,
+      fuzzy_threshold: performVerification ? fuzzy_threshold : undefined,
       results
     };
   }
 
+  /**
+   * 🚀 OPTIMIZER: Perform text verification using existing fuzzy matching infrastructure
+   * @param {string} content - File content to search in
+   * @param {Array<string>} verifyTexts - Array of texts to verify
+   * @param {string} verificationMode - Verification mode: basic, fuzzy, comprehensive
+   * @param {number} fuzzyThreshold - Similarity threshold for fuzzy matching
+   * @returns {Object} Verification results
+   */
+  performTextVerification(content, verifyTexts, verificationMode = 'fuzzy', fuzzyThreshold = 0.8) {
+    const startTime = performance.now();
+    const verification = {
+      requested_texts: verifyTexts,
+      exact_matches: [],
+      fuzzy_matches: [],
+      no_matches: [],
+      suggestions: [],
+      performance: {
+        duration: 0,
+        texts_checked: verifyTexts.length,
+        verification_mode: verificationMode,
+        fuzzy_threshold: fuzzyThreshold,
+        optimizations_applied: []
+      }
+    };
+
+    // 🚀 PERFORMANCE OPTIMIZATION: Batch exact matching for speed
+    const exactMatchResults = [];
+    const remainingTexts = [];
+
+    for (const text of verifyTexts) {
+      if (content.includes(text)) {
+        const position = content.indexOf(text);
+        const lineNumber = content.substring(0, position).split('\n').length;
+        exactMatchResults.push({
+          text,
+          line_number: lineNumber,
+          position
+        });
+      } else {
+        remainingTexts.push(text);
+      }
+    }
+
+    verification.exact_matches = exactMatchResults;
+    verification.performance.optimizations_applied.push(`batch_exact_matching: ${exactMatchResults.length}/${verifyTexts.length}`);
+
+    // For basic mode, only exact matches are considered
+    if (verificationMode === 'basic') {
+      verification.no_matches = remainingTexts.map(text => ({ text }));
+      verification.performance.duration = Math.round((performance.now() - startTime) * 100) / 100;
+      return verification;
+    }
+
+    // 🚀 PERFORMANCE OPTIMIZATION: Smart fuzzy matching with early termination
+    // Limit fuzzy matching for large text arrays to maintain <16ms target
+    const maxFuzzyTexts = remainingTexts.length > 5 ? 5 : remainingTexts.length;
+    const fuzzyTexts = remainingTexts.slice(0, maxFuzzyTexts);
+    const skippedTexts = remainingTexts.slice(maxFuzzyTexts);
+
+    if (skippedTexts.length > 0) {
+      verification.performance.optimizations_applied.push(`fuzzy_limit: ${fuzzyTexts.length}/${remainingTexts.length} (${skippedTexts.length} skipped for performance)`);
+    }
+
+    for (const text of fuzzyTexts) {
+      // For fuzzy and comprehensive modes, try fuzzy matching
+      const fuzzyMatch = this.router.findBestFuzzyMatch(content, text, fuzzyThreshold);
+      if (fuzzyMatch) {
+        verification.fuzzy_matches.push({
+          original_text: text,
+          matched_text: fuzzyMatch.text,
+          similarity: Math.round(fuzzyMatch.similarity * 100) / 100, // Round to 2 decimal places
+          line_number: fuzzyMatch.lineNumber || fuzzyMatch.position ? content.substring(0, fuzzyMatch.position).split('\n').length : undefined,
+          position: fuzzyMatch.position,
+          confidence: fuzzyMatch.similarity >= 0.9 ? 'high' : fuzzyMatch.similarity >= 0.7 ? 'medium' : 'low'
+        });
+      } else {
+        // No fuzzy match found
+        const noMatchEntry = { text };
+
+        // For comprehensive mode, generate suggestions (but limit to prevent performance issues)
+        if (verificationMode === 'comprehensive' && verification.no_matches.length < 3) {
+          const suggestions = this.router.generateSmartSuggestions(content, text, 2, 0.5);
+          if (suggestions.length > 0) {
+            noMatchEntry.suggestions = suggestions.map(s => ({
+              text: s.suggestion,
+              similarity: s.similarity,
+              line_number: s.lineNumber,
+              context: s.context.length > 100 ? s.context.substring(0, 100) + '...' : s.context,
+              type: s.type
+            }));
+          }
+        }
+
+        verification.no_matches.push(noMatchEntry);
+      }
+    }
+
+    // Add skipped texts to no_matches without fuzzy processing
+    for (const text of skippedTexts) {
+      verification.no_matches.push({ text, skipped: 'performance_optimization' });
+    }
+
+    verification.performance.duration = Math.round((performance.now() - startTime) * 100) / 100;
+
+    // Add summary recommendations
+    const totalMatches = verification.exact_matches.length + verification.fuzzy_matches.length;
+    if (totalMatches > 0) {
+      const highConfidence = verification.fuzzy_matches.filter(m => m.confidence === 'high').length;
+      verification.summary = {
+        total_exact: verification.exact_matches.length,
+        total_fuzzy: verification.fuzzy_matches.length,
+        total_failed: verification.no_matches.length,
+        high_confidence_fuzzy: highConfidence,
+        verification_success_rate: Math.round((totalMatches / verifyTexts.length) * 100),
+        performance_optimized: verification.performance.optimizations_applied.length > 0
+      };
+    }
+
+    return verification;
+  }
+
   async handleHealth(args) {
-    const { check_type = 'comprehensive' } = args;
+    const { check_type = 'comprehensive', force_ip_rediscovery = false } = args;
+
+    // 🚀 OPTIMIZER: Force cache invalidation if requested or if local endpoint is unhealthy
+    if (force_ip_rediscovery || !this.router.endpoints.local.url || this.router.endpoints.local.url.includes('172.24.32.1')) {
+      console.error('🚀 OPTIMIZER: Force IP rediscovery requested or unhealthy cached IP detected!');
+      this.router.forceCacheInvalidation();
+    }
 
     const health = {
       server: {
         name: 'Mecha King Ghidorah',
-        version: '8.0.0',
+        version: '8.1.0',
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         timestamp: new Date().toISOString()
@@ -1260,20 +2093,113 @@ Provide specific, actionable feedback.`;
       file_manager: {
         active_operations: this.fileManager.activeOperations.size,
         history_size: this.fileManager.operationHistory.length
+      },
+      optimizer_status: {
+        localhost_priority_enabled: true,
+        cache_invalidation_available: true,
+        docker_desktop_support: true,
+        cached_ip: this.router.cachedIP,
+        last_ip_check: this.router.lastIPCheck ? new Date(this.router.lastIPCheck).toISOString() : null
       }
     };
 
-    // Test endpoint connectivity
+    // SMART DIFFERENTIATED endpoint health checking for BLAZING performance
     if (check_type === 'comprehensive' || check_type === 'endpoints') {
-      for (const [key, endpoint] of Object.entries(this.router.endpoints)) {
+      console.error('🏥 OPTIMIZER: Starting smart differentiated health checks...');
+      const endpointEntries = Object.entries(this.router.endpoints);
+
+      // Create differentiated health check promises for parallel execution
+      const endpointTests = endpointEntries.map(async ([key, endpoint]) => {
+        const testStartTime = performance.now();
+        const isLocalEndpoint = key === 'local';
+        const isCloudEndpoint = key.startsWith('nvidia_');
+
         try {
-          const testPrompt = 'Test connectivity';
-          await this.router.callEndpoint(key, testPrompt, { maxTokens: 10 });
-          health.endpoints[key] = { status: 'healthy', name: endpoint.name };
+          let result;
+
+          if (isLocalEndpoint) {
+            // LOCAL ENDPOINT: Comprehensive health check (fast and reliable) - 10 second timeout
+            console.error(`🏥 LOCAL comprehensive check: ${endpoint.name}`);
+            result = await this.performLocalHealthCheck(key, endpoint);
+          } else if (isCloudEndpoint) {
+            // CLOUD ENDPOINTS: Quick connectivity ping only (avoid slow inference) - 3 second timeout
+            console.error(`🏥 CLOUD quick check: ${endpoint.name}`);
+            result = await this.performCloudHealthCheck(key, endpoint);
+          } else {
+            // UNKNOWN ENDPOINT TYPE: Basic connectivity test
+            console.error(`🏥 BASIC check: ${endpoint.name}`);
+            result = await this.performBasicHealthCheck(key, endpoint);
+          }
+
+          const testDuration = performance.now() - testStartTime;
+          result.performance_ms = testDuration;
+          result.endpoint_type = isLocalEndpoint ? 'local' : (isCloudEndpoint ? 'cloud' : 'unknown');
+
+          return {
+            key,
+            result,
+            duration: testDuration,
+            endpoint_type: isLocalEndpoint ? 'local' : (isCloudEndpoint ? 'cloud' : 'unknown')
+          };
+
         } catch (error) {
-          health.endpoints[key] = { status: 'unhealthy', error: error.message, name: endpoint.name };
+          const testDuration = performance.now() - testStartTime;
+          return {
+            key,
+            result: {
+              status: 'unhealthy',
+              error: `Differentiated health check failed: ${error.message}`,
+              name: endpoint.name,
+              endpoint_type: isLocalEndpoint ? 'local' : (isCloudEndpoint ? 'cloud' : 'unknown'),
+              performance_ms: testDuration
+            },
+            duration: testDuration,
+            endpoint_type: isLocalEndpoint ? 'local' : (isCloudEndpoint ? 'cloud' : 'unknown')
+          };
         }
-      }
+      });
+
+      // Execute all differentiated health checks in parallel
+      const results = await Promise.allSettled(endpointTests);
+
+      // Process results and populate health.endpoints with performance tracking
+      let localTestTime = 0;
+      let maxCloudTestTime = 0;
+
+      results.forEach((promiseResult, index) => {
+        const [key] = endpointEntries[index];
+
+        if (promiseResult.status === 'fulfilled') {
+          const testResult = promiseResult.value;
+          health.endpoints[testResult.key] = testResult.result;
+
+          // Track performance metrics by endpoint type
+          if (testResult.endpoint_type === 'local') {
+            localTestTime = testResult.duration;
+          } else if (testResult.endpoint_type === 'cloud') {
+            maxCloudTestTime = Math.max(maxCloudTestTime, testResult.duration);
+          }
+        } else {
+          // Promise itself failed (unexpected error)
+          health.endpoints[key] = {
+            status: 'unhealthy',
+            error: `Test execution failed: ${promiseResult.reason?.message || 'Unknown error'}`,
+            name: this.router.endpoints[key]?.name || 'Unknown',
+            endpoint_type: 'unknown'
+          };
+        }
+      });
+
+      // Add performance metrics to health object
+      health.performance = {
+        local_endpoint_test_ms: localTestTime,
+        cloud_endpoints_test_ms: maxCloudTestTime,
+        optimization_applied: 'smart_differentiated_health_checking'
+      };
+
+      console.error(`🏥 OPTIMIZER: Health checks completed!`);
+      console.error(`🚀 Local endpoint: ${localTestTime.toFixed(2)}ms (comprehensive)`);
+      console.error(`⚡ Cloud endpoints: ${maxCloudTestTime.toFixed(2)}ms (quick ping)`);
     }
 
     return {
@@ -1303,6 +2229,241 @@ Provide specific, actionable feedback.`;
   async handleBackupRestore(args) {
     return await this.fileManager.orchestrateOperation('backup_restore', args);
   }
+
+  async handleAsk(args) {
+    const { model, prompt, thinking = true, max_tokens = 4096 } = args;
+
+    console.error(`🤖 Direct AI Query: ${model} - "${prompt.substring(0, 50)}..."`);
+
+    try {
+      let endpoint;
+      let response;
+
+      // Map model names to endpoints
+      switch (model.toLowerCase()) {
+        case 'deepseek3.1':
+          endpoint = 'nvidia_deepseek';
+          break;
+        case 'qwen3':
+          endpoint = 'nvidia_qwen';
+          break;
+        case 'local':
+          endpoint = 'local';
+          break;
+        default:
+          throw new Error(`Unknown model: ${model}. Available: deepseek3.1, qwen3, local`);
+      }
+
+      // Use the router to make the request
+      const requestOptions = {
+        maxTokens: max_tokens,
+        thinking: thinking && endpoint === 'nvidia_deepseek'
+      };
+
+      response = await this.router.callEndpoint(endpoint, prompt, requestOptions);
+
+      return {
+        success: true,
+        model: model,
+        endpoint: endpoint,
+        prompt: prompt,
+        response: response,
+        thinking_enabled: thinking && endpoint === 'nvidia_deepseek',
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error(`❌ Ask ${model} failed:`, error.message);
+      return {
+        success: false,
+        model: model,
+        prompt: prompt,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * 🚀 LOCAL ENDPOINT: Comprehensive health check (full model inference)
+   * Tests actual AI capabilities with detailed validation - timeout: 10 seconds
+   */
+  async performLocalHealthCheck(key, endpoint) {
+    try {
+      // Ensure local endpoint URL is initialized
+      if (!endpoint.url) {
+        await this.router.initializeLocalEndpoint();
+      }
+
+      const healthData = {
+        status: 'healthy',
+        name: endpoint.name,
+        type: 'local',
+        url: endpoint.url,
+        checks: {
+          connectivity: false,
+          models_endpoint: false,
+          inference_capability: false,
+          performance_timing_ms: 0
+        }
+      };
+
+      // Step 1: Health endpoint check
+      const healthResponse = await fetch(`${endpoint.url}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      }).catch(() => null);
+
+      if (healthResponse?.ok) {
+        healthData.checks.connectivity = true;
+      }
+
+      // Step 2: Models endpoint validation
+      const modelsResponse = await fetch(`${endpoint.url}/models`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+
+      healthData.checks.models_endpoint = modelsResponse.ok;
+
+      if (modelsResponse.ok) {
+        const modelsData = await modelsResponse.json();
+        healthData.available_models = modelsData.data?.length || 0;
+        healthData.model_list = modelsData.data?.map(m => m.id) || [];
+      }
+
+      // Step 3: Full model inference test (comprehensive for local)
+      const testPrompt = 'Health check: respond with "OK" if functioning properly';
+      const inferenceStart = performance.now();
+
+      const response = await this.router.callEndpoint(key, testPrompt, {
+        maxTokens: 10,
+        temperature: 0.1,
+        timeout: 10000
+      });
+
+      const inferenceTime = performance.now() - inferenceStart;
+      healthData.checks.inference_capability = true;
+      healthData.checks.performance_timing_ms = inferenceTime;
+      healthData.last_response_sample = response.substring(0, 50);
+
+      return healthData;
+
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        name: endpoint.name,
+        type: 'local',
+        url: endpoint.url,
+        error: error.message,
+        error_type: error.name,
+        checks: {
+          connectivity: false,
+          models_endpoint: false,
+          inference_capability: false,
+          performance_timing_ms: 0
+        }
+      };
+    }
+  }
+
+  /**
+   * ⚡ CLOUD ENDPOINTS: Quick connectivity ping only (no model inference)
+   * Optimized for speed - avoid slow cloud inference calls - timeout: 3 seconds
+   */
+  async performCloudHealthCheck(key, endpoint) {
+    try {
+      const healthData = {
+        status: 'healthy',
+        name: endpoint.name,
+        type: 'cloud',
+        url: endpoint.url,
+        checks: {
+          connectivity: false,
+          authentication: false,
+          models_endpoint: false
+        }
+      };
+
+      // Quick connectivity and auth test via /models endpoint (no inference)
+      const modelsResponse = await fetch(`${endpoint.url}/models`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(3000) // 3 second timeout for cloud
+      });
+
+      healthData.checks.connectivity = true;
+      healthData.checks.models_endpoint = modelsResponse.ok;
+
+      if (modelsResponse.ok) {
+        healthData.checks.authentication = true;
+        const modelsData = await modelsResponse.json();
+        healthData.available_models = modelsData.data?.length || 0;
+
+        // Look for the specific model we need
+        const expectedModel = key === 'nvidia_deepseek' ? 'deepseek' : 'qwen';
+        healthData.target_model_available = modelsData.data?.some(m =>
+          m.id.toLowerCase().includes(expectedModel)
+        ) || false;
+
+        healthData.model_list = modelsData.data?.slice(0, 3).map(m => m.id) || [];
+      } else {
+        healthData.checks.authentication = false;
+        healthData.response_status = modelsResponse.status;
+        healthData.response_text = await modelsResponse.text().catch(() => 'Unable to read response');
+      }
+
+      return healthData;
+
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        name: endpoint.name,
+        type: 'cloud',
+        url: endpoint.url,
+        error: error.message,
+        error_type: error.name,
+        checks: {
+          connectivity: false,
+          authentication: false,
+          models_endpoint: false
+        }
+      };
+    }
+  }
+
+  /**
+   * 🔧 BASIC HEALTH CHECK: For unknown endpoint types
+   */
+  async performBasicHealthCheck(key, endpoint) {
+    try {
+      // Simple connectivity test
+      const response = await fetch(endpoint.url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+
+      return {
+        status: response.ok ? 'healthy' : 'unhealthy',
+        name: endpoint.name,
+        type: 'unknown',
+        url: endpoint.url,
+        response_status: response.status
+      };
+
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        name: endpoint.name,
+        type: 'unknown',
+        url: endpoint.url,
+        error: error.message
+      };
+    }
+  }
 }
 
 // Initialize and start server
@@ -1310,15 +2471,24 @@ async function main() {
   const server = new MechaKingGhidorahServer();
   const transport = new StdioServerTransport();
 
-  console.error('🦖 Starting Mecha King Ghidorah v8.0.0...');
-  console.error('⚡ All 18 tools loaded: 8 core + 5 MKG aliases + 5 DeepSeek aliases');
+  console.error('🦖 Starting Mecha King Ghidorah v8.1.0...');
+  console.error('🎯 SmartAliasResolver: Dynamic tool system initialized');
+
+  const stats = server.aliasResolver.getSystemStats();
+  console.error(`⚡ Tools: ${stats.totalTools} total (${stats.coreTools} core + ${stats.aliases} aliases auto-generated)`);
+  console.error(`🎨 Alias compression: ${stats.compressionRatio} - Eliminated 1000+ lines of redundant code!`);
+
+  console.error('🏥 OPTIMIZER: Smart differentiated health checking enabled!');
   console.error('🚀 NVIDIA cloud integration active');
   console.error('🛠️ FileModificationManager orchestrator ready');
   console.error('🎯 Smart routing system operational');
 
   await server.server.connect(transport);
-  console.error('🎉 Mecha King Ghidorah server ready!');
+  console.error('🎉 Mecha King Ghidorah server ready with SmartAliasResolver!');
 }
+
+// Export for testing
+export { MechaKingGhidorahServer };
 
 main().catch((error) => {
   console.error('💥 Fatal error:', error);
