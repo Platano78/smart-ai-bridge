@@ -98,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **100% API Compatibility**: All existing tool calls work unchanged
 - **Configuration Compatibility**: No changes required to existing Claude Desktop configurations
-- **Tool Aliases**: All MKG and DeepSeek aliases maintained and enhanced
+- **Tool Aliases**: All Smart AI Bridge and DeepSeek aliases maintained and enhanced
 - **Graceful Degradation**: Enhanced features degrade gracefully on older configurations
 
 ### Breaking Changes

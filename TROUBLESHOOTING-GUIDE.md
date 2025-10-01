@@ -388,7 +388,7 @@ replace: "function calculate"
 
 **Symptoms:**
 ```
-Error: Tool not found: MKG_analyze
+Error: Tool not found: Smart AI Bridge_analyze
 Available tools: review, read, health, write_files_atomic, edit_file, ...
 ```
 
@@ -403,7 +403,7 @@ Available tools: review, read, health, write_files_atomic, edit_file, ...
 **B. Use Core Tool Names**
 ```javascript
 // Instead of alias:
-@MKG_analyze(...)
+@Smart AI Bridge_analyze(...)
 
 // Use core tool:
 @review(...)

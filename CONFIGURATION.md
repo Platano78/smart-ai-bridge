@@ -11,7 +11,7 @@
 # Server Mode
 NODE_ENV=production
 MCP_SERVER_MODE=true
-MCP_SERVER_NAME=mkg-server
+MCP_SERVER_NAME=smart-ai-bridge
 
 # Local Model Configuration
 MKG_SERVER_PORT=8001
@@ -302,10 +302,10 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
 ```json
 {
   "mcpServers": {
-    "mkg-server": {
+    "smart-ai-bridge": {
       "command": "node",
       "args": ["smart-ai-bridge.js"],
-      "cwd": "/path/to/mkg-server",
+      "cwd": "/path/to/smart-ai-bridge",
       "env": {
         "MCP_SERVER_MODE": "true",
         "NODE_ENV": "production"
@@ -324,7 +324,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
       "args": [
         "/path/to/smart-ai-bridge.js"
       ],
-      "cwd": "/path/to/mkg-server",
+      "cwd": "/path/to/smart-ai-bridge",
       "env": {
         "MCP_SERVER_NAME": "mecha-king-ghidorah-global",
         "NODE_ENV": "production",
@@ -351,7 +351,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
     "mkg-dev": {
       "command": "node",
       "args": ["smart-ai-bridge.js"],
-      "cwd": "/path/to/mkg-server",
+      "cwd": "/path/to/smart-ai-bridge",
       "env": {
         "NODE_ENV": "development",
         "DEBUG": "true",
@@ -398,7 +398,7 @@ chmod 600 .env
 ```yaml
 # In docker-compose.yml
 services:
-  mkg-server:
+  smart-ai-bridge:
     build: .
     environment:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
@@ -496,7 +496,7 @@ FILE_WRITE_PERMISSIONS=0644
 DIRECTORY_PERMISSIONS=0755
 
 # Process security
-RUN_AS_USER=mkg-server
+RUN_AS_USER=smart-ai-bridge
 CHROOT_ENABLED=false
 ```
 
@@ -535,7 +535,7 @@ LOG_LEVEL=info
 # Log destinations
 LOG_TO_FILE=true
 LOG_TO_CONSOLE=true
-LOG_FILE=./logs/mkg-server.log
+LOG_FILE=./logs/smart-ai-bridge.log
 
 # Log rotation
 LOG_MAX_SIZE=100MB
@@ -566,8 +566,8 @@ DEEPSEEK_ENDPOINT=http://localhost:8001/v1
 
 # System service configuration
 SYSTEMD_SERVICE=true
-SERVICE_USER=mkg-server
-SERVICE_GROUP=mkg-server
+SERVICE_USER=smart-ai-bridge
+SERVICE_GROUP=smart-ai-bridge
 
 # File permissions
 umask 022
@@ -629,7 +629,7 @@ BACKUP_ENABLED=true
 import fs from 'fs';
 
 const validateConfig = () => {
-  console.log('🔍 Validating MKG Server Configuration...\n');
+  console.log('🔍 Validating Smart AI Bridge Configuration...\n');
 
   // Check required environment variables
   const required = [
@@ -683,7 +683,7 @@ npm run test:mcp
 
 ### Overview
 
-Production deployments of MKG Server **MUST** enable authentication to protect sensitive operations and prevent unauthorized access. The server includes comprehensive security features including authentication, rate limiting, input validation, and error sanitization.
+Production deployments of Smart AI Bridge **MUST** enable authentication to protect sensitive operations and prevent unauthorized access. The server includes comprehensive security features including authentication, rate limiting, input validation, and error sanitization.
 
 ### Enabling Authentication (Production Requirement)
 
@@ -717,14 +717,14 @@ export MKG_AUTH_TOKEN="5f8d3c2a1b9e7f6d4c3a2b1e9f8d7c6b5a4e3f2d1c0b9a8f7e6d5c4b3
 ```json
 {
   "mcpServers": {
-    "mkg-server-secure": {
+    "smart-ai-bridge-secure": {
       "command": "node",
       "args": [
         "/path/to/smart-ai-bridge.js"
       ],
-      "cwd": "/path/to/mkg-server",
+      "cwd": "/path/to/smart-ai-bridge",
       "env": {
-        "MCP_SERVER_NAME": "mkg-server-secure",
+        "MCP_SERVER_NAME": "smart-ai-bridge-secure",
         "NODE_ENV": "production",
         "MKG_AUTH_TOKEN": "5f8d3c2a1b9e7f6d4c3a2b1e9f8d7c6b5a4e3f2d1c0b9a8f7e6d5c4b3a2f1e0",
         "AUTH_ENABLED": "true",
@@ -798,7 +798,7 @@ LOG_LEVEL=debug
     "mkg-dev": {
       "command": "node",
       "args": ["smart-ai-bridge.js"],
-      "cwd": "/path/to/mkg-server",
+      "cwd": "/path/to/smart-ai-bridge",
       "env": {
         "NODE_ENV": "development",
         "AUTH_ENABLED": "false",
@@ -1186,7 +1186,7 @@ NEW_TOKEN=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex
 sed -i "s/MKG_AUTH_TOKEN=.*/MKG_AUTH_TOKEN=$NEW_TOKEN/" .env
 
 # Restart server
-systemctl restart mkg-server
+systemctl restart smart-ai-bridge
 
 # Log rotation
 echo "$(date): Token rotated - New token: ${NEW_TOKEN:0:8}..." >> /var/log/mkg-token-rotation.log
@@ -1194,13 +1194,13 @@ echo "$(date): Token rotated - New token: ${NEW_TOKEN:0:8}..." >> /var/log/mkg-t
 # Notify monitoring system
 curl -X POST https://monitoring.example.com/events \
   -H "Content-Type: application/json" \
-  -d "{\"event\": \"token_rotated\", \"service\": \"mkg-server\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+  -d "{\"event\": \"token_rotated\", \"service\": \"smart-ai-bridge\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
 ```
 
 Schedule regular rotation:
 ```bash
 # Add to crontab - rotate every 30 days
-0 2 1 * * /opt/mkg-server/rotate-token.sh
+0 2 1 * * /opt/smart-ai-bridge/rotate-token.sh
 ```
 
 #### 4. Monitoring with system_metrics Tool
@@ -1268,7 +1268,7 @@ Regular security audit checklist:
 # Security audit script
 #!/bin/bash
 
-echo "🔐 MKG Server Security Audit"
+echo "🔐 Smart AI Bridge Security Audit"
 echo "================================"
 
 # Check authentication
@@ -1331,7 +1331,7 @@ SSL_CERT_PATH=/path/to/cert.pem
 SSL_KEY_PATH=/path/to/key.pem
 
 # Process security
-RUN_AS_USER=mkg-server           # Run as non-root user
+RUN_AS_USER=smart-ai-bridge           # Run as non-root user
 DROP_PRIVILEGES=true             # Drop elevated privileges
 UMASK=077                        # Restrictive file creation mask
 
@@ -1356,7 +1356,7 @@ If you suspect a security breach:
    ./rotate-token.sh
 
    # Review recent logs
-   grep -i "auth.*fail\|error\|unauthorized" /var/log/mkg-server.log | tail -100
+   grep -i "auth.*fail\|error\|unauthorized" /var/log/smart-ai-bridge.log | tail -100
 
    # Check system metrics for anomalies
    node -e "require('./smart-ai-bridge.js').getSystemMetrics()"
@@ -1365,13 +1365,13 @@ If you suspect a security breach:
 2. **Investigation**:
    ```bash
    # Review authentication failures
-   grep "Authentication failed" /var/log/mkg-server.log
+   grep "Authentication failed" /var/log/smart-ai-bridge.log
 
    # Check rate limit violations
-   grep "Rate limit exceeded" /var/log/mkg-server.log
+   grep "Rate limit exceeded" /var/log/smart-ai-bridge.log
 
    # Review file access attempts
-   grep "file_path" /var/log/mkg-server.log | grep -i "denied\|blocked"
+   grep "file_path" /var/log/smart-ai-bridge.log | grep -i "denied\|blocked"
    ```
 
 3. **Recovery**:

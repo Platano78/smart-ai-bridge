@@ -6,13 +6,13 @@
 
 ### Provider Architecture Overview
 
-The MKG Server uses a modular architecture that makes adding new AI providers straightforward. Each provider is defined in the `endpoints` configuration with specific capabilities and routing logic.
+The Smart AI Bridge uses a modular architecture that makes adding new AI providers straightforward. Each provider is defined in the `endpoints` configuration with specific capabilities and routing logic.
 
 ### Step 1: Define Provider Configuration
 
 ```javascript
 // In smart-ai-bridge.js
-// Add to the endpoints object in MechaKingGhidorahRouter constructor
+// Add to the endpoints object in SmartAIBridgeRouter constructor
 
 this.endpoints = {
   // Existing endpoints...
@@ -39,7 +39,7 @@ this.endpoints = {
 ### Step 2: Implement Provider-Specific Logic
 
 ```javascript
-// Add provider-specific methods to MechaKingGhidorahRouter class
+// Add provider-specific methods to SmartAIBridgeRouter class
 
 /**
  * Your Provider specific request formatting
@@ -204,7 +204,7 @@ describe('Your Provider Integration', () => {
   let router;
 
   beforeEach(() => {
-    router = new MechaKingGhidorahRouter();
+    router = new SmartAIBridgeRouter();
   });
 
   it('should configure your provider endpoint correctly', () => {
@@ -251,7 +251,7 @@ describe('Your Provider Integration', () => {
 
 ### Tool Structure
 
-MKG Server tools follow a consistent structure with schema definition and implementation:
+Smart AI Bridge tools follow a consistent structure with schema definition and implementation:
 
 ```javascript
 // Tool definition in the tools array
@@ -352,7 +352,7 @@ case 'advanced_code_optimizer':
 ### Step 3: Implement Tool Method
 
 ```javascript
-// Add the implementation method to MechaKingGhidorahRouter class
+// Add the implementation method to SmartAIBridgeRouter class
 async performAdvancedOptimization(codeContent, language, optimizationFocus, targetMetrics, includeBenchmarks) {
   try {
     // 1. Detect language if not provided
@@ -457,7 +457,7 @@ describe('Advanced Code Optimizer Tool', () => {
   let router;
 
   beforeEach(() => {
-    router = new MechaKingGhidorahRouter();
+    router = new SmartAIBridgeRouter();
   });
 
   it('should optimize JavaScript code', async () => {
@@ -516,7 +516,7 @@ function inefficientSort(arr) {
 ### Custom Routing Strategies
 
 ```javascript
-// Add custom routing strategy to MechaKingGhidorahRouter
+// Add custom routing strategy to SmartAIBridgeRouter
 
 /**
  * Custom routing strategy based on file type and content
@@ -596,7 +596,7 @@ async loadBalancedRouting(content, options = {}) {
 ### Custom Metrics Collection
 
 ```javascript
-// Add to MechaKingGhidorahRouter constructor
+// Add to SmartAIBridgeRouter constructor
 this.customMetrics = {
   toolUsage: {},
   providerPerformance: {},
@@ -648,7 +648,7 @@ getCustomMetrics() {
 
 ```javascript
 // Plugin interface
-class MKGPlugin {
+class SmartAIBridgePlugin {
   constructor(config = {}) {
     this.config = config;
     this.name = 'base-plugin';
@@ -674,7 +674,7 @@ class MKGPlugin {
 }
 
 // Example plugin: Response Caching
-class ResponseCachingPlugin extends MKGPlugin {
+class ResponseCachingPlugin extends SmartAIBridgePlugin {
   constructor(config = {}) {
     super(config);
     this.name = 'response-caching';
@@ -744,4 +744,4 @@ class PluginManager {
 }
 ```
 
-This extension guide provides a comprehensive framework for extending the MKG Server with new providers, tools, routing strategies, and plugins. Each section includes practical examples and test cases to ensure reliable implementation.
+This extension guide provides a comprehensive framework for extending the Smart AI Bridge with new providers, tools, routing strategies, and plugins. Each section includes practical examples and test cases to ensure reliable implementation.

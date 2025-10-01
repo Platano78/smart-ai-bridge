@@ -789,4 +789,4 @@ const teamReview = await callTool('review', {
 });
 ```
 
-These examples demonstrate the full range of MKG Server capabilities, from simple code analysis to complex multi-file operations and team workflows.
+These examples demonstrate the full range of Smart AI Bridge capabilities, from simple code analysis to complex multi-file operations and team workflows.
