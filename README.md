@@ -9,11 +9,13 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 ### Key Features
 
 ### 🤖 Multi-AI Backend Orchestration
-- **Pre-configured 4-Backend System**: Local DeepSeek + 3 cloud backends (NVIDIA Qwen, NVIDIA DeepSeek, Google Gemini)
+- **Pre-configured 4-Backend System**: 1 local model + 3 cloud AI backends (fully customizable - bring your own providers)
 - **Fully Expandable**: Add unlimited backends via [EXTENDING.md](EXTENDING.md) guide
 - **Intelligent Routing**: Automatic backend selection based on task complexity and content analysis
 - **Health-Aware Failover**: Circuit breakers with automatic fallback chains
 - **Bring Your Own Models**: Configure any AI provider (local models, cloud APIs, custom endpoints)
+
+**🎨 Bring Your Own Backends**: The system ships with example configuration using local LM Studio and NVIDIA cloud APIs, but supports ANY AI providers - OpenAI, Anthropic, Azure OpenAI, AWS Bedrock, custom APIs, or local models via Ollama/vLLM/etc. See [EXTENDING.md](EXTENDING.md) for integration guide.
 
 ### 🎯 Advanced Fuzzy Matching
 - **Three-Phase Matching**: Exact (<5ms) → Fuzzy (<50ms) → Suggestions (<100ms)
@@ -46,32 +48,32 @@ Flexible 4-backend system pre-configured with 1 local + 3 cloud backends for max
 
 The system comes with 4 specialized backends (fully expandable via [EXTENDING.md](EXTENDING.md)):
 
-#### **NVIDIA Qwen 3 Coder 480B** (Priority 1 - Coding Expert)
+#### **Cloud Backend 1 - Coding Specialist** (Priority 1)
 - **Specialization**: Advanced coding, debugging, implementation
-- **Model**: `qwen/qwen3-coder-480b-a35b-instruct` 
 - **Optimal For**: JavaScript, Python, API development, refactoring, game development
 - **Routing**: Automatic for coding patterns and `task_type: 'coding'`
+- **Example Providers**: OpenAI GPT-4, Anthropic Claude, Qwen via NVIDIA API, Codestral, etc.
 
-#### **NVIDIA DeepSeek V3** (Priority 2 - Analysis Expert)  
+#### **Cloud Backend 2 - Analysis Specialist** (Priority 2)
 - **Specialization**: Mathematical analysis, research, strategy
-- **Model**: `deepseek-ai/deepseek-v3.1`
 - **Features**: Advanced reasoning capabilities with thinking process
 - **Optimal For**: Game balance, statistical analysis, strategic planning
 - **Routing**: Automatic for analysis patterns and math/research tasks
+- **Example Providers**: DeepSeek via NVIDIA/custom API, Claude Opus, GPT-4 Advanced, etc.
 
-#### **Local DeepSeek** (Priority 3 - Unlimited Tokens)
+#### **Local Backend - Unlimited Tokens** (Priority 3)
 - **Specialization**: Large context processing, unlimited capacity
-- **Model**: `deepseek-coder-v2-lite-instruct`
 - **Optimal For**: Processing large files (>50KB), extensive documentation, massive codebases
 - **Routing**: Automatic for large prompts and unlimited token requirements
+- **Example Providers**: Any local model via LM Studio, Ollama, vLLM - DeepSeek, Llama, Mistral, Qwen, etc.
 
-#### **Google Gemini** (Priority 4 - General Purpose)
+#### **Cloud Backend 3 - General Purpose** (Priority 4)
 - **Specialization**: General-purpose tasks, additional fallback capacity
-- **Model**: Configurable (gemini-pro, gemini-flash, etc.)
 - **Optimal For**: Diverse tasks, backup routing, multi-modal capabilities
 - **Routing**: Fallback and general-purpose queries
+- **Example Providers**: Google Gemini, Azure OpenAI, AWS Bedrock, Anthropic Claude, etc.
 
-**Want to add more backends?** See [EXTENDING.md](EXTENDING.md) for step-by-step instructions on integrating additional AI providers (OpenAI, Anthropic, custom APIs, etc.).
+**🎨 Example Configuration**: The default setup uses LM Studio (local) + NVIDIA API (cloud), but you can configure ANY providers. See [EXTENDING.md](EXTENDING.md) for step-by-step instructions on integrating OpenAI, Anthropic, Azure, AWS, or custom APIs.
 
 ### 🧠 Smart Routing Intelligence
 
@@ -79,10 +81,10 @@ Advanced content analysis with empirical learning:
 
 ```javascript
 // Smart Routing Decision Tree
-if (prompt.length > 50,000) → Local DeepSeek (unlimited capacity)
-else if (math/analysis patterns detected) → NVIDIA DeepSeek V3 (reasoning)
-else if (coding patterns detected) → NVIDIA Qwen 3 Coder (expert)
-else → Default to Qwen 3 Coder (highest priority)
+if (prompt.length > 50,000) → Local Backend (unlimited capacity)
+else if (math/analysis patterns detected) → Cloud Backend 2 (analysis specialist)
+else if (coding patterns detected) → Cloud Backend 1 (coding specialist)
+else → Default to Cloud Backend 1 (highest priority)
 ```
 
 **Pattern Recognition**:
@@ -115,15 +117,17 @@ npm test
       "args": ["smart-ai-bridge.js"],
       "cwd": ".",
       "env": {
-        "DEEPSEEK_ENDPOINT": "http://localhost:1234/v1",
-        "NVIDIA_API_KEY": "your-nvidia-api-key"
+        "LOCAL_MODEL_ENDPOINT": "http://localhost:1234/v1",
+        "CLOUD_API_KEY_1": "your-cloud-api-key-1",
+        "CLOUD_API_KEY_2": "your-cloud-api-key-2",
+        "CLOUD_API_KEY_3": "your-cloud-api-key-3"
       }
     }
   }
 }
 ```
 
-**Note**: The `DEEPSEEK_ENDPOINT` should be configured for your local model server. Use `localhost` or `127.0.0.1` for standard setups, or your specific IP address if running on WSL2 or remote server.
+**Note**: Example configuration uses LM Studio for local endpoint and NVIDIA API for cloud backends, but you can configure ANY providers (OpenAI, Anthropic, Azure, AWS Bedrock, etc.). The `LOCAL_MODEL_ENDPOINT` should point to your local model server (localhost, 127.0.0.1, or WSL2/remote IP).
 
 ### 4. Restart Claude Code
 
@@ -206,7 +210,7 @@ Force queries to specific AI endpoints for comparison or specialized tasks.
 **Example:**
 ```javascript
 @route_to_endpoint(
-  endpoint="nvidia_qwen",  // or "nvidia_deepseek", "local"
+  endpoint="cloud_backend_1",  // or "cloud_backend_2", "local_backend"
   prompt="Optimize this React component for performance"
 )
 ```
@@ -218,7 +222,7 @@ Run the same query across multiple endpoints to compare responses and capabiliti
 ```javascript
 @compare_endpoints(
   prompt="Design a player progression system for an RPG",
-  endpoints=["nvidia_qwen", "nvidia_deepseek", "local"]
+  endpoints=["cloud_backend_1", "cloud_backend_2", "local_backend"]
 )
 ```
 
@@ -240,7 +244,7 @@ Enterprise-grade file analysis with concurrent processing, security validation, 
 
 **Features:**
 - **Concurrent Processing**: 300% faster multi-file analysis
-- **Smart Routing**: >100KB files automatically route to Local DeepSeek
+- **Smart Routing**: >100KB files automatically route to Local Backend (unlimited tokens)
 - **Security Validation**: Built-in malicious content detection
 - **Cross-Platform**: Windows/WSL/Linux path normalization
 - **Pattern Filtering**: Intelligent file selection with glob patterns
@@ -276,37 +280,37 @@ Advanced chunking system for processing files >32KB with semantic boundary prese
 
 ### Automatic Endpoint Selection by Task Type
 
-#### **Coding Tasks** → Qwen 3 Coder 480B
+#### **Coding Tasks** → Cloud Backend 1 (Coding Specialist)
 - `coding`: General programming, implementation, development
 - `debugging`: Bug fixes, error resolution, troubleshooting
 - `refactoring`: Code optimization, restructuring, cleanup
 - `game_dev`: Game development, Unity/Unreal scripting, game logic
 
-#### **Analysis Tasks** → NVIDIA DeepSeek V3
+#### **Analysis Tasks** → Cloud Backend 2 (Analysis Specialist)
 - `analysis`: Code review, technical analysis, research
 - `math`: Mathematical calculations, statistics, algorithms
-- `architecture`: System design, planning, strategic decisions  
+- `architecture`: System design, planning, strategic decisions
 - `balance`: Game balance, progression systems, metrics analysis
 
-#### **Large Context Tasks** → Local DeepSeek
+#### **Large Context Tasks** → Local Backend (Unlimited Tokens)
 - `unlimited`: Large file processing, extensive documentation
 - **Auto-routing**: Prompts >50,000 characters or files >100KB
 
 ### Task Type Benefits
 
-**Qwen 3 Coder Advantages:**
+**Cloud Backend 1 (Coding) Advantages:**
 - Latest coding knowledge and best practices
 - Advanced debugging and optimization techniques
 - Game development expertise and Unity/Unreal patterns
 - Modern JavaScript/Python/TypeScript capabilities
 
-**DeepSeek V3 Advantages:**
+**Cloud Backend 2 (Analysis) Advantages:**
 - Advanced reasoning with thinking process visualization
 - Complex mathematical analysis and statistics
 - Strategic planning and architectural design
 - Game balance and progression system analysis
 
-**Local DeepSeek Advantages:**
+**Local Backend Advantages:**
 - Unlimited token capacity for massive contexts
 - Privacy for sensitive code and proprietary information
 - No API rate limits or usage restrictions
@@ -318,49 +322,50 @@ Advanced chunking system for processing files >32KB with semantic boundary prese
 
 The system is pre-configured with 4 backends (expandable via [EXTENDING.md](EXTENDING.md)):
 
-#### **Local DeepSeek Endpoint**
+#### **Local Backend Endpoint**
 - **URL**: `http://localhost:1234/v1` (configure for your local model server)
-- **Model**: `deepseek-coder-v2-lite-instruct`
+- **Example Setup**: LM Studio, Ollama, vLLM, or custom OpenAI-compatible endpoint
 - **Requirements**:
-  - LM Studio running with DeepSeek model loaded
-  - Server bound to `0.0.0.0:1234` (not `127.0.0.1`)
-  - Windows firewall allowing connections (if applicable)
+  - Local model server running (LM Studio/Ollama/vLLM/etc.)
+  - Server bound to `0.0.0.0:1234` (not `127.0.0.1` for WSL2 compatibility)
+  - Firewall allowing connections if running on separate machine
 
-#### **NVIDIA Cloud Endpoints**
-- **Base URL**: `https://integrate.api.nvidia.com/v1`
-- **API Key**: Required (set via `NVIDIA_API_KEY` environment variable)
-- **Models**:
-  - `qwen/qwen3-coder-480b-a35b-instruct` (Qwen 3 Coder)
-  - `deepseek-ai/deepseek-v3.1` (DeepSeek V3 with reasoning)
+#### **Cloud Backend Endpoints**
+- **Example Configuration**: NVIDIA API, OpenAI, Anthropic, Azure OpenAI, AWS Bedrock, etc.
+- **API Keys**: Required (set via environment variables for each provider)
+- **Endpoint URLs**: Configure based on your chosen providers
+- **Models**: Any models available from your providers (see [EXTENDING.md](EXTENDING.md) for integration)
 
 ### Cross-Platform Support
 
 #### **Windows (WSL2)**
 ```bash
-# WSL2 IP for local DeepSeek (if running on Windows host)
-export DEEPSEEK_ENDPOINT="http://172.23.16.1:1234/v1"
+# WSL2 IP for local model (if running on Windows host)
+export LOCAL_MODEL_ENDPOINT="http://172.23.16.1:1234/v1"
 ```
 
 #### **Linux**
 ```bash
 # Direct localhost for Linux
-export DEEPSEEK_ENDPOINT="http://127.0.0.1:1234/v1"
+export LOCAL_MODEL_ENDPOINT="http://127.0.0.1:1234/v1"
 ```
 
 #### **macOS**
 ```bash
 # Standard localhost for macOS
-export DEEPSEEK_ENDPOINT="http://localhost:1234/v1"
+export LOCAL_MODEL_ENDPOINT="http://localhost:1234/v1"
 ```
 
 ### Environment Variables
 
 ```bash
-# Required for NVIDIA endpoints
-export NVIDIA_API_KEY="your-nvidia-api-key"
+# Example using NVIDIA API (configure for your chosen providers)
+export CLOUD_API_KEY_1="your-cloud-provider-key"
+export CLOUD_API_KEY_2="your-cloud-provider-key"
+export CLOUD_API_KEY_3="your-cloud-provider-key"
 
-# Optional: Custom local endpoint
-export DEEPSEEK_ENDPOINT="http://custom-ip:1234/v1"
+# Local model endpoint
+export LOCAL_MODEL_ENDPOINT="http://localhost:1234/v1"
 
 # Optional: Enable TDD mode for testing
 export TDD_MODE="true"
@@ -470,7 +475,7 @@ The system automatically routes files based on size for optimal performance:
 
 ```javascript
 // Routing Logic
-if (fileSize > 100KB) → Local DeepSeek (unlimited tokens)
+if (fileSize > 100KB) → Local Backend (unlimited tokens)
 else if (fileSize > 10KB) → Intelligent routing based on content
 else if (fileSize < 10KB) → Smart endpoint selection
 ```
@@ -532,29 +537,29 @@ else → "standard_parallel"
 
 ### Multi-Backend Issues
 
-#### **Local DeepSeek Connection**
+#### **Local Backend Connection**
 ```bash
 # Test local endpoint (adjust IP for your setup)
 curl http://localhost:1234/v1/models
 
-# Check LM Studio status
-1. Verify LM Studio is running
-2. Confirm DeepSeek model is loaded
-3. Ensure server binding is 0.0.0.0:1234 (not 127.0.0.1)
-4. Check Windows firewall (if applicable)
+# Check local model server status
+1. Verify local model server is running (LM Studio/Ollama/vLLM/etc.)
+2. Confirm model is loaded and ready
+3. Ensure server binding is 0.0.0.0:1234 (not 127.0.0.1 for WSL2)
+4. Check firewall rules if running on separate machine
 ```
 
-#### **NVIDIA Endpoint Issues**
+#### **Cloud Backend Issues**
 ```bash
-# Test NVIDIA API access
-curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
+# Test cloud API access (example using NVIDIA API)
+curl -H "Authorization: Bearer $CLOUD_API_KEY_1" \
      https://integrate.api.nvidia.com/v1/models
 
 # Common fixes:
-1. Verify NVIDIA_API_KEY is set correctly
-2. Check API key permissions and limits
+1. Verify API keys are set correctly for your providers
+2. Check API key permissions and rate limits
 3. Ensure internet connectivity
-4. Validate model names in configuration
+4. Validate model names and endpoint URLs in configuration
 ```
 
 ### File Access Issues
@@ -608,7 +613,7 @@ curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
 ### Performance Optimization
 
 #### **Slow File Processing**
-- **Large Files**: Automatically routed to Local DeepSeek for unlimited processing
+- **Large Files**: Automatically routed to Local Backend for unlimited processing
 - **Batch Operations**: Use concurrent processing for multiple small files
 - **Memory Issues**: Files >50MB trigger streaming mode with memory protection
 
@@ -668,10 +673,11 @@ smart-ai-bridge/
 - **`rate-limiter.js`**: DoS protection with request rate limiting
 
 #### **Backend Management**
-- **Local DeepSeek**: Unlimited token processing via LM Studio
-- **NVIDIA Qwen 3 Coder**: Advanced coding and implementation tasks
-- **NVIDIA DeepSeek V3**: Mathematical analysis and reasoning tasks
-- **Google Gemini**: Additional cloud backend (expandable via EXTENDING.md)
+- **Local Backend**: Unlimited token processing via LM Studio/Ollama/vLLM
+- **Cloud Backend 1**: Coding specialist (example: OpenAI, Anthropic, NVIDIA Qwen, etc.)
+- **Cloud Backend 2**: Analysis specialist (example: DeepSeek, Claude, GPT-4, etc.)
+- **Cloud Backend 3**: General purpose (example: Gemini, Azure, AWS Bedrock, etc.)
+- **Fully Expandable**: Add unlimited backends via [EXTENDING.md](EXTENDING.md)
 
 #### **Testing & Validation**
 - **100% Test Coverage**: Comprehensive test suite with fuzzy matching focus
@@ -753,8 +759,8 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 
 #### **Pre-Deployment**
 - [ ] Node.js version >=18 installed
-- [ ] NVIDIA API key obtained and configured
-- [ ] Local DeepSeek (LM Studio) running and accessible
+- [ ] Cloud provider API keys obtained (if using cloud backends)
+- [ ] Local model server running and accessible (if using local backend)
 - [ ] File permissions configured correctly
 
 #### **Deployment Steps**
@@ -762,8 +768,10 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 2. **Test System**: `npm test` (all tests should pass)
 3. **Configure Environment**:
    ```bash
-   export NVIDIA_API_KEY="your-nvidia-api-key"
-   export DEEPSEEK_ENDPOINT="http://localhost:1234/v1"  # Configure for your local model server
+   export CLOUD_API_KEY_1="your-cloud-provider-key"
+   export CLOUD_API_KEY_2="your-cloud-provider-key"
+   export CLOUD_API_KEY_3="your-cloud-provider-key"
+   export LOCAL_MODEL_ENDPOINT="http://localhost:1234/v1"  # Configure for your local model server
    ```
 4. **Update Claude Code Config**: Use production configuration from above (smart-ai-bridge.js)
 5. **Restart Claude Code**: Full restart required for new tools
@@ -772,10 +780,10 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 ### Success Verification
 
 #### **Multi-Backend Status**
-- [ ] ✅ Local DeepSeek endpoint online and responsive
-- [ ] ✅ NVIDIA Qwen 3 Coder endpoint accessible
-- [ ] ✅ NVIDIA DeepSeek V3 endpoint accessible
-- [ ] ✅ Google Gemini endpoint accessible (if configured)
+- [ ] ✅ Local backend endpoint online and responsive (if configured)
+- [ ] ✅ Cloud Backend 1 (coding specialist) accessible
+- [ ] ✅ Cloud Backend 2 (analysis specialist) accessible
+- [ ] ✅ Cloud Backend 3 (general purpose) accessible (if configured)
 - [ ] ✅ Smart routing working based on task type
 
 #### **File Processing System**
@@ -783,7 +791,7 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 - [ ] ✅ Cross-platform path handling working
 - [ ] ✅ Security validation preventing malicious content
 - [ ] ✅ Concurrent processing for multiple files
-- [ ] ✅ Large file routing to Local DeepSeek (>100KB)
+- [ ] ✅ Large file routing to Local Backend (>100KB)
 
 #### **Advanced Features**
 - [ ] ✅ Intelligent routing based on content analysis
