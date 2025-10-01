@@ -1,6 +1,6 @@
 # CONFIGURATION.md
 
-# MKG Server v8.0.0 - Configuration Guide
+# Smart AI Bridge v1.0.0 - Configuration Guide
 
 ## 🔧 Complete Configuration Reference
 
@@ -304,7 +304,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
   "mcpServers": {
     "mkg-server": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-simplified.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "/path/to/mkg-server",
       "env": {
         "MCP_SERVER_MODE": "true",
@@ -322,7 +322,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
     "mecha-king-ghidorah-global": {
       "command": "node",
       "args": [
-        "/path/to/server-mecha-king-ghidorah-simplified.js"
+        "/path/to/smart-ai-bridge.js"
       ],
       "cwd": "/path/to/mkg-server",
       "env": {
@@ -350,7 +350,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
   "mcpServers": {
     "mkg-dev": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-simplified.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "/path/to/mkg-server",
       "env": {
         "NODE_ENV": "development",
@@ -720,7 +720,7 @@ export MKG_AUTH_TOKEN="5f8d3c2a1b9e7f6d4c3a2b1e9f8d7c6b5a4e3f2d1c0b9a8f7e6d5c4b3
     "mkg-server-secure": {
       "command": "node",
       "args": [
-        "/path/to/server-mecha-king-ghidorah-simplified.js"
+        "/path/to/smart-ai-bridge.js"
       ],
       "cwd": "/path/to/mkg-server",
       "env": {
@@ -797,7 +797,7 @@ LOG_LEVEL=debug
   "mcpServers": {
     "mkg-dev": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-simplified.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "/path/to/mkg-server",
       "env": {
         "NODE_ENV": "development",
@@ -1359,7 +1359,7 @@ If you suspect a security breach:
    grep -i "auth.*fail\|error\|unauthorized" /var/log/mkg-server.log | tail -100
 
    # Check system metrics for anomalies
-   node -e "require('./server-mecha-king-ghidorah-simplified.js').getSystemMetrics()"
+   node -e "require('./smart-ai-bridge.js').getSystemMetrics()"
    ```
 
 2. **Investigation**:
@@ -1388,7 +1388,7 @@ If you suspect a security breach:
 
 ### Overview
 
-Smart AI Bridge v8.3.0+ includes advanced fuzzy matching capabilities for edit operations. This feature allows approximate string matching with whitespace normalization, making code edits more resilient to formatting differences.
+Smart AI Bridge v1.0.0 includes advanced fuzzy matching capabilities for edit operations. This feature allows approximate string matching with whitespace normalization, making code edits more resilient to formatting differences.
 
 **Security Score**: 9.7/10
 **Performance**: <5ms exact, <50ms fuzzy match
@@ -1498,7 +1498,7 @@ DEFAULT_FUZZY_THRESHOLD=0.50
     { "find": "old code", "replace": "new code" }
   ],
 
-  // Fuzzy matching parameters (v8.3.0+)
+  // Fuzzy matching parameters (v1.0.0+)
   "validation_mode": "lenient",      // strict | lenient | dry_run
   "fuzzy_threshold": 0.85,           // 0.1 - 1.0 (default: 0.85)
   "suggest_alternatives": true,      // Generate suggestions on failure
@@ -1919,4 +1919,4 @@ const languageRules = {
 
 ---
 
-This comprehensive configuration guide covers all aspects of setting up and tuning the MKG Server v8.0.0 for optimal performance and security, including the new fuzzy matching capabilities in v8.3.0+.
+This comprehensive configuration guide covers all aspects of setting up and tuning Smart AI Bridge v1.0.0 for optimal performance and security, including the advanced fuzzy matching capabilities.

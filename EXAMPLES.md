@@ -1,6 +1,6 @@
 # EXAMPLES.md
 
-# MKG Server v8.0.0 - Usage Examples
+# Smart AI Bridge v1.0.0 - Usage Examples
 
 ## 🎯 Real-World Usage Examples and Patterns
 
@@ -530,7 +530,7 @@ BACKUP_ENABLED=true
   "mcpServers": {
     "mkg-server": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-simplified.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "/path/to/mkg-server"
     }
   }
@@ -543,7 +543,7 @@ BACKUP_ENABLED=true
   "mcpServers": {
     "mkg-dev": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-simplified.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "/home/developer/mkg-server",
       "env": {
         "NODE_ENV": "development",
@@ -564,7 +564,7 @@ BACKUP_ENABLED=true
     "mkg-production": {
       "command": "node",
       "args": [
-        "/opt/mkg-server/server-mecha-king-ghidorah-simplified.js"
+        "/opt/smart-ai-bridge/smart-ai-bridge.js"
       ],
       "cwd": "/opt/mkg-server",
       "env": {
@@ -593,7 +593,7 @@ BACKUP_ENABLED=true
     "mkg-team": {
       "command": "node",
       "args": [
-        "/shared/mkg-server/server-mecha-king-ghidorah-simplified.js"
+        "/shared/smart-ai-bridge/smart-ai-bridge.js"
       ],
       "cwd": "/shared/mkg-server",
       "env": {

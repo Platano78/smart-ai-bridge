@@ -2,7 +2,7 @@
 
 ## Overview
 
-This comprehensive troubleshooting guide covers common issues with the Enhanced MKG Server v8.1.0, focusing on the new Smart Edit Prevention Strategy features, fuzzy matching capabilities, and performance optimization.
+This comprehensive troubleshooting guide covers common issues with Smart AI Bridge v1.0.0, focusing on the Smart Edit Prevention Strategy features, fuzzy matching capabilities, and performance optimization.
 
 ---
 
@@ -420,7 +420,7 @@ Available tools: review, read, health, write_files_atomic, edit_file, ...
   "mcpServers": {
     "mkg-server": {
       "command": "node",
-      "args": ["server-mecha-king-ghidorah-complete.js"],
+      "args": ["smart-ai-bridge.js"],
       "cwd": "."
     }
   }

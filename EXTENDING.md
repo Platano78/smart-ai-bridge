@@ -1,6 +1,6 @@
 # EXTENDING.md
 
-# MKG Server v8.0.0 - Extension Guide
+# Smart AI Bridge v1.0.0 - Extension Guide
 
 ## 🚀 Adding New AI Providers
 
@@ -11,7 +11,7 @@ The MKG Server uses a modular architecture that makes adding new AI providers st
 ### Step 1: Define Provider Configuration
 
 ```javascript
-// In server-mecha-king-ghidorah-simplified.js
+// In smart-ai-bridge.js
 // Add to the endpoints object in MechaKingGhidorahRouter constructor
 
 this.endpoints = {
@@ -198,7 +198,7 @@ YOUR_PROVIDER_ENABLED=true
 Create `tests/your-provider.test.js`:
 ```javascript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MechaKingGhidorahRouter } from '../server-mecha-king-ghidorah-simplified.js';
+import { SmartAIBridgeRouter } from '../smart-ai-bridge.js';
 
 describe('Your Provider Integration', () => {
   let router;
@@ -451,7 +451,7 @@ ${result}
 Create `tests/advanced-code-optimizer.test.js`:
 ```javascript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MechaKingGhidorahRouter } from '../server-mecha-king-ghidorah-simplified.js';
+import { SmartAIBridgeRouter } from '../smart-ai-bridge.js';
 
 describe('Advanced Code Optimizer Tool', () => {
   let router;
