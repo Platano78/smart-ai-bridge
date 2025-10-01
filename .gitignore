@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+build/
+dist/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+.mcp.json
+!.mcp.json.example
+*.key
+*.pem
+API-KEYS.md
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.backup
+*.backup.*
+*-backup*
+*-backup-*
+
+# Cache
+.cache/
+.ip-cache/
+.file-modification-backups/
+
+# Development artifacts
+monitoring/
+protos/
+archive*/
+**/archive*/
+public-repo/
+
+# Test artifacts
+*validation*.json
+*report*.json
+*test-results*.json
+
+# Documentation drafts
+ATOMIC-TASK-*.md
+MKG-SERENA-*.md
+PHASE*.md
+SESSION-*.md
+
+# WSL/Docker specific
+dev_context_storage/
+agno-serena*/
+
+# Build artifacts
+__pycache__/
+*.pyc
+*.pyo

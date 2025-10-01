@@ -1,0 +1,16 @@
+{
+  "_comment": "┗(▀̿Ĺ̯▀̿ ̿)┓ CI-CD Generated Claude Desktop Configuration",
+  "_generated_at": "{{TIMESTAMP}}",
+  "_wsl_host_ip": "{{WSL_HOST_IP}}",
+  "mcpServers": {
+    "deepseek-mcp-bridge": {
+      "command": "{{PROJECT_ROOT}}/target/release/deepseek-mcp-bridge",
+      "args": ["--config", "{{PROJECT_ROOT}}/.env.production"],
+      "env": {
+        "RUST_LOG": "{{LOG_LEVEL}}",
+        "ENVIRONMENT": "{{ENVIRONMENT}}",
+        "WSL_HOST_IP": "{{WSL_HOST_IP}}"
+      }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+# ┗(▀̿Ĺ̯▀̿ ̿)┓ CI-CD Generated Docker Compose Configuration
+# Auto-generated from template with WSL IP: {{WSL_HOST_IP}}
+# Generated at: {{TIMESTAMP}}
+
+services:
+  qwen25-coder-7b-8001:
+    image: vllm/vllm-openai:latest
+    container_name: qwen25-coder-7b-8001
+    ports:
+      - "{{CONTAINER_PORT_8001}}:8000"
+      - "3018:3018"
+    environment:
+      # Model configuration with dynamic IP integration
+      - MODEL_NAME=wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
+      - SERVED_MODEL_NAME=qwen2.5-coder-7b-fp8-dynamic
+      - WSL_HOST_IP={{WSL_HOST_IP}}
+
+      # YARN Configuration for optimal context length
+      - MAX_MODEL_LEN=105200
+      - ROPE_SCALING_TYPE=yarn
+      - ROPE_SCALING_FACTOR=4.0
+      - ROPE_THETA=500000
+
+      # Performance settings optimized for deployment
+      - GPU_MEMORY_UTILIZATION=0.90
+      - TENSOR_PARALLEL_SIZE=1
+      - DTYPE=auto
+
+      # API configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+
+      # YARN 131K context enablement
+      - VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+      - VLLM_WORKER_MULTIPROC_METHOD=spawn
+      - VLLM_ENGINE_ITERATION_TIMEOUT_S=1800
+      - HF_HOME=/app/hf_cache
+      - CUDA_VISIBLE_DEVICES=0
+
+    volumes:
+      - /tmp/hf_cache:/app/hf_cache
+      - {{PROJECT_ROOT}}/model_cache:/app/model_cache
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 20G
+
+    command: >
+      --model wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
+      --served-model-name qwen2.5-coder-7b-fp8-dynamic
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len 105200
+      --gpu-memory-utilization 0.90
+      --max-num-batched-tokens 2048
+      --block-size 16
+      --swap-space 4
+      --rope-scaling '{"type": "yarn", "factor": 4.0, "original_max_position_embeddings": 32768}'
+      --rope-theta 500000
+      --enable-prefix-caching
+      --disable-log-stats
+      --tensor-parallel-size 1
+      --pipeline-parallel-size 1
+      --trust-remote-code
+      --enforce-eager
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+    restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    labels:
+      - "traefik.enable=false"
+      - "service.name=qwen25-coder-7b-8001"
+      - "service.version=1.0.0"
+      - "service.wsl_ip={{WSL_HOST_IP}}"
+      - "service.generated_at={{TIMESTAMP}}"
+
+volumes:
+  model_cache_8001:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{PROJECT_ROOT}}/model_cache
+
+networks:
+  default:
+    name: vllm-network
+    external: false

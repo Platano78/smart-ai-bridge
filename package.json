@@ -1,0 +1,37 @@
+{
+  "name": "smart-ai-bridge",
+  "version": "1.0.0",
+  "description": "Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, smart routing, fuzzy matching, and comprehensive security",
+  "main": "smart-ai-bridge.js",
+  "type": "module",
+  "scripts": {
+    "start": "node smart-ai-bridge.js",
+    "test": "node scripts/validate-hybrid-server.js",
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix"
+  },
+  "keywords": [
+    "ai",
+    "bridge",
+    "mcp",
+    "deepseek",
+    "nvidia",
+    "gemini",
+    "llm",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "lodash": "^4.17.21",
+    "string-similarity": "^4.0.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
