@@ -1,12 +1,17 @@
 {
   "name": "smart-ai-bridge",
-  "version": "1.0.0",
-  "description": "Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, smart routing, fuzzy matching, and comprehensive security",
-  "main": "smart-ai-bridge.js",
+  "version": "1.1.0",
+  "description": "Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, smart routing, conversation threading, usage analytics, and local AI auto-discovery",
+  "main": "smart-ai-bridge-v1.1.0.js",
   "type": "module",
   "scripts": {
-    "start": "node smart-ai-bridge.js",
+    "start": "node smart-ai-bridge-v1.1.0.js",
+    "start:v1.0.0": "node smart-ai-bridge.js",
+    "start:v1.1.0": "node smart-ai-bridge-v1.1.0.js",
     "test": "node scripts/validate-hybrid-server.js",
+    "test:features": "node run-comprehensive-feature-tests.js",
+    "test:conversation": "node test-conversation-threading.js",
+    "test:analytics": "node test-usage-analytics.js",
     "audit": "npm audit",
     "audit:fix": "npm audit fix"
   },

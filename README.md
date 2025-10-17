@@ -40,6 +40,13 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
 
+## ✨ New in v1.1.0
+
+- **LocalServiceDetector** - Auto-discover local AI services (vLLM, LM Studio, Ollama) with WSL support
+- **ConversationThreading** - Multi-turn conversation management with thread IDs and search capabilities
+- **UsageAnalytics** - Comprehensive usage tracking, cost analysis, and optimization recommendations
+- **Dashboard Server** - Optional web-based monitoring interface (opt-in, disabled by default)
+
 ## 🚀 Multi-Backend Architecture
 
 Flexible 4-backend system pre-configured with 1 local + 3 cloud backends for maximum development efficiency. The architecture is fully expandable - see [EXTENDING.md](EXTENDING.md) for adding additional backends.
@@ -829,9 +836,9 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 
 ---
 
-## 🏆 System Status: PRODUCTION READY v1.0.0
+## 🏆 System Status: PRODUCTION READY v1.1.0
 
-**Smart AI Bridge v1.0.0** represents an enterprise-grade AI development platform with Smart Edit Prevention Strategy, TDD methodology, and production-ready reliability. The system provides:
+**Smart AI Bridge v1.1.0** represents an enterprise-grade AI development platform with Smart Edit Prevention Strategy, TDD methodology, and production-ready reliability. The system provides:
 
 ### 🎯 Smart Edit Prevention Strategy
 - **Fuzzy Matching Engine**: Eliminates "text not found" errors with intelligent pattern matching
