@@ -1,5 +1,9 @@
 # Smart AI Bridge
 
+<a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
+</a>
+
 **Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, intelligent routing, advanced fuzzy matching, and comprehensive security.**
 
 ## 🎯 Overview
