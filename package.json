@@ -1,6 +1,6 @@
 {
   "name": "smart-ai-bridge",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, smart routing, conversation threading, usage analytics, and local AI auto-discovery",
   "main": "smart-ai-bridge-v1.1.0.js",
   "type": "module",
