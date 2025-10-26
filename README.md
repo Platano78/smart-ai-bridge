@@ -380,7 +380,110 @@ export LOCAL_MODEL_ENDPOINT="http://localhost:1234/v1"
 
 # Optional: Enable TDD mode for testing
 export TDD_MODE="true"
+
+# MCP-Compliant Logging Configuration
+# Options: silent, error, warn, info, debug
+# Production: Use 'error' or 'warn' for minimal logging
+# Development: Use 'info' or 'debug' for full diagnostics
+export MCP_LOG_LEVEL="info"
 ```
+
+### MCP-Compliant Logging
+
+**CRITICAL**: This server is fully MCP protocol compliant and prevents the "stdout contamination" issue that breaks Claude Desktop.
+
+#### Understanding MCP Logging Requirements
+
+The Model Context Protocol (MCP) has strict requirements for stdio-based servers:
+
+- **stdout** → ONLY JSON-RPC messages (protocol communication)
+- **stderr** → Logging, diagnostics, debug output (captured by Claude Desktop)
+
+**Common Issue**: Using `console.log()` writes to stdout and breaks MCP communication with errors like:
+```
+SyntaxError: Unexpected token 'C', "Conversati"... is not valid JSON
+```
+
+#### Our Solution: MCP-Compliant Logger
+
+All logging in Smart AI Bridge uses `console.error()` (stderr) to maintain protocol compliance:
+
+```javascript
+// ✅ CORRECT - MCP compliant (stderr)
+import { logger } from './mcp-logger.js';
+logger.info('Server started');
+logger.debug('Routing decision:', backend);
+logger.error('Fatal error:', error);
+
+// ❌ WRONG - Breaks MCP protocol (stdout)
+console.log('Message');  // Will cause JSON parse errors in Claude Desktop
+```
+
+#### Log Levels
+
+Control logging verbosity via `MCP_LOG_LEVEL` environment variable:
+
+| Level | Description | Use Case |
+|-------|-------------|----------|
+| `silent` | No logging output | Production with external monitoring |
+| `error` | Errors only | Minimal production logging |
+| `warn` | Warnings + errors | Recommended for production |
+| `info` | Info + warnings + errors | **Default** - Development/staging |
+| `debug` | All messages including debug | Verbose debugging |
+
+#### Configuration Examples
+
+**Production (minimal logging)**:
+```bash
+export MCP_LOG_LEVEL="warn"
+# or in .env file:
+MCP_LOG_LEVEL=warn
+```
+
+**Development (full diagnostics)**:
+```bash
+export MCP_LOG_LEVEL="debug"
+# Shows detailed routing decisions, backend health checks, etc.
+```
+
+**Silent mode (external logging)**:
+```bash
+export MCP_LOG_LEVEL="silent"
+# All logging suppressed, useful when piping stderr to monitoring tools
+```
+
+#### Claude Desktop Log Files
+
+Claude Desktop automatically captures all stderr output to log files:
+
+- **macOS**: `~/Library/Logs/Claude/mcp-server-smart-ai-bridge.log`
+- **Windows**: `%APPDATA%\Claude\Logs\mcp-server-smart-ai-bridge.log`
+- **Linux**: `~/.config/Claude/logs/mcp-server-smart-ai-bridge.log`
+
+#### Troubleshooting MCP Protocol Issues
+
+If you see JSON parse errors in Claude Desktop:
+
+1. **Check for stdout contamination**:
+   ```bash
+   grep -r "console\.log" --include="*.js" --exclude-dir=node_modules
+   ```
+
+2. **Verify all logging uses stderr**:
+   - All logs should use `logger.info()`, `logger.debug()`, etc.
+   - Or `console.error()` directly (not `console.log()`)
+
+3. **Test with silent mode**:
+   ```bash
+   MCP_LOG_LEVEL=silent npm start
+   # Should produce NO stderr output
+   ```
+
+4. **View captured logs**:
+   ```bash
+   # macOS/Linux
+   tail -f ~/Library/Logs/Claude/mcp-server-smart-ai-bridge.log
+   ```
 
 ## 🎮 Optimization Pipeline Workflow
 

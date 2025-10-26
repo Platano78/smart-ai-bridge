@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { logger } from './mcp-logger.js';
 
 class ConversationThreading {
     constructor(dataDir = './data/conversations') {
@@ -13,7 +14,7 @@ class ConversationThreading {
         try {
             await fs.mkdir(this.dataDir, { recursive: true });
             await this.loadActiveThreads();
-            console.log(`ConversationThreading initialized with data directory: ${this.dataDir}`);
+            logger.info(`ConversationThreading initialized with data directory: ${this.dataDir}`);
         } catch (error) {
             console.error('Failed to initialize ConversationThreading:', error);
             throw error;

@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import { logger } from './mcp-logger.js';
 
 export class AuthManager {
   constructor() {
@@ -31,7 +32,7 @@ export class AuthManager {
         created: new Date(),
         permissions: ['*'] // All tools
       });
-      console.log('✅ Master authentication token configured');
+      logger.info('✅ Master authentication token configured');
     } else {
       console.warn('⚠️  No MCP_AUTH_TOKEN set - authentication disabled (development only!)');
     }

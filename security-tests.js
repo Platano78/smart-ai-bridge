@@ -1,3 +1,5 @@
+import { logger } from './mcp-logger.js';
+
 /**
  * Security Testing Suite for Smart AI Bridge v1.0.0
  * Tests all CRITICAL security fixes
@@ -19,7 +21,7 @@ function logTest(testName, passed, details = '') {
   totalTests++;
   if (passed) {
     passedTests++;
-    console.log(`✅ PASSED: ${testName}`);
+    logger.info(`✅ PASSED: ${testName}`);
   } else {
     failedTests++;
     console.error(`❌ FAILED: ${testName}`);
@@ -31,8 +33,8 @@ function logTest(testName, passed, details = '') {
 // TEST 1: Path Traversal Protection
 // ============================================================================
 async function testPathTraversalProtection() {
-  console.log('\n🔒 TEST 1: Path Traversal Protection');
-  console.log('Testing malicious path patterns...\n');
+  logger.info('\n🔒 TEST 1: Path Traversal Protection');
+  logger.info('Testing malicious path patterns...\n');
 
   const maliciousPaths = [
     '../../../etc/passwd',
@@ -65,8 +67,8 @@ async function testPathTraversalProtection() {
 // TEST 2: Valid Path Acceptance
 // ============================================================================
 async function testValidPathAcceptance() {
-  console.log('\n✅ TEST 2: Valid Path Acceptance');
-  console.log('Testing legitimate path patterns...\n');
+  logger.info('\n✅ TEST 2: Valid Path Acceptance');
+  logger.info('Testing legitimate path patterns...\n');
 
   const validPaths = [
     './test-file.txt',
@@ -90,8 +92,8 @@ async function testValidPathAcceptance() {
 // TEST 3: validatePaths Batch Validation
 // ============================================================================
 async function testBatchValidation() {
-  console.log('\n📦 TEST 3: Batch Path Validation');
-  console.log('Testing multiple path validation...\n');
+  logger.info('\n📦 TEST 3: Batch Path Validation');
+  logger.info('Testing multiple path validation...\n');
 
   // Test valid batch
   try {
@@ -116,8 +118,8 @@ async function testBatchValidation() {
 // TEST 4: safeJoin Protection
 // ============================================================================
 async function testSafeJoin() {
-  console.log('\n🔗 TEST 4: Safe Path Joining');
-  console.log('Testing secure path concatenation...\n');
+  logger.info('\n🔗 TEST 4: Safe Path Joining');
+  logger.info('Testing secure path concatenation...\n');
 
   // Test valid join
   try {
@@ -140,8 +142,8 @@ async function testSafeJoin() {
 // TEST 5: File/Directory Existence Checks
 // ============================================================================
 async function testExistenceChecks() {
-  console.log('\n📁 TEST 5: File/Directory Existence Checks');
-  console.log('Testing file system validation...\n');
+  logger.info('\n📁 TEST 5: File/Directory Existence Checks');
+  logger.info('Testing file system validation...\n');
 
   // Test file exists (package.json should exist)
   const packageJsonPath = await validatePath('./package.json', __dirname);
@@ -167,8 +169,8 @@ async function testExistenceChecks() {
 // TEST 6: Null Byte Injection Protection
 // ============================================================================
 async function testNullByteProtection() {
-  console.log('\n🚫 TEST 6: Null Byte Injection Protection');
-  console.log('Testing null byte attack prevention...\n');
+  logger.info('\n🚫 TEST 6: Null Byte Injection Protection');
+  logger.info('Testing null byte attack prevention...\n');
 
   const nullBytePaths = [
     'file.txt\0.jpg',
@@ -190,8 +192,8 @@ async function testNullByteProtection() {
 // TEST 7: Dangerous Character Filtering
 // ============================================================================
 async function testDangerousCharacters() {
-  console.log('\n⚠️  TEST 7: Dangerous Character Filtering');
-  console.log('Testing special character blocking...\n');
+  logger.info('\n⚠️  TEST 7: Dangerous Character Filtering');
+  logger.info('Testing special character blocking...\n');
 
   const dangerousChars = [
     { path: 'file<test>.txt', char: '<>' },
@@ -214,8 +216,8 @@ async function testDangerousCharacters() {
 // TEST 8: Input Type Validation
 // ============================================================================
 async function testInputValidation() {
-  console.log('\n🔤 TEST 8: Input Type Validation');
-  console.log('Testing input validation...\n');
+  logger.info('\n🔤 TEST 8: Input Type Validation');
+  logger.info('Testing input validation...\n');
 
   // Test null input
   try {
@@ -262,8 +264,8 @@ async function testInputValidation() {
 // TEST 9: Absolute Path Outside Base Directory
 // ============================================================================
 async function testAbsolutePathRestriction() {
-  console.log('\n🔐 TEST 9: Absolute Path Restriction');
-  console.log('Testing absolute path blocking...\n');
+  logger.info('\n🔐 TEST 9: Absolute Path Restriction');
+  logger.info('Testing absolute path blocking...\n');
 
   const absolutePaths = [
     '/etc/passwd',
@@ -287,8 +289,8 @@ async function testAbsolutePathRestriction() {
 // TEST 10: Complex Traversal Patterns
 // ============================================================================
 async function testComplexTraversalPatterns() {
-  console.log('\n🔄 TEST 10: Complex Traversal Patterns');
-  console.log('Testing sophisticated attack patterns...\n');
+  logger.info('\n🔄 TEST 10: Complex Traversal Patterns');
+  logger.info('Testing sophisticated attack patterns...\n');
 
   const complexPatterns = [
     './valid/../../../etc/passwd',
@@ -313,10 +315,10 @@ async function testComplexTraversalPatterns() {
 // RUN ALL TESTS
 // ============================================================================
 async function runAllTests() {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║  SMART AI BRIDGE v1.0.0 - SECURITY TEST SUITE                 ║');
-  console.log('║  Testing CRITICAL-001: Path Traversal Vulnerability Fixes     ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝');
+  logger.info('╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║  SMART AI BRIDGE v1.0.0 - SECURITY TEST SUITE                 ║');
+  logger.info('║  Testing CRITICAL-001: Path Traversal Vulnerability Fixes     ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝');
 
   const startTime = Date.now();
 
@@ -334,23 +336,23 @@ async function runAllTests() {
   const endTime = Date.now();
   const duration = endTime - startTime;
 
-  console.log('\n╔════════════════════════════════════════════════════════════════╗');
-  console.log('║  TEST RESULTS SUMMARY                                          ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝');
-  console.log(`\n📊 Total Tests: ${totalTests}`);
-  console.log(`✅ Passed: ${passedTests}`);
-  console.log(`❌ Failed: ${failedTests}`);
-  console.log(`⏱️  Duration: ${duration}ms`);
-  console.log(`📈 Success Rate: ${((passedTests / totalTests) * 100).toFixed(2)}%`);
+  logger.info('\n╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║  TEST RESULTS SUMMARY                                          ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝');
+  logger.info(`\n📊 Total Tests: ${totalTests}`);
+  logger.info(`✅ Passed: ${passedTests}`);
+  logger.info(`❌ Failed: ${failedTests}`);
+  logger.info(`⏱️  Duration: ${duration}ms`);
+  logger.info(`📈 Success Rate: ${((passedTests / totalTests) * 100).toFixed(2)}%`);
 
   if (failedTests === 0) {
-    console.log('\n🎉 ALL SECURITY TESTS PASSED! 🎉');
-    console.log('✅ Path traversal protection is working correctly.');
-    console.log('✅ Smart AI Bridge v1.0.0 is secure for public release.');
+    logger.info('\n🎉 ALL SECURITY TESTS PASSED! 🎉');
+    logger.info('✅ Path traversal protection is working correctly.');
+    logger.info('✅ Smart AI Bridge v1.0.0 is secure for public release.');
     process.exit(0);
   } else {
-    console.log('\n⚠️  SECURITY TESTS FAILED!');
-    console.log(`❌ ${failedTests} test(s) failed. Review and fix before release.`);
+    logger.info('\n⚠️  SECURITY TESTS FAILED!');
+    logger.info(`❌ ${failedTests} test(s) failed. Review and fix before release.`);
     process.exit(1);
   }
 }

@@ -1,3 +1,5 @@
+import { logger } from '../mcp-logger.js';
+
 #!/usr/bin/env node
 
 /**
@@ -10,33 +12,33 @@
 import { HybridMCPServer } from '../server-hybrid-v7.js';
 
 async function validateHybridServer() {
-  console.log('🔍 HYBRID SERVER VALIDATION - Starting...\n');
+  logger.info('🔍 HYBRID SERVER VALIDATION - Starting...\n');
   
   try {
-    console.log('1️⃣ Initializing hybrid server...');
+    logger.info('1️⃣ Initializing hybrid server...');
     const hybridServer = new HybridMCPServer();
-    console.log('✅ Hybrid server initialized successfully\n');
+    logger.info('✅ Hybrid server initialized successfully\n');
     
-    console.log('2️⃣ Validating server components...');
-    console.log(`   - Main server: ${hybridServer.server ? '✅' : '❌'}`);
-    console.log(`   - Triple server: ${hybridServer.tripleServer ? '✅' : '❌'}`);
-    console.log(`   - Hybrid methods: ${typeof hybridServer.getConsolidatedTools === 'function' ? '✅' : '❌'}`);
-    console.log('');
+    logger.info('2️⃣ Validating server components...');
+    logger.info(`   - Main server: ${hybridServer.server ? '✅' : '❌'}`);
+    logger.info(`   - Triple server: ${hybridServer.tripleServer ? '✅' : '❌'}`);
+    logger.info(`   - Hybrid methods: ${typeof hybridServer.getConsolidatedTools === 'function' ? '✅' : '❌'}`);
+    logger.info('');
     
-    console.log('3️⃣ Validating tool inventory...');
+    logger.info('3️⃣ Validating tool inventory...');
     const consolidatedTools = hybridServer.getConsolidatedTools();
-    console.log(`   - Consolidated tools count: ${consolidatedTools.length}`);
+    logger.info(`   - Consolidated tools count: ${consolidatedTools.length}`);
     
     consolidatedTools.forEach((tool, index) => {
-      console.log(`   ${index + 1}. ${tool.name}: ${tool.description.substring(0, 60)}...`);
+      logger.info(`   ${index + 1}. ${tool.name}: ${tool.description.substring(0, 60)}...`);
     });
-    console.log('');
+    logger.info('');
     
-    console.log('4️⃣ Testing tool responses...');
+    logger.info('4️⃣ Testing tool responses...');
     
     // Test system status
     const statusResponse = hybridServer.generateSystemStatus({ detailed_metrics: true });
-    console.log('   - System status generation: ✅');
+    logger.info('   - System status generation: ✅');
     
     // Test consolidated response
     const queryResponse = hybridServer.generateConsolidatedResponse({
@@ -44,10 +46,10 @@ async function validateHybridServer() {
       provider_preference: 'auto',
       task_type: 'general'
     });
-    console.log('   - Consolidated response generation: ✅');
-    console.log('');
+    logger.info('   - Consolidated response generation: ✅');
+    logger.info('');
     
-    console.log('5️⃣ Configuration validation...');
+    logger.info('5️⃣ Configuration validation...');
     
     // Check config files exist
     const { promises: fs } = await import('fs');
@@ -59,27 +61,27 @@ async function validateHybridServer() {
     for (const configFile of configFiles) {
       try {
         await fs.access(configFile);
-        console.log(`   - ${configFile.split('/').pop()}: ✅`);
+        logger.info(`   - ${configFile.split('/').pop()}: ✅`);
       } catch (error) {
-        console.log(`   - ${configFile.split('/').pop()}: ❌`);
+        logger.info(`   - ${configFile.split('/').pop()}: ❌`);
       }
     }
-    console.log('');
+    logger.info('');
     
-    console.log('🎉 HYBRID SERVER VALIDATION COMPLETE!');
-    console.log('=======================================');
-    console.log('✅ All validations passed');
-    console.log('✅ Server is ready for deployment');
-    console.log('✅ Hybrid architecture is fully functional');
-    console.log('✅ Configuration files are in place\n');
+    logger.info('🎉 HYBRID SERVER VALIDATION COMPLETE!');
+    logger.info('=======================================');
+    logger.info('✅ All validations passed');
+    logger.info('✅ Server is ready for deployment');
+    logger.info('✅ Hybrid architecture is fully functional');
+    logger.info('✅ Configuration files are in place\n');
     
-    console.log('📋 DEPLOYMENT CHECKLIST:');
-    console.log('- [✅] Hybrid server v7.0.0 initialized');
-    console.log(`- [✅] ${consolidatedTools.length} consolidated tools available`);
-    console.log('- [✅] Triple endpoint integration active');
-    console.log('- [✅] Production configurations generated');
-    console.log('- [✅] Rollback server available');
-    console.log('- [✅] Cross-platform compatibility verified\n');
+    logger.info('📋 DEPLOYMENT CHECKLIST:');
+    logger.info('- [✅] Hybrid server v7.0.0 initialized');
+    logger.info(`- [✅] ${consolidatedTools.length} consolidated tools available`);
+    logger.info('- [✅] Triple endpoint integration active');
+    logger.info('- [✅] Production configurations generated');
+    logger.info('- [✅] Rollback server available');
+    logger.info('- [✅] Cross-platform compatibility verified\n');
     
     process.exit(0);
     

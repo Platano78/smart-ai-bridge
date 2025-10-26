@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BackendManager } from './backend-manager.js';
+import { logger } from './mcp-logger.js';
 
 // Get __dirname equivalent in ES6 modules
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +43,7 @@ export class DashboardServer {
       await this.backendManager.initialize();
       this.setupBackendEventListeners();
       this.isInitialized = true;
-      console.log('Dashboard server initialized successfully');
+      logger.info('Dashboard server initialized successfully');
     } catch (error) {
       console.error('Failed to initialize dashboard server:', error);
       throw error;
@@ -74,7 +75,7 @@ export class DashboardServer {
 
   setupWebSocket() {
     this.wss.on('connection', async (ws, req) => {
-      console.log(`WebSocket client connected from ${req.socket.remoteAddress}`);
+      logger.info(`WebSocket client connected from ${req.socket.remoteAddress}`);
       this.clients.add(ws);
 
       try {
@@ -91,7 +92,7 @@ export class DashboardServer {
 
       ws.on('close', () => {
         this.clients.delete(ws);
-        console.log('WebSocket client disconnected');
+        logger.info('WebSocket client disconnected');
       });
 
       ws.on('error', (error) => {
@@ -262,7 +263,7 @@ export class DashboardServer {
     this.app.get('/api/backends/docker/detect', async (req, res) => {
       try {
         const containers = await this.backendManager.discoverVLLMContainers();
-        console.log(`Discovered ${containers.length} VLLM containers via API`);
+        logger.info(`Discovered ${containers.length} VLLM containers via API`);
         res.json({ success: true, containers });
       } catch (error) {
         console.error('Error detecting Docker containers:', error);
@@ -439,9 +440,9 @@ export class DashboardServer {
           console.error('Failed to start dashboard server:', error);
           reject(error);
         } else {
-          console.log(`✅ Dashboard server running on http://localhost:${port}`);
-          console.log(`✅ WebSocket server ready`);
-          console.log(`✅ Dashboard UI available at http://localhost:${port}/dashboard`);
+          logger.info(`✅ Dashboard server running on http://localhost:${port}`);
+          logger.info(`✅ WebSocket server ready`);
+          logger.info(`✅ Dashboard UI available at http://localhost:${port}/dashboard`);
           resolve();
         }
       });
@@ -450,7 +451,7 @@ export class DashboardServer {
 
   // Graceful shutdown
   async stop() {
-    console.log('Shutting down dashboard server...');
+    logger.info('Shutting down dashboard server...');
 
     // Stop backend health monitoring
     this.backendManager.stopHealthMonitoring();
@@ -463,7 +464,7 @@ export class DashboardServer {
     // Close HTTP server
     return new Promise((resolve) => {
       this.server.close(() => {
-        console.log('Dashboard server closed');
+        logger.info('Dashboard server closed');
         resolve();
       });
     });
@@ -486,12 +487,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const shutdown = async (signal) => {
     if (isShuttingDown) {
-      console.log(`${signal} received again - forcing immediate exit`);
+      logger.warn(`${signal} received again - forcing immediate exit`);
       process.exit(1);
     }
 
     isShuttingDown = true;
-    console.log(`${signal} received, shutting down gracefully`);
+    logger.info(`${signal} received, shutting down gracefully`);
 
     try {
       await server.stop();
