@@ -55,6 +55,14 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 - **Performance Optimization**: 75% reduction in token usage for simple queries
 - **Zero Breaking Changes**: Fully backward compatible with existing code
 
+## ✨ New in v1.1.1
+
+### 🔧 MCP Protocol Compliance Fix
+- **Stdout Contamination Resolution**: Fixed JSON parse errors in Claude Desktop
+- **MCP-Compliant Logging**: All logging redirected to stderr for protocol compliance
+- **Enhanced Logger**: Configurable log levels (silent, error, warn, info, debug)
+- **Production Ready**: Eliminates "Unexpected token" errors in Claude Desktop integration
+
 ## ✨ New in v1.1.0
 
 - **LocalServiceDetector** - Auto-discover local AI services (vLLM, LM Studio, Ollama) with WSL support
