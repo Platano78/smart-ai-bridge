@@ -1,0 +1,15 @@
+{
+  "session_id": "session_1762590440003_4f63ld",
+  "started_at": "2025-11-08T08:27:20.003Z",
+  "metrics": {
+    "total_requests": 0,
+    "successful_requests": 0,
+    "failed_requests": 0,
+    "total_tokens": 0,
+    "total_processing_time_ms": 0,
+    "backend_usage": {},
+    "tool_usage": {},
+    "routing_decisions": {}
+  },
+  "last_updated": "2025-11-08T08:29:14.020Z"
+}
