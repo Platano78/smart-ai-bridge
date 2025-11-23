@@ -405,6 +405,7 @@ class LocalServiceDetector {
     let service = 'generic';
     let models = [];
     let detectedModel = null;
+    let detectedMaxTokens = null;  // 🎯 DYNAMIC TOKEN SCALING: Store detected context limit
 
     try {
       if (response.ok) {
@@ -413,6 +414,23 @@ class LocalServiceDetector {
         // Check for vLLM patterns
         if (path === '/v1/models' && data.data) {
           models = data.data.map(m => m.id || m.name || 'unknown');
+
+          // 🎯 EXTRACT context length from response for DYNAMIC TOKEN SCALING
+          // Supports multiple field names across different services:
+          // - vLLM: max_model_len
+          // - LM Studio: context_length, max_tokens
+          // - Ollama: context_length
+          // - OpenAI-compatible: max_context_length
+          const modelInfo = data.data[0];
+          detectedMaxTokens = modelInfo?.max_model_len ||
+                              modelInfo?.context_length ||
+                              modelInfo?.max_tokens ||
+                              modelInfo?.max_context_length ||
+                              null;
+
+          if (detectedMaxTokens) {
+            console.error(`   🔍 Detected model context: ${detectedMaxTokens} tokens (${modelInfo.id || 'unknown'})`);
+          }
 
           // ⚠️ REJECT non-LLM services (e.g., Agent Genesis API on port 8080)
           // Agent Genesis returns empty model list or non-LLM service names
@@ -471,6 +489,7 @@ class LocalServiceDetector {
       service,
       models,
       detectedModel,
+      detectedMaxTokens,  // 🎯 DYNAMIC TOKEN SCALING: Return actual model context limit
       tested: Date.now()
     };
   }
