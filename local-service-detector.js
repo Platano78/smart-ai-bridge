@@ -55,15 +55,16 @@ class LocalServiceDetector {
       ? options.discoveryEnabled
       : process.env.LOCAL_AI_DISCOVERY_ENABLED !== 'false';
 
-    // Common ports for local AI services
+    // Common ports for local AI services (prioritized: vLLM → LM Studio → Ollama → generic HTTP)
     this.commonPorts = options.commonPorts || [
+      8002,  // vLLM Qwen (highest priority)
       8001,  // vLLM default
       8000,  // Common alternative
       1234,  // LM Studio default
       5000,  // Common dev server
       5001,  // Common alternative
-      8080,  // Generic HTTP
-      11434  // Ollama default
+      11434, // Ollama default
+      8080   // Generic HTTP (lowest priority - may be non-LLM service)
     ];
 
     // Service fingerprints for identification
@@ -413,6 +414,24 @@ class LocalServiceDetector {
         if (path === '/v1/models' && data.data) {
           models = data.data.map(m => m.id || m.name || 'unknown');
 
+          // ⚠️ REJECT non-LLM services (e.g., Agent Genesis API on port 8080)
+          // Agent Genesis returns empty model list or non-LLM service names
+          if (models.length === 0) {
+            console.error(`   ⏭️ ${baseUrl}: Empty model list, skipping (likely not an LLM)`);
+            return null;
+          }
+
+          // Check if models contain LLM indicators (reject generic HTTP APIs)
+          const llmIndicators = ['qwen', 'llama', 'mistral', 'deepseek', 'gpt', 'claude', 'phi', 'gemma', 'yi'];
+          const hasLLMModel = models.some(m =>
+            llmIndicators.some(indicator => m.toLowerCase().includes(indicator))
+          );
+
+          if (!hasLLMModel) {
+            console.error(`   ⏭️ ${baseUrl}: No LLM models found, skipping (models: ${models.join(', ')})`);
+            return null;
+          }
+
           // Service identification by response structure
           if (data.object === 'list') {
             // Check headers for service type
@@ -457,9 +476,10 @@ class LocalServiceDetector {
   }
 
   /**
-   * Validate that an endpoint is still working
+   * Validate that an endpoint is still working AND serving LLM models
    *
-   * Performs a quick health check by requesting the models endpoint
+   * Performs health check by requesting the models endpoint and validating
+   * the response contains actual LLM models (not generic HTTP services)
    *
    * @param {string} url - Full URL to validate (should include /v1 path)
    * @param {number} [timeout=1000] - Timeout in milliseconds
@@ -478,7 +498,27 @@ class LocalServiceDetector {
 
       clearTimeout(timeoutId);
 
-      if (response.ok || response.status === 401 || response.status === 403) {
+      if (response.ok) {
+        // Enhanced validation: Check response contains actual LLM models
+        try {
+          const data = await response.json();
+          if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+            // Check if models contain LLM indicators
+            const llmIndicators = ['qwen', 'llama', 'mistral', 'deepseek', 'gpt', 'claude', 'phi', 'gemma', 'yi'];
+            const models = data.data.map(m => m.id || m.name || '');
+            const hasLLMModel = models.some(m =>
+              llmIndicators.some(indicator => m.toLowerCase().includes(indicator))
+            );
+
+            if (hasLLMModel) {
+              return { url, validated: true };
+            }
+          }
+        } catch (e) {
+          // JSON parsing failed, endpoint might not be LLM service
+        }
+      } else if (response.status === 401 || response.status === 403) {
+        // Auth required but endpoint exists - assume valid
         return { url, validated: true };
       }
     } catch (error) {
