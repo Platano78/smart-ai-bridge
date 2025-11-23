@@ -891,11 +891,11 @@ class MultiAIRouter {
   constructor() {
     // '(ᗒᗣᗕ)՞ MULTI-BACKEND TOKEN CONFIGURATION!
     this.tokenConfig = {
-      // Local model capabilities - YARN Extended
-      local_max: 65536,                 // Qwen 2.5 Coder 7B: YARN-extended 64K context
-                                        // YARN factor 4.0, validated 30,611 tokens @ 100% accuracy
-                                        // Performance: ~576 tok/sec, 15.7GB VRAM peak
-                                        // Report: ${HOME}/project/llama-swap/YARN_CONTEXT_EXTENSION_REPORT.md
+      // Local model capabilities - Dynamic Detection
+      local_max: 8192,                  // Qwen 2.5 Coder 14B AWQ: 8K context (fallback)
+                                        // Will be auto-updated by LocalServiceDetector
+                                        // Supports: vLLM, LM Studio, Ollama detection
+                                        // Actual limit detected from /v1/models endpoint
 
       // Cloud backends
       gemini_max: 32768,               // Gemini Pro capacity

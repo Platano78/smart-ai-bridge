@@ -44,6 +44,16 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
 
+## ✨ New in v1.2.2
+
+### 🎯 True Dynamic Token Detection (Patch Release)
+- **Auto-Detects Context Limits**: Queries actual model `max_model_len` from `/v1/models` endpoint
+- **Multi-Service Support**: Works with vLLM, LM Studio, Ollama automatically
+- **Fixed Hardcoded Fallback**: Corrected 65,536 → 8,192 tokens (matches actual Qwen2.5-Coder-14B-AWQ)
+- **Runtime Updates**: Backend maxTokens updated with detected values at startup
+- **Impact**: Prevents token overflow errors, accurate health check reporting
+- **Plug-and-Play**: Switch models (4K, 8K, 32K, 128K+) without configuration changes
+
 ## ✨ New in v1.2.1
 
 ### 🔧 Auto-Detection Hotfix (Critical Fix)

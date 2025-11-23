@@ -1,6 +1,6 @@
 {
-  "session_id": "session_1762590440003_4f63ld",
-  "started_at": "2025-11-08T08:27:20.003Z",
+  "session_id": "session_1762793807458_lu080b",
+  "started_at": "2025-11-10T16:56:47.458Z",
   "metrics": {
     "total_requests": 0,
     "successful_requests": 0,
@@ -11,5 +11,5 @@
     "tool_usage": {},
     "routing_decisions": {}
   },
-  "last_updated": "2025-11-08T18:09:57.463Z"
+  "last_updated": "2025-11-10T17:12:44.342Z"
 }
