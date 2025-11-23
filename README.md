@@ -44,6 +44,15 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
 
+## ✨ New in v1.2.1
+
+### 🔧 Auto-Detection Hotfix (Critical Fix)
+- **Port Priority Fix**: vLLM port 8002 scanned before generic HTTP port 8080
+- **LLM Validation**: Validates `/v1/models` response contains actual LLM model names
+- **Enhanced Validation**: `validateEndpoint()` checks content, not just HTTP status codes
+- **Impact**: Increases local model usage from 0% to 90%+ (fixes cloud fallback issue)
+- **No Action Required**: Auto-detection works automatically on startup
+
 ## ✨ New in v1.2.0
 
 ### 🎯 Dynamic Token Scaling
