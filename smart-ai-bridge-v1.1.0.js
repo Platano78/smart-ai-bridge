@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * SMART AI BRIDGE v1.1.0 - Production Release
+ * SMART AI BRIDGE v1.3.0 - Production Release with Backend Adapters
  * Enterprise-Grade Multi-AI Integration Platform
  *
  * PRODUCTION FEATURES:
@@ -37,7 +37,7 @@
  * Aliases: All MKG and DeepSeek compatibility aliases
  *
  * @module smart-ai-bridge
- * @version 1.1.0
+ * @version 1.3.0
  * @license MIT
  */
 
@@ -60,6 +60,19 @@ import LocalServiceDetector from './local-service-detector.js';
 import ConversationThreading from './conversation-threading.js';
 import { UsageAnalytics } from './usage-analytics.js';
 // DashboardServer imported conditionally in main()
+
+// Import backend adapter system (v1.3.0)
+import { BackendRegistry } from './backends/backend-registry.js';
+import { LocalAdapter } from './backends/local-adapter.js';
+import { GeminiAdapter } from './backends/gemini-adapter.js';
+import { DeepSeekAdapter } from './backends/deepseek-adapter.js';
+import { QwenAdapter } from './backends/qwen-adapter.js';
+
+// Import compound learning engine (v1.3.0)
+import { CompoundLearningEngine } from './intelligence/compound-learning.js';
+
+// Import subagent handler (v1.3.0)
+import { SubagentHandler } from './handlers/subagent-handler.js';
 
 const execAsync = promisify(exec);
 
@@ -488,6 +501,41 @@ class SmartAliasResolver {
         }
       },
       {
+        name: 'spawn_subagent',
+        description: '🤖 NEW Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+        handler: 'handleSpawnSubagent',
+        schema: {
+          type: 'object',
+          properties: {
+            role: {
+              type: 'string',
+              enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
+              description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation)'
+            },
+            task: {
+              type: 'string',
+              description: 'Task description for the subagent to perform'
+            },
+            file_patterns: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional glob patterns for files to analyze (e.g., ["src/**/*.js", "*.test.ts"])'
+            },
+            context: {
+              type: 'object',
+              description: 'Additional context object for the subagent'
+            },
+            verdict_mode: {
+              type: 'string',
+              enum: ['summary', 'full'],
+              default: 'summary',
+              description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+            }
+          },
+          required: ['role', 'task']
+        }
+      },
+      {
         name: 'discover_local_services',
         description: '🔍 NEW Auto-discover local AI services - Discover and validate local AI endpoints (vLLM, LM Studio, Ollama). Returns endpoint details including URL, service type, and available models. Supports cache invalidation and manual endpoint override.',
         handler: 'handleDiscoverLocalServices',
@@ -768,63 +816,249 @@ class FileModificationManager {
 }
 
 // ========================================================================================
-// MULTI-AI ROUTER - PLACEHOLDER FOR FULL IMPLEMENTATION
+// BACKEND ROUTER - PRODUCTION IMPLEMENTATION (v1.3.0)
 // ========================================================================================
 
 /**
- * Enhanced AI Router with multi-backend support and smart fallback chains
- * Note: This is a simplified placeholder. Full implementation includes:
- * - Backend health monitoring
+ * Backend Router with adapter architecture
+ * Features:
+ * - Backend health monitoring via adapters
  * - Circuit breaker patterns
- * - Smart routing logic
- * - Token optimization
- * - Response caching
+ * - Smart routing with fallback chains
+ * - Metrics tracking per backend
  */
-class MultiAIRouter {
+class BackendRouter {
   constructor() {
-    this.backends = {
-      local: { url: process.env.VLLM_ENDPOINT || DEFAULT_VLLM_ENDPOINT, healthy: true },
-      gemini: { url: 'gemini', healthy: true },
-      nvidia_deepseek: { url: 'nvidia_deepseek', healthy: true },
-      nvidia_qwen: { url: 'nvidia_qwen', healthy: true }
-    };
-
+    // Initialize backend registry
+    this.registry = new BackendRegistry();
     this.requestManager = new ConcurrentRequestManager();
-    console.error('🔀 MultiAIRouter initialized with 4 backends');
+    
+    // Initialize compound learning engine
+    this.learningEngine = new CompoundLearningEngine({
+      dataDir: './data/learning',
+      emaAlpha: 0.2,
+      minSamples: 5,
+      confidenceThreshold: 0.6
+    });
+    
+    // Create and register adapters
+    this.initializeAdapters();
+    
+    console.error('🔀 BackendRouter initialized with adapter architecture + learning');
   }
 
+  /**
+   * Initialize and register backend adapters
+   * @private
+   */
+  initializeAdapters() {
+    try {
+      // Create adapter instances
+      const localAdapter = new LocalAdapter();
+      const geminiAdapter = new GeminiAdapter();
+      const deepseekAdapter = new DeepSeekAdapter();
+      const qwenAdapter = new QwenAdapter();
+
+      // Register adapters with registry
+      this.registry.setAdapter('local', localAdapter);
+      this.registry.setAdapter('gemini', geminiAdapter);
+      this.registry.setAdapter('deepseek', deepseekAdapter);
+      this.registry.setAdapter('qwen', qwenAdapter);
+
+      console.error('✅ Registered 4 backend adapters');
+    } catch (error) {
+      console.error('❌ Failed to initialize adapters:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Route request to appropriate backend with 4-tier priority
+   * Tier 1: Forced backend (options.backend)
+   * Tier 2: Learning engine recommendation (>0.7 confidence)
+   * Tier 3: Rule-based routing (complexity/taskType heuristics)
+   * Tier 4: Health-based fallback
+   * @param {string} prompt - The prompt
+   * @param {Object} [options] - Routing options
+   * @returns {string} Backend name
+   */
   async routeRequest(prompt, options = {}) {
-    // Simplified routing - full implementation includes health checks and fallback chains
-    return options.backend || 'local';
+    // Tier 1: Honor explicit backend selection
+    if (options.backend) {
+      return options.backend;
+    }
+
+    // Extract context for learning and routing
+    const context = this._extractContext(prompt, options);
+
+    // Tier 2: Learning engine recommendation (if confident)
+    const recommendation = this.learningEngine.getRecommendation(context);
+    if (recommendation && recommendation.confidence > 0.7) {
+      console.error(`🧠 Learning recommendation: ${recommendation.backend} (confidence: ${recommendation.confidence.toFixed(2)})`);
+      // Verify recommended backend is healthy
+      const backends = await this.registry.checkHealth();
+      if (backends[recommendation.backend]?.status === 'healthy') {
+        return recommendation.backend;
+      }
+    }
+
+    // Tier 3: Rule-based routing
+    const ruleBackend = this._applyRuleBasedRouting(context);
+    if (ruleBackend) {
+      console.error(`📋 Rule-based routing: ${ruleBackend} (${context.complexity}/${context.taskType})`);
+      return ruleBackend;
+    }
+
+    // Tier 4: Health-based fallback
+    const fallbackChain = this.registry.getFallbackChain();
+    return fallbackChain[0] || 'local';
   }
 
+  /**
+   * Extract context from prompt for learning engine
+   * @private
+   */
+  _extractContext(prompt, options) {
+    // Estimate complexity
+    let complexity = 'simple';
+    if (prompt.length > 2000 || (options.max_tokens && options.max_tokens > 4000)) {
+      complexity = 'complex';
+    } else if (prompt.length > 500 || (options.max_tokens && options.max_tokens > 1000)) {
+      complexity = 'moderate';
+    }
+
+    // Infer task type from keywords
+    let taskType = 'general';
+    const lower = prompt.toLowerCase();
+    if (lower.includes('code') || lower.includes('function') || lower.includes('class') || lower.includes('implement')) {
+      taskType = 'code';
+    } else if (lower.includes('analyze') || lower.includes('review') || lower.includes('understand')) {
+      taskType = 'analysis';
+    } else if (lower.includes('write') || lower.includes('create') || lower.includes('generate')) {
+      taskType = 'generation';
+    }
+
+    return {
+      complexity,
+      taskType,
+      promptLength: prompt.length,
+      maxTokens: options.max_tokens || 2048
+    };
+  }
+
+  /**
+   * Apply rule-based routing heuristics
+   * @private
+   */
+  async _applyRuleBasedRouting(context) {
+    const backends = await this.registry.checkHealth();
+
+    // Complex tasks → prefer qwen3 (480B model)
+    if (context.complexity === 'complex' && backends.qwen3?.status === 'healthy') {
+      return 'qwen3';
+    }
+
+    // Code tasks → prefer deepseek3.1 (specialized coder)
+    if (context.taskType === 'code' && backends['deepseek3.1']?.status === 'healthy') {
+      return 'deepseek3.1';
+    }
+
+    // No rule-based preference
+    return null;
+  }
+
+  /**
+   * Make request to backend with automatic fallback and outcome recording
+   * @param {string} prompt - The prompt
+   * @param {string} backend - Backend name
+   * @param {Object} [options] - Request options
+   * @returns {Promise<Object>}
+   */
   async makeRequest(prompt, backend, options = {}) {
-    // Simplified request - full implementation includes actual API calls
-    return { success: true, backend, response: 'Placeholder response' };
+    const startTime = Date.now();
+    const context = this._extractContext(prompt, options);
+    const requestedBackend = backend;
+
+    try {
+      const result = await this.registry.makeRequestWithFallback(
+        prompt,
+        backend,
+        options
+      );
+
+      // Record successful outcome
+      const latency = Date.now() - startTime;
+      this.learningEngine.recordOutcome({
+        backend: result.backend, // Actual backend used (after fallback)
+        context,
+        success: true,
+        latency,
+        source: options.backend ? 'forced' : 'routed'
+      });
+      
+      return {
+        success: true,
+        backend: result.backend,
+        response: result.content,
+        tokens: result.tokens,
+        latency: result.latency,
+        fallbackChain: result.fallbackChain || []
+      };
+    } catch (error) {
+      // Record failed outcome
+      const latency = Date.now() - startTime;
+      this.learningEngine.recordOutcome({
+        backend: requestedBackend,
+        context,
+        success: false,
+        latency,
+        source: options.backend ? 'forced' : 'routed'
+      });
+
+      console.error(`❌ All backends failed: ${error.message}`);
+      throw new Error(`Backend request failed: ${error.message}`);
+    }
   }
 
+  /**
+   * Get backend registry for health checks and management
+   * @returns {BackendRegistry}
+   */
+  getRegistry() {
+    return this.registry;
+  }
+
+  /**
+   * Check health of all backends
+   * @returns {Promise<Object>}
+   */
+  async checkHealth() {
+    return await this.registry.checkHealth();
+  }
+
+  // Placeholder methods for FileModificationManager compatibility
   async performIntelligentFileEdit(filePath, edits, validationMode, language) {
-    // Placeholder implementation
+    // TODO: Implement with AI backend for validation
     return { success: true, edits_applied: edits.length };
   }
 
   async performMultiFileEdit(fileOperations, transactionMode, validationLevel, parallelProcessing) {
-    // Placeholder implementation
+    // TODO: Implement with AI backend for validation
     return { success: true, files_modified: fileOperations.length };
   }
 
   async validateCodeChanges(filePath, proposedChanges, validationRules, language) {
-    // Placeholder implementation
+    // TODO: Implement with AI backend
     return { valid: true, issues: [] };
   }
 
   async performBackupRestore(action, filePath, backupId, metadata, cleanupOptions) {
-    // Placeholder implementation
+    // TODO: Implement
     return { success: true, action };
   }
 
   async performAtomicFileWrite(fileOperations, createBackup) {
-    // Placeholder implementation
+    // TODO: Implement
     return { success: true, files_written: fileOperations.length };
   }
 }
@@ -839,9 +1073,10 @@ class MultiAIRouter {
 class SmartAIBridgeServer {
   constructor() {
     // Initialize core components
-    this.router = new MultiAIRouter();
+    this.router = new BackendRouter();
     this.fileManager = new FileModificationManager(this.router);
     this.aliasResolver = new SmartAliasResolver();
+    this.subagentHandler = new SubagentHandler(this.router);
 
     // Initialize standalone modules
     this.localServiceDetector = new LocalServiceDetector({
@@ -1054,6 +1289,37 @@ class SmartAIBridgeServer {
       await this.usageAnalytics.recordInvocation({
         tool_name: 'ask',
         backend_used: model,
+        processing_time_ms: Date.now() - startTime,
+        success: false,
+        error
+      });
+      throw error;
+    }
+  }
+
+  async handleSpawnSubagent(args) {
+    const startTime = Date.now();
+
+    try {
+      const result = await this.subagentHandler.handle(args);
+
+      await this.usageAnalytics.recordInvocation({
+        tool_name: 'spawn_subagent',
+        backend_used: result.backend_used,
+        processing_time_ms: Date.now() - startTime,
+        success: true,
+        metadata: {
+          role: args.role,
+          files_analyzed: result.metadata.files_analyzed,
+          has_verdict: result.has_verdict
+        }
+      });
+
+      return result;
+    } catch (error) {
+      await this.usageAnalytics.recordInvocation({
+        tool_name: 'spawn_subagent',
+        backend_used: 'unknown',
         processing_time_ms: Date.now() - startTime,
         success: false,
         error
