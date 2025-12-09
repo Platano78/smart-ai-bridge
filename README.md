@@ -36,11 +36,13 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 - **Validation**: Pre-flight checks with fuzzy matching support
 
 ### 🔒 Enterprise Security
-- **Security Score**: 9.7/10 with comprehensive controls
+- **Security Score**: 8.7/10 - [Certified Production Ready](security/SECURITY-CERTIFICATION-v1.3.0.md)
+- **Standards Compliance**: OWASP Top 10:2025 (82%), API Security (92%), NIST AI RMF (84%)
 - **DoS Protection**: Complexity limits, iteration caps, timeout enforcement
 - **Input Validation**: Type checking, structure validation, sanitization
-- **Metrics Tracking**: Operation monitoring and abuse detection
+- **Rate Limiting**: 60/min, 500/hr, 5000/day with IP tracking
 - **Audit Trail**: Complete logging with error sanitization
+- **CI/CD Security**: GitHub Actions validation workflow
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
 
