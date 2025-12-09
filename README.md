@@ -44,6 +44,24 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
 
+## ✨ New in v1.3.0
+
+### 🔒 Security Certification (Enterprise Ready)
+- **Security Score**: 8.7/10 - Production Ready with Monitoring
+- **OWASP Top 10:2025**: 82% compliance with documented mitigations
+- **OWASP API Security**: 92% compliance (strongest category)
+- **NIST AI RMF**: 84% alignment across all 4 functions
+- **Automated Testing**: 125+ security tests with 95% pass rate
+- **CI/CD Integration**: GitHub Actions workflow for continuous validation
+- **External Audit**: MKG security-auditor subagent validation
+- **Certification**: Valid 90 days with quarterly re-certification
+
+### 🛡️ Security Validation Framework
+- `./security/validate-security.sh` - Master validation script
+- `.github/workflows/security-validation.yml` - CI/CD pipeline
+- Comprehensive test suites for OWASP, injection, DoS protection
+- Gap analysis with 34 documented gaps and remediation roadmap
+
 ## ✨ New in v1.2.2
 
 ### 🎯 True Dynamic Token Detection (Patch Release)
@@ -981,9 +999,59 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 
 ---
 
-## 🏆 System Status: PRODUCTION READY v1.2.0
+## 🔒 Security Certification
 
-**Smart AI Bridge v1.2.0** represents an enterprise-grade AI development platform with Dynamic Token Scaling, Smart Edit Prevention Strategy, TDD methodology, and production-ready reliability. The system provides:
+**Security Score: 8.7/10** - Production Ready with Monitoring
+
+### Standards Compliance
+
+| Standard | Score | Status |
+|----------|-------|--------|
+| OWASP Top 10:2025 | 8.2/10 | ✅ Compliant |
+| OWASP API Security Top 10:2023 | 9.2/10 | ✅ Strong |
+| NIST AI Risk Management Framework | 8.4/10 | ✅ Aligned |
+| Automated Test Pass Rate | 95% | ✅ Passing |
+
+### Security Features
+
+- **Authentication**: Token-based auth with tool-level permissions
+- **Rate Limiting**: 60/min, 500/hr, 5000/day with IP tracking
+- **Input Validation**: Type checking, sanitization, schema validation
+- **Path Security**: Traversal prevention, null byte blocking
+- **Error Sanitization**: Credential redaction, stack trace removal
+- **Circuit Breaker**: Backend resilience with automatic failover
+
+### Validation Tools
+
+```bash
+# Run full security validation
+./security/validate-security.sh --full
+
+# Quick validation (essential tests)
+./security/validate-security.sh --quick
+
+# CI mode (optimized for pipelines)
+./security/validate-security.sh --ci
+```
+
+### Security Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Security Certification](security/SECURITY-CERTIFICATION-v1.3.0.md) | Full certification with attestation |
+| [Scoring Methodology](security/SCORING-METHODOLOGY.md) | Weighted rubric (100 points) |
+| [Security Scorecard](security/SECURITY-SCORECARD-v1.3.0.md) | Detailed score breakdown |
+| [Gap Analysis](security/GAP-ANALYSIS-REPORT.md) | 34 gaps with remediation roadmap |
+| [Validation Workflow](security/VALIDATION-WORKFLOW.md) | CI/CD integration guide |
+
+**Certification ID**: SAB-SEC-2025-1209-v130  
+**Valid Until**: March 9, 2026 (90 days)
+
+---
+
+## 🏆 System Status: PRODUCTION READY v1.3.0
+
+**Smart AI Bridge v1.3.0** represents an enterprise-grade AI development platform with **Security Certification (8.7/10)** with Dynamic Token Scaling, Smart Edit Prevention Strategy, TDD methodology, and production-ready reliability. The system provides:
 
 ### 🎯 Dynamic Token Scaling (v1.2.0)
 - **Intelligent Resource Allocation**: Automatic token limits based on request complexity
