@@ -59,14 +59,22 @@ class AskHandler extends BaseHandler {
 
     // Smart routing or forced backend
     let selectedBackend;
-    if (force_backend && this.router?.backends?.[force_backend]) {
+    if (force_backend && this.router?.backends?.getAdapter?.(force_backend)) {
       selectedBackend = force_backend;
       console.error(`🎯 FORCED BACKEND: Using ${force_backend} (bypassing smart routing)`);
+
+      // Create routing context for metadata
+      const context = this.router.createRoutingContext(prompt, {});
+      context.source = 'forced';
+      context.decision = force_backend;
+      context.confidence = 1.0;
+      context.reasoning = 'Explicitly requested backend via force_backend parameter';
+      this.router._lastRoutingContext = context;
     } else if (model === 'auto' || requestedBackend === null) {
       console.error(`🎯 AUTO MODE: Letting Orchestrator decide optimal backend`);
       selectedBackend = await this.routeRequest(prompt, {});
     } else {
-      selectedBackend = await this.routeRequest(prompt, { forceBackend: requestedBackend });
+      selectedBackend = await this.routeRequest(prompt, { forceBackend: force_backend || requestedBackend });
     }
 
     // Dynamic token optimization
@@ -130,15 +138,16 @@ class AskHandler extends BaseHandler {
       // Record routing outcome for learning
       this.recordRoutingOutcome(true, responseContent.length, selectedBackend);
 
-      // Build routing indicator
+      // Build full routing metadata from enhanced routing context
       const routingContext = this.router?._lastRoutingContext || {};
       const routingIndicator = {
-        source: routingContext.routingSource || 'unknown',
-        decision: selectedBackend,
-        confidence: routingContext.orchestratorConfidence || null,
-        orchestrator_healthy: this.router?.orchestratorHealthy || false,
-        complexity: routingContext.complexity?.score?.toFixed(2) || null,
-        task_type: routingContext.complexity?.taskType || 'general'
+        source: routingContext.source || 'unknown',
+        decision: routingContext.decision || selectedBackend,
+        confidence: routingContext.confidence || null,
+        orchestrator_healthy: this.router?.orchestratorHealthy?.() || false,
+        complexity: routingContext.complexity?.toFixed(2) || null,
+        task_type: routingContext.taskType || 'general',
+        reasoning: routingContext.reasoning || null
       };
 
       return this.buildSuccessResponse({
@@ -256,34 +265,17 @@ class AskHandler extends BaseHandler {
    * Record routing outcome for learning
    * @private
    */
-  recordRoutingOutcome(success, outputLength, selectedBackend) {
+  async recordRoutingOutcome(success, outputLength, selectedBackend) {
     try {
-      const routingContext = this.router?._lastRoutingContext;
-      if (!routingContext) return;
-
-      const routerFactory = this.router?.routerFactory;
-      if (!routerFactory?.learningEngine) return;
-
-      routerFactory.learningEngine.recordOutcome({
-        task: routingContext.prompt,
-        context: {
-          complexity: routingContext.complexity?.score > 0.7 ? 'high' :
-                     routingContext.complexity?.score > 0.4 ? 'medium' : 'low',
-          taskType: routingContext.complexity?.taskType || 'general'
-        },
-        routing: {
-          tool: selectedBackend,
-          source: routingContext.routingSource || 'unknown'
-        },
-        execution: {
-          completed: success,
-          outputLength: outputLength || 0
-        }
+      await this.router?.recordRoutingOutcome?.({
+        success,
+        outputLength: outputLength || 0,
+        backend: selectedBackend,
+        timestamp: Date.now()
       });
-
-      console.error(`📊 Learning: Recorded ${success ? 'success' : 'failure'} for ${selectedBackend}`);
-    } catch (err) {
-      console.error(`⚠️ Learning recording failed: ${err.message}`);
+    } catch (error) {
+      // Non-blocking - don't fail request if learning fails
+      console.error(`Learning recording failed: ${error.message}`);
     }
   }
 }

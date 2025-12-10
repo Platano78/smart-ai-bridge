@@ -39,6 +39,12 @@ class HealthMonitor {
     /** @type {Map<string, Object>} */
     this.backends = new Map();
 
+    /** @type {Map<string, Object>} Health check cache */
+    this.cache = new Map();
+
+    /** @type {number} Cache TTL in milliseconds */
+    this.cacheTTL = options.cacheTTL || 300000; // 5 minutes default
+
     /** @type {Object} */
     this.options = {
       localTimeout: options.localTimeout || 10000,
@@ -95,9 +101,10 @@ class HealthMonitor {
   /**
    * Check health of a single backend
    * @param {string} name - Backend name
+   * @param {boolean} [force=false] - Force fresh check, bypass cache
    * @returns {Promise<BackendHealthStatus>}
    */
-  async checkBackend(name) {
+  async checkBackend(name, force = false) {
     const backend = this.backends.get(name);
     if (!backend) {
       return {
@@ -105,6 +112,14 @@ class HealthMonitor {
         healthy: false,
         error: 'Backend not registered'
       };
+    }
+
+    // Check cache first (unless force=true)
+    if (!force && this.cache.has(name)) {
+      const cached = this.cache.get(name);
+      if (Date.now() - cached.timestamp < this.cacheTTL) {
+        return { ...cached.result, fromCache: true };
+      }
     }
 
     backend.checkCount++;
@@ -127,7 +142,13 @@ class HealthMonitor {
         error: health.error
       };
 
-      return backend.lastHealth;
+      // Cache result
+      this.cache.set(name, {
+        result: backend.lastHealth,
+        timestamp: Date.now()
+      });
+
+      return { ...backend.lastHealth, fromCache: false };
     } catch (error) {
       backend.lastHealth = {
         name,
@@ -139,7 +160,13 @@ class HealthMonitor {
         error: error.message
       };
 
-      return backend.lastHealth;
+      // Cache error result too
+      this.cache.set(name, {
+        result: backend.lastHealth,
+        timestamp: Date.now()
+      });
+
+      return { ...backend.lastHealth, fromCache: false };
     }
   }
 

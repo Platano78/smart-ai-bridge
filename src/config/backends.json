@@ -2,14 +2,32 @@
   "version": "1.0.0",
   "description": "MKG v2 Backend Configuration",
   "backends": {
+    "orchestrator": {
+      "type": "local",
+      "enabled": true,
+      "priority": 0,
+      "description": "8B Orchestrator Model (routing & task analysis)",
+      "capabilities": ["fast_routing"],
+      "excludeFromSubagent": true,
+      "ports": [8083, 8085],
+      "config": {
+        "url": "http://localhost:8083/v1/chat/completions",
+        "model": "orchestrator",
+        "maxTokens": 4096,
+        "timeout": 10000
+      }
+    },
     "local": {
       "type": "local",
       "enabled": true,
       "priority": 1,
-      "description": "Local Qwen2.5-Coder-7B-Instruct (128K context, FP8)",
+      "description": "Local inference (dynamic model discovery)",
+      "capabilities": "dynamic",
+      "context_limit": 65536,
+      "strengths": "Large context, free inference",
       "config": {
-        "url": "http://localhost:8001/v1/chat/completions",
-        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "url": "http://localhost:8081/v1/chat/completions",
+        "model": "dynamic",
         "maxTokens": 65536,
         "timeout": 120000
       }
@@ -19,6 +37,9 @@
       "enabled": true,
       "priority": 2,
       "description": "NVIDIA DeepSeek V3.1 Terminus (reasoning, 8K tokens)",
+      "capabilities": ["deep_reasoning", "security_focus"],
+      "context_limit": 8192,
+      "strengths": "Complex reasoning, security analysis",
       "config": {
         "maxTokens": 8192,
         "timeout": 60000
@@ -29,6 +50,9 @@
       "enabled": true,
       "priority": 3,
       "description": "NVIDIA Qwen3 Coder 480B (coding, 32K tokens)",
+      "capabilities": ["code_specialized", "deep_reasoning"],
+      "context_limit": 32768,
+      "strengths": "Code review, refactoring",
       "config": {
         "maxTokens": 32768,
         "timeout": 60000
@@ -39,6 +63,9 @@
       "enabled": true,
       "priority": 4,
       "description": "Google Gemini 2.5 Flash (fast, 32K tokens)",
+      "capabilities": ["fast_generation", "documentation"],
+      "context_limit": 32768,
+      "strengths": "Fast docs, quick responses",
       "config": {
         "maxTokens": 32768,
         "timeout": 60000
@@ -75,7 +102,7 @@
   },
   "routing": {
     "defaultBackend": "local",
-    "orchestratorBackend": "local",
+    "orchestratorBackend": "orchestrator",
     "complexityThresholds": {
       "simple": 0.3,
       "medium": 0.6,

@@ -388,6 +388,61 @@ const CORE_TOOL_DEFINITIONS = [
         }
       }
     }
+  },
+  {
+    name: 'check_backend_health',
+    description: '🩺 Manual backend health check - On-demand health diagnostics for specific backend with 5-minute result caching. Only runs when explicitly requested.',
+    handler: 'handleCheckBackendHealth',
+    schema: {
+      type: 'object',
+      properties: {
+        backend: {
+          type: 'string',
+          description: 'Backend name to check (local, gemini, deepseek3.1, qwen3, chatgpt, groq_llama)'
+        },
+        force: {
+          type: 'boolean',
+          default: false,
+          description: 'Bypass cache and force fresh check'
+        }
+      },
+      required: ['backend']
+    }
+  },
+  {
+    name: 'spawn_subagent',
+    description: '🤖 Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+    handler: 'handleSpawnSubagent',
+    schema: {
+      type: 'object',
+      properties: {
+        role: {
+          type: 'string',
+          enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
+          description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation)'
+        },
+        task: {
+          type: 'string',
+          description: 'Task description for the subagent to perform'
+        },
+        file_patterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional glob patterns for files to analyze (e.g., ["src/**/*.js", "*.test.ts"])'
+        },
+        context: {
+          type: 'object',
+          description: 'Additional context object for the subagent'
+        },
+        verdict_mode: {
+          type: 'string',
+          enum: ['summary', 'full'],
+          default: 'summary',
+          description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+        }
+      },
+      required: ['role', 'task']
+    }
   }
 ];
 

@@ -1,0 +1,353 @@
+/**
+ * @fileoverview Role Templates - Subagent role definitions
+ * @module config/role-templates
+ *
+ * Defines specialized roles for subagents including system prompts,
+ * suggested tools, and behavior configuration.
+ */
+
+/**
+ * @typedef {Object} RoleTemplate
+ * @property {string} description - Role description
+ * @property {string} category - Role category (review|security|planning|generation)
+ * @property {string} system_prompt - System prompt template
+ * @property {string[]} suggested_tools - Recommended MKG tools
+ * @property {string} [output_format] - Expected output format
+ * @property {boolean} [requiresVerdict] - Whether verdict parsing is needed
+ * @property {boolean} [enableThinking] - Enable thinking mode
+ * @property {number} [maxTokens] - Maximum response tokens
+ * @property {string} [preferred_backend] - Preferred AI backend
+ */
+
+/**
+ * Available role templates
+ * @type {Object.<string, RoleTemplate>}
+ */
+const roleTemplates = {
+  'code-reviewer': {
+    description: 'Code Quality Reviewer',
+    category: 'review',
+    system_prompt: `You are an expert code reviewer focused on quality, maintainability, and best practices.
+
+Your review should cover:
+1. Code quality and readability
+2. Design patterns and architecture
+3. Performance considerations
+4. Testing coverage
+5. Documentation completeness
+
+Provide constructive feedback with specific line numbers and improvement suggestions.`,
+    suggested_tools: [
+      'read',           // Read files
+      'review',         // Deep code review
+      'edit_file',      // Suggest edits
+      'ask'             // Query AI for analysis
+    ],
+    output_format: `## Code Review
+
+### Summary
+[Brief overview of code quality]
+
+### Issues Found
+[List issues with severity: CRITICAL|HIGH|MEDIUM|LOW]
+
+### Recommendations
+[Specific actionable improvements]
+
+### Verdict
+- **Quality Score**: X/10
+- **Status**: APPROVE|APPROVE_WITH_CHANGES|REJECT
+- **Reasoning**: [Brief explanation]`,
+    requiresVerdict: true,
+    enableThinking: true,
+    maxTokens: 16384,
+    // Dynamic capability-based backend selection
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'medium',
+    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+  },
+
+  'security-auditor': {
+    description: 'Security Vulnerability Auditor',
+    category: 'security',
+    system_prompt: `You are a security expert performing a comprehensive security audit.
+
+Focus on identifying:
+1. SQL injection vulnerabilities
+2. XSS (Cross-Site Scripting) risks
+3. Authentication/authorization flaws
+4. Insecure data handling
+5. Dependency vulnerabilities
+6. Secrets exposure
+7. OWASP Top 10 issues
+
+For each finding, provide:
+- Vulnerability type
+- Severity (CRITICAL|HIGH|MEDIUM|LOW)
+- Affected code location
+- Exploitation scenario
+- Remediation steps`,
+    suggested_tools: [
+      'read',           // Read files
+      'review',         // Security review
+      'validate_changes', // Validate fixes
+      'ask'             // Deep analysis
+    ],
+    output_format: `## Security Audit Report
+
+### Executive Summary
+[High-level security posture assessment]
+
+### Vulnerabilities Detected
+[Detailed list with severity, location, and exploitation scenario]
+
+### Remediation Plan
+[Prioritized fix recommendations]
+
+### Verdict
+- **Security Score**: X/10
+- **Risk Level**: CRITICAL|HIGH|MEDIUM|LOW
+- **Status**: SECURE|VULNERABLE|CRITICAL_ISSUES
+- **Reasoning**: [Brief explanation]`,
+    requiresVerdict: true,
+    enableThinking: true,
+    maxTokens: 16384,
+    // Dynamic capability-based backend selection
+    required_capabilities: ['deep_reasoning', 'security_focus'],
+    context_sensitivity: 'medium',
+    fallback_order: ['nvidia_deepseek', 'nvidia_qwen', 'local']
+  },
+
+  'planner': {
+    description: 'Task Planning and Architecture Specialist',
+    category: 'planning',
+    system_prompt: `You are a software architect and project planner.
+
+Your role is to:
+1. Break down complex tasks into atomic steps
+2. Identify dependencies and critical path
+3. Suggest optimal implementation order
+4. Estimate complexity and effort
+5. Recommend tools and patterns
+6. Identify potential risks
+
+Create clear, actionable plans that developers can follow immediately.`,
+    suggested_tools: [
+      'read',           // Understand codebase
+      'ask',            // Analysis and reasoning
+      'get_analytics'   // Performance insights
+    ],
+    output_format: `## Implementation Plan
+
+### Task Overview
+[Brief description and goals]
+
+### Prerequisites
+[Required knowledge, tools, or setup]
+
+### Implementation Steps
+[Numbered list of atomic tasks with:
+ - Task description
+ - Estimated complexity (1-10)
+ - Dependencies
+ - Suggested approach]
+
+### Critical Path
+[Tasks that block other work]
+
+### Quality Gates
+[Testing and validation checkpoints]
+
+### Risk Assessment
+[Potential blockers and mitigations]
+
+### Estimated Timeline
+[Time estimates for sequential and parallel execution]`,
+    requiresVerdict: false,
+    enableThinking: true,
+    maxTokens: 32768, // Larger for comprehensive plans
+    // Dynamic capability-based backend selection with context awareness
+    required_capabilities: ['deep_reasoning'],
+    context_sensitivity: 'high',  // Triggers context-based routing
+    fallback_order: ['nvidia_deepseek', 'nvidia_qwen', 'local'],
+    // Context-aware routing rules
+    routing_rules: {
+      small_task: { prefer: 'nvidia_deepseek', reason: 'Deep reasoning for architecture' },
+      large_context: { prefer: 'local', reason: '128K context for large codebases' }
+    }
+  },
+
+  'refactor-specialist': {
+    description: 'Code Refactoring Specialist',
+    category: 'generation',
+    system_prompt: `You are an expert in code refactoring and design patterns.
+
+Your mission is to:
+1. Identify code smells and technical debt
+2. Suggest refactoring opportunities
+3. Apply SOLID principles
+4. Extract reusable components
+5. Improve testability
+6. Enhance maintainability
+
+Provide refactored code with clear before/after comparisons and explanations.`,
+    suggested_tools: [
+      'read',           // Read files
+      'edit_file',      // Apply refactoring
+      'multi_edit',     // Batch refactoring
+      'ask'             // Design analysis
+    ],
+    output_format: `## Refactoring Proposal
+
+### Code Smells Identified
+[List problematic patterns]
+
+### Proposed Changes
+[Detailed refactoring steps with before/after code]
+
+### Benefits
+[Improved maintainability, testability, performance]
+
+### Migration Path
+[How to safely apply changes]
+
+### Verdict
+- **Code Quality Improvement**: X%
+- **Complexity Reduction**: Y%
+- **Recommendation**: APPLY|REVIEW_FURTHER|DEFER`,
+    requiresVerdict: true,
+    enableThinking: true,
+    maxTokens: 16384,
+    // Dynamic capability-based backend selection
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'medium',
+    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+  },
+
+  'test-generator': {
+    description: 'Test Case Generator',
+    category: 'generation',
+    system_prompt: `You are a testing expert specializing in comprehensive test coverage.
+
+Generate tests that cover:
+1. Happy path scenarios
+2. Edge cases
+3. Error handling
+4. Boundary conditions
+5. Integration points
+6. Performance benchmarks
+
+Use appropriate testing frameworks and follow testing best practices.`,
+    suggested_tools: [
+      'read',           // Read code to test
+      'write_files_atomic', // Write test files
+      'ask'             // Test strategy analysis
+    ],
+    output_format: `## Test Suite
+
+### Test Coverage Analysis
+[What needs testing and why]
+
+### Generated Tests
+[Complete test code with:
+ - Unit tests
+ - Integration tests
+ - Edge cases
+ - Mock/stub setup]
+
+### Coverage Metrics
+[Expected coverage percentage]
+
+### Verdict
+- **Coverage Score**: X%
+- **Quality**: COMPREHENSIVE|ADEQUATE|INSUFFICIENT
+- **Additional Tests Needed**: [List if any]`,
+    requiresVerdict: true,
+    enableThinking: false, // Fast generation
+    maxTokens: 16384,
+    // Dynamic capability-based backend selection
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'medium',
+    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+  },
+
+  'documentation-writer': {
+    description: 'Technical Documentation Writer',
+    category: 'generation',
+    system_prompt: `You are a technical writer creating clear, comprehensive documentation.
+
+Your documentation should include:
+1. Overview and purpose
+2. API/function signatures
+3. Usage examples
+4. Parameter descriptions
+5. Return values
+6. Edge cases and gotchas
+7. Links to related docs
+
+Write for developers with varying experience levels.`,
+    suggested_tools: [
+      'read',           // Read code
+      'write_files_atomic', // Write docs
+      'ask'             // Clarification
+    ],
+    output_format: `## Documentation
+
+### Overview
+[Brief description of component/module]
+
+### API Reference
+[Detailed function/class documentation]
+
+### Usage Examples
+[Practical code examples]
+
+### Configuration
+[Setup and configuration options]
+
+### Troubleshooting
+[Common issues and solutions]`,
+    requiresVerdict: false,
+    enableThinking: false,
+    maxTokens: 32768,
+    // Dynamic capability-based backend selection
+    required_capabilities: ['fast_generation', 'documentation'],
+    context_sensitivity: 'low',
+    fallback_order: ['gemini', 'nvidia_qwen', 'local']
+  }
+};
+
+/**
+ * Get list of all available roles
+ * @returns {string[]}
+ */
+function getAvailableRoles() {
+  return Object.keys(roleTemplates);
+}
+
+/**
+ * Get role template by name
+ * @param {string} role - Role name
+ * @returns {RoleTemplate|null}
+ */
+function getRoleTemplate(role) {
+  return roleTemplates[role] || null;
+}
+
+/**
+ * Get roles by category
+ * @param {string} category - Category name
+ * @returns {string[]}
+ */
+function getRolesByCategory(category) {
+  return Object.entries(roleTemplates)
+    .filter(([_, template]) => template.category === category)
+    .map(([roleName, _]) => roleName);
+}
+
+export {
+  roleTemplates,
+  getAvailableRoles,
+  getRoleTemplate,
+  getRolesByCategory
+};
