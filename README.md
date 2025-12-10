@@ -65,14 +65,24 @@ Self-improving routing that learns optimal backend selection:
 ### 🤖 Specialized Subagent System
 Six AI roles with tailored prompts and structured outputs:
 
-| Role | Purpose | Backend |
-|------|---------|--------|
-| `code-reviewer` | Quality review, best practices | qwen3 |
-| `security-auditor` | Vulnerability detection, OWASP | deepseek3.1 |
-| `planner` | Task breakdown, dependencies | qwen3 |
-| `refactor-specialist` | Code improvement suggestions | deepseek3.1 |
-| `test-generator` | Test suite generation | deepseek3.1 |
-| `documentation-writer` | Documentation creation | gemini |
+| Role | Purpose |
+|------|---------|
+| `code-reviewer` | Quality review, best practices |
+| `security-auditor` | Vulnerability detection, OWASP |
+| `planner` | Task breakdown, dependencies |
+| `refactor-specialist` | Code improvement suggestions |
+| `test-generator` | Test suite generation |
+| `documentation-writer` | Documentation creation |
+
+**Backend Configuration**: Subagent backends are user-configurable via environment variables:
+```bash
+# Override individual roles
+SUBAGENT_CODE_REVIEWER_BACKEND=gemini
+SUBAGENT_SECURITY_AUDITOR_BACKEND=local
+
+# Or set a global default for all subagents
+SUBAGENT_DEFAULT_BACKEND=qwen3
+```
 
 **New Tool**: `spawn_subagent` with structured verdict outputs
 
