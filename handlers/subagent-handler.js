@@ -74,8 +74,8 @@ export class SubagentHandler {
       additionalContext: params.context
     });
 
-    // Step 6: Route to backend
-    const backend = roleTemplate.recommendedBackend;
+    // Step 6: Route to backend (supports env overrides)
+    const backend = this._resolveBackend(params.role, roleTemplate.recommendedBackend);
     console.error(`🤖 Spawning ${roleTemplate.name} (${params.role}) on ${backend}...`);
 
     try {
@@ -212,5 +212,31 @@ export class SubagentHandler {
     prompt += `\nIMPORTANT: Provide your analysis, then include a structured VERDICT as specified in your role instructions.`;
 
     return prompt;
+  }
+
+  /**
+   * Resolve backend for subagent with environment override support
+   * Priority: Global override > Role-specific override > Default
+   * @private
+   * @param {string} role - Role name (e.g., 'code-reviewer')
+   * @param {string} defaultBackend - Default backend from role template
+   * @returns {string} Resolved backend name
+   */
+  _resolveBackend(role, defaultBackend) {
+    // Priority 1: Global override (SUBAGENT_DEFAULT_BACKEND)
+    const globalOverride = process.env.SUBAGENT_DEFAULT_BACKEND;
+    if (globalOverride) {
+      return globalOverride;
+    }
+
+    // Priority 2: Role-specific override (SUBAGENT_CODE_REVIEWER_BACKEND, etc.)
+    const envKey = `SUBAGENT_${role.toUpperCase().replace(/-/g, '_')}_BACKEND`;
+    const roleOverride = process.env[envKey];
+    if (roleOverride) {
+      return roleOverride;
+    }
+
+    // Priority 3: Default from role template
+    return defaultBackend;
   }
 }
