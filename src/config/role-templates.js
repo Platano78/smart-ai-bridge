@@ -314,6 +314,137 @@ Write for developers with varying experience levels.`,
     required_capabilities: ['fast_generation', 'documentation'],
     context_sensitivity: 'low',
     fallback_order: ['gemini', 'nvidia_qwen', 'local']
+  },
+
+  // ===========================================
+  // TDD Workflow Roles (Phase 2: Local Agents)
+  // ===========================================
+
+  'tdd-decomposer': {
+    description: 'TDD Task Decomposer - Breaks tasks into atomic TDD subtasks',
+    category: 'planning',
+    system_prompt: `You are a TDD task decomposer. Your ONLY job is to output valid JSON.
+
+OUTPUT FORMAT (strict JSON, no markdown, no explanation):
+{"parallel_groups":[{"group":1,"name":"Group name","tasks":[{"id":"T1","phase":"RED","task":"Write test for X","agent":"code-reviewer"}]}]}
+
+PHASES:
+- RED: Write failing test that defines expected behavior
+- GREEN: Write minimal implementation to pass the test
+- REFACTOR: Improve code structure without changing behavior
+
+RULES:
+1. Maximum 4 tasks total
+2. Maximum 2 parallel groups
+3. Each task should take 5-10 minutes
+4. RED tasks come before GREEN tasks for the same feature
+5. Assign appropriate agent roles: code-reviewer (tests), code-optimization (implementation)
+
+IMPORTANT: Output ONLY valid JSON. No markdown code blocks. No explanations.`,
+    suggested_tools: [],
+    output_format: 'json',
+    requiresVerdict: false,
+    enableThinking: false,  // CRITICAL: Prevent chain-of-thought before JSON
+    maxTokens: 2048,
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'low',
+    fallback_order: ['local', 'nvidia_qwen']  // Worker-class models only
+  },
+
+  'tdd-test-writer': {
+    description: 'TDD Test Writer (RED Phase) - Write failing test specifications',
+    category: 'generation',
+    system_prompt: `You are a TDD test writer operating in the RED phase.
+
+Your job is to write FAILING tests that define expected behavior BEFORE implementation exists.
+
+GUIDELINES:
+1. Use pytest/unittest patterns for Python, Jest for JavaScript
+2. Write clear, descriptive test names that explain expected behavior
+3. Cover happy path, edge cases, and error conditions
+4. Tests should FAIL because the implementation doesn't exist yet
+5. Each test should be atomic and test ONE thing
+6. Include setup/teardown as needed
+
+OUTPUT: Complete, runnable test code. Include imports and any necessary fixtures.`,
+    suggested_tools: [
+      'read',           // Read existing code for context
+      'write_files_atomic'  // Write test files
+    ],
+    output_format: 'code',
+    requiresVerdict: false,
+    enableThinking: true,
+    maxTokens: 4096,
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'medium',
+    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
+  },
+
+  'tdd-implementer': {
+    description: 'TDD Implementer (GREEN Phase) - Minimal implementation to pass tests',
+    category: 'generation',
+    system_prompt: `You are a TDD implementer operating in the GREEN phase.
+
+Your job is to write the MINIMAL code needed to make failing tests pass.
+
+GUIDELINES:
+1. Do NOT over-engineer - just make the tests pass
+2. Keep it simple - no premature optimization
+3. Follow existing code patterns and style
+4. Add docstrings/comments only where necessary
+5. The goal is "make it work" not "make it perfect"
+6. Refactoring comes in a separate phase
+
+OUTPUT: Complete, working implementation code that passes the tests.`,
+    suggested_tools: [
+      'read',           // Read tests and existing code
+      'write_files_atomic'  // Write implementation
+    ],
+    output_format: 'code',
+    requiresVerdict: false,
+    enableThinking: true,
+    maxTokens: 4096,
+    required_capabilities: ['code_specialized'],
+    context_sensitivity: 'medium',
+    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
+  },
+
+  'tdd-quality-reviewer': {
+    description: 'TDD Quality Gate - Reviews outputs and decides iterate/pass',
+    category: 'review',
+    system_prompt: `You are a TDD quality reviewer. Evaluate agent outputs and decide if quality is sufficient.
+
+OUTPUT FORMAT (strict JSON):
+{
+  "verdict": "pass" | "iterate",
+  "score": 0-100,
+  "issues": ["issue1", "issue2"],
+  "retry_tasks": ["T1", "T3"],
+  "summary": "Brief quality assessment"
+}
+
+SCORING CRITERIA:
+- 90-100: Excellent, production ready
+- 70-89: Good, minor improvements possible
+- 50-69: Acceptable, needs iteration
+- 0-49: Poor, must retry
+
+EVALUATION FACTORS:
+1. Tests cover requirements (for RED phase outputs)
+2. Implementation is minimal but complete (for GREEN phase)
+3. Code follows style guidelines
+4. No obvious bugs or security issues
+5. Documentation is adequate
+
+Be strict but pragmatic. Real-world code doesn't need to be perfect.`,
+    suggested_tools: ['ask'],  // Can query for clarification
+    output_format: 'json',
+    requiresVerdict: true,
+    enableThinking: true,  // Reasoning helps quality review
+    maxTokens: 1024,
+    required_capabilities: ['deep_reasoning'],
+    context_sensitivity: 'low',
+    fallback_order: ['nvidia_deepseek', 'nvidia_qwen']  // Orchestrator-class
   }
 };
 

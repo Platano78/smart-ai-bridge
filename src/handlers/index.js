@@ -22,6 +22,7 @@ import {
   GetAnalyticsHandler
 } from './system-handlers.js';
 import { SubagentHandler } from './subagent-handler.js';
+import { ParallelAgentsHandler } from './parallel-agents-handler.js';
 
 /**
  * Handler class registry mapping handler names to classes
@@ -38,7 +39,8 @@ const HANDLER_REGISTRY = {
   'handleValidateChanges': ValidateChangesHandler,
   'handleManageConversation': ManageConversationHandler,
   'handleGetAnalytics': GetAnalyticsHandler,
-  'handleSpawnSubagent': SubagentHandler
+  'handleSpawnSubagent': SubagentHandler,
+  'handleParallelAgents': ParallelAgentsHandler
 };
 
 /**
@@ -145,6 +147,7 @@ export {
   ManageConversationHandler,
   GetAnalyticsHandler,
   SubagentHandler,
+  ParallelAgentsHandler,
 
   // Registry and factory
   HANDLER_REGISTRY,

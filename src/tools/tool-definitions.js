@@ -418,8 +418,8 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         role: {
           type: 'string',
-          enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
-          description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation)'
+          enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer', 'tdd-decomposer', 'tdd-test-writer', 'tdd-implementer', 'tdd-quality-reviewer'],
+          description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation), tdd-decomposer (break task into TDD subtasks), tdd-test-writer (RED phase), tdd-implementer (GREEN phase), tdd-quality-reviewer (quality gate)'
         },
         task: {
           type: 'string',
@@ -442,6 +442,44 @@ const CORE_TOOL_DEFINITIONS = [
         }
       },
       required: ['role', 'task']
+    }
+  },
+  {
+    name: 'parallel_agents',
+    description: '🚀 Execute multiple TDD agents in parallel with quality gate iteration. Decomposes high-level tasks into atomic subtasks, executes them in parallel groups (RED before GREEN), and iterates based on quality review.',
+    handler: 'handleParallelAgents',
+    schema: {
+      type: 'object',
+      properties: {
+        task: {
+          type: 'string',
+          description: 'High-level task to decompose and execute via TDD workflow'
+        },
+        max_parallel: {
+          type: 'integer',
+          default: 2,
+          minimum: 1,
+          maximum: 6,
+          description: 'Maximum parallel agents (matches GPU slots, default: 2)'
+        },
+        iterate_until_quality: {
+          type: 'boolean',
+          default: true,
+          description: 'Whether to iterate on failed quality checks'
+        },
+        max_iterations: {
+          type: 'integer',
+          default: 3,
+          minimum: 1,
+          maximum: 5,
+          description: 'Maximum quality gate iterations (prevents infinite loops)'
+        },
+        work_directory: {
+          type: 'string',
+          description: 'Optional directory for generated files (default: /tmp/parallel-agents-{timestamp})'
+        }
+      },
+      required: ['task']
     }
   }
 ];
