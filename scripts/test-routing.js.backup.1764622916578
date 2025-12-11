@@ -1,0 +1,111 @@
+#!/usr/bin/env node
+
+/**
+ * MKG v9.1 Complete Test Suite
+ * Tests routing, perception, and verification
+ */
+
+const path = require('path');
+
+// Load configs
+const toolsConfig = require('../src/config/tools-config.json');
+const orchestratorConfig = require('../config/mkg-orchestrator.json');
+
+// Import modules
+const { RouterFactory } = require('../src/router');
+
+const testCases = [
+  {
+    name: 'Simple function - low complexity',
+    task: 'Write a Python function to check if a number is prime',
+    context: { complexity: 'low', fileCount: 1, taskType: 'coding' },
+    expectedRoute: 'local_qwen_coder',
+    shouldVerify: true
+  },
+  {
+    name: 'Complex refactoring - triggers perception',
+    task: 'Refactor the authentication module to use JWT tokens across all service files',
+    context: { 
+      complexity: 'high', 
+      fileCount: 8, 
+      taskType: 'refactoring',
+      workingDir: process.cwd() // Use current dir for perception test
+    },
+    expectedRoute: 'nvidia_qwen480b',
+    shouldVerify: true,
+    shouldPerceive: true
+  },
+  {
+    name: 'Analysis task',
+    task: 'Analyze the codebase architecture and document the main components',
+    context: { complexity: 'medium', fileCount: 5, taskType: 'analysis' },
+    expectedRoute: 'nvidia_deepseek_v3',
+    shouldVerify: false
+  },
+  {
+    name: 'Default routing - simple task',
+    task: 'Add a console.log statement to debug the issue',
+    context: { complexity: 'low', fileCount: 1, taskType: 'debugging' },
+    expectedRoute: 'local_qwen_coder',
+    shouldVerify: false
+  }
+];
+
+async function runTests() {
+  console.log('\n🧪 MKG v9.1 Complete Test Suite\n');
+  console.log('='.repeat(70));
+
+  const router = new RouterFactory(toolsConfig, orchestratorConfig);
+  
+  // Wait for health checks (orchestrator may not be available)
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  console.log('\n📊 System Status:');
+  const status = router.getStatus();
+  console.log(JSON.stringify(status, null, 2));
+  console.log('\n' + '='.repeat(70) + '\n');
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of testCases) {
+    console.log(`\n📝 Test: ${test.name}`);
+    console.log(`   Task: "${test.task.substring(0, 60)}..."`);
+    
+    try {
+      // Test routing only (don't actually execute on endpoints)
+      const routeResult = await router.route(test.task, test.context);
+      
+      console.log(`   Routed to: ${routeResult.tool} (${routeResult.source})`);
+      console.log(`   Confidence: ${routeResult.confidence}`);
+      console.log(`   Reasoning: ${routeResult.reasoning}`);
+      
+      if (test.shouldPerceive && routeResult.perception) {
+        console.log(`   ✅ Perception triggered: ${routeResult.perception.language?.primary || 'detected'}`);
+        console.log(`   📁 Files found: ${routeResult.perception.existingFiles?.length || 0}`);
+      } else if (test.shouldPerceive && !routeResult.perception) {
+        console.log(`   ⚠️  Expected perception but none occurred`);
+      }
+
+      passed++;
+      console.log(`   ✅ PASS`);
+      
+    } catch (error) {
+      console.log(`   ❌ ERROR: ${error.message}`);
+      failed++;
+    }
+  }
+
+  console.log('\n' + '='.repeat(70));
+  console.log(`\n📊 Results: ${passed} passed, ${failed} failed`);
+  console.log('\n📈 Final Analytics:');
+  console.log(JSON.stringify(router.getAnalytics(), null, 2));
+
+  router.shutdown();
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+runTests().catch(error => {
+  console.error('Test suite failed:', error);
+  process.exit(1);
+});

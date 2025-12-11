@@ -1,0 +1,372 @@
+#!/usr/bin/env node
+/**
+ * @fileoverview MKG v2 Server - Modular entry point
+ * @module server-mkg-v2
+ *
+ * Mecha-King Ghidorah v2 MCP Server
+ * Refactored modular architecture with:
+ * - Plugin-based backend system
+ * - Extracted handlers
+ * - Unified health monitoring
+ * - Config-driven routing
+ *
+ * Target: ~500 lines (down from 5,376 in monolith)
+ */
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema
+} from '@modelcontextprotocol/sdk/types.js';
+
+// Import modular components
+import { SmartAliasResolver } from './src/tools/smart-alias-resolver.js';
+import { HandlerFactory } from './src/handlers/index.js';
+import { BackendRegistry } from './src/backends/backend-registry.js';
+import { HealthMonitor } from './src/monitoring/health-monitor.js';
+import { PlaybookSystem } from './src/intelligence/playbook-system.js';
+import { ConcurrentRequestManager } from './src/utils/concurrent-request-manager.js';
+
+// Version info
+const VERSION = '2.0.0';
+const SERVER_NAME = 'mecha-king-ghidorah-v2';
+
+/**
+ * MKG v2 Server
+ * Slim orchestration layer that delegates to modular components
+ */
+class MKGServerV2 {
+  constructor() {
+    // Initialize MCP server
+    this.server = new Server(
+      { name: SERVER_NAME, version: VERSION },
+      { capabilities: { tools: {} } }
+    );
+
+    // Initialize modular components
+    this.aliasResolver = new SmartAliasResolver();
+    this.backendRegistry = new BackendRegistry();
+    this.healthMonitor = new HealthMonitor();
+    this.playbook = new PlaybookSystem();
+    this.requestManager = new ConcurrentRequestManager();
+
+    // Create router interface (compatibility layer for handlers)
+    this.router = this.createRouterInterface();
+
+    // Initialize handler factory with dependencies
+    this.handlerFactory = new HandlerFactory({
+      router: this.router,
+      server: this,
+      playbook: this.playbook
+    });
+
+    // Register backends with health monitor
+    this.registerBackendsWithMonitor();
+
+    // Initialize health check cache
+    this.healthCache = new Map();
+
+    // Setup MCP handlers
+    this.setupToolHandlers();
+
+    console.error(`🤖 MKG v2 Server initialized (${VERSION})`);
+    console.error(`📦 ${this.aliasResolver.getSystemStats().totalTools} tools registered`);
+  }
+
+  /**
+   * Create router interface for backward compatibility with handlers
+   * @private
+   */
+  createRouterInterface() {
+    return {
+      // Route request to optimal backend
+      routeRequest: async (prompt, options = {}) => {
+        if (options.forceBackend) {
+          return options.forceBackend;
+        }
+
+        // Get recommendations from health monitor
+        const recommendations = this.healthMonitor.getRecommendations();
+
+        // Use recommended backend or fallback to first healthy
+        return recommendations.recommended || this.backendRegistry.getFallbackChain()[0] || 'local';
+      },
+
+      // Make request through backend registry
+      makeRequest: async (prompt, endpoint, options = {}) => {
+        const adapter = this.backendRegistry.getAdapter(endpoint);
+        if (!adapter) {
+          throw new Error(`Backend not available: ${endpoint}`);
+        }
+
+        return this.requestManager.executeRequest(
+          adapter.execute(prompt, options)
+        );
+      },
+
+      // Detect programming language from content
+      detectLanguage: (content) => {
+        if (!content) return 'unknown';
+        if (content.includes('import React') || content.includes('useState')) return 'javascript';
+        if (content.includes('def ') || content.includes('import ')) return 'python';
+        if (content.includes('public class') || content.includes('private ')) return 'java';
+        if (content.includes('#include') || content.includes('std::')) return 'cpp';
+        if (content.includes('interface ') || content.includes(': string')) return 'typescript';
+        return 'unknown';
+      },
+
+      // Calculate dynamic token limit
+      calculateDynamicTokenLimit: (prompt, backend) => {
+        const promptLower = prompt.toLowerCase();
+
+        // Unity/game development detection
+        if (promptLower.includes('unity') || promptLower.includes('monobehaviour') ||
+            promptLower.includes('gameobject') || promptLower.includes('c#')) {
+          return 16384;
+        }
+
+        // Complex generation detection
+        if (promptLower.includes('implement') || promptLower.includes('complete') ||
+            promptLower.includes('generate') || prompt.length > 2000) {
+          return 8192;
+        }
+
+        return 2048;
+      },
+
+      // Backend reference for handlers
+      backends: this.backendRegistry.adapters,
+
+      // Store last routing context for learning
+      _lastRoutingContext: null
+    };
+  }
+
+  /**
+   * Register all backends with health monitor
+   * @private
+   */
+  registerBackendsWithMonitor() {
+    for (const name of this.backendRegistry.getEnabledBackends()) {
+      const adapter = this.backendRegistry.getAdapter(name);
+      if (adapter) {
+        this.healthMonitor.registerBackend(name, adapter);
+      }
+    }
+  }
+
+  /**
+   * Setup MCP tool handlers
+   * @private
+   */
+  setupToolHandlers() {
+    // List tools handler
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return { tools: this.aliasResolver.generateToolList() };
+    });
+
+    // Call tool handler
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+
+      try {
+        const result = await this.handleToolCall(name, args);
+        return {
+          content: [{
+            type: 'text',
+            text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+          }]
+        };
+      } catch (error) {
+        console.error(`❌ Tool error [${name}]:`, error.message);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message,
+              tool: name,
+              timestamp: new Date().toISOString()
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    });
+  }
+
+  /**
+   * Handle tool call by routing to appropriate handler
+   * @private
+   */
+  async handleToolCall(toolName, args) {
+    // Resolve tool handler
+    const handlerName = this.aliasResolver.resolveToolHandler(toolName);
+
+    if (!handlerName) {
+      throw new Error(`Unknown tool: ${toolName}`);
+    }
+
+    // Special handling for health check
+    if (handlerName === 'handleHealth') {
+      return this.handleHealth(args);
+    }
+
+    // Special handling for analytics
+    if (handlerName === 'handleGetAnalytics') {
+      return this.handleGetAnalytics(args);
+    }
+
+    // Delegate to handler factory
+    return this.handlerFactory.execute(handlerName, args);
+  }
+
+  /**
+   * Handle health check with full system status
+   * @private
+   */
+  async handleHealth(args = {}) {
+    const { check_type = 'comprehensive', force_ip_rediscovery = false } = args;
+
+    // Force health check
+    const healthStatus = await this.healthMonitor.checkAll();
+
+    // Get backend registry stats
+    const registryStats = this.backendRegistry.getStats();
+
+    // Get request manager metrics
+    const requestMetrics = this.requestManager.getMetrics();
+
+    // Get playbook stats
+    const playbookStats = this.playbook.getStats();
+
+    // Get recommendations
+    const recommendations = this.healthMonitor.getRecommendations();
+
+    return {
+      success: true,
+      server: {
+        name: SERVER_NAME,
+        version: VERSION,
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage()
+      },
+      health: healthStatus,
+      backends: registryStats,
+      requests: requestMetrics,
+      playbook: playbookStats,
+      recommendations,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Handle analytics request
+   * @private
+   */
+  async handleGetAnalytics(args = {}) {
+    const { report_type = 'current', time_range = '24h', format = 'json' } = args;
+
+    const analytics = {
+      session: {
+        requests: this.requestManager.getMetrics(),
+        backends: this.backendRegistry.getStats(),
+        health: this.healthMonitor.getMetrics()
+      },
+      recommendations: this.healthMonitor.getRecommendations(),
+      timestamp: new Date().toISOString()
+    };
+
+    if (format === 'markdown') {
+      return this.formatAnalyticsAsMarkdown(analytics);
+    }
+
+    return {
+      success: true,
+      report_type,
+      time_range,
+      analytics
+    };
+  }
+
+  /**
+   * Format analytics as markdown
+   * @private
+   */
+  formatAnalyticsAsMarkdown(analytics) {
+    return `# MKG v2 Analytics Report
+
+## Session Metrics
+- Total Requests: ${analytics.session.requests.totalRequests}
+- Completed: ${analytics.session.requests.completedRequests}
+- Avg Response Time: ${analytics.session.requests.averageResponseTime?.toFixed(2)}ms
+- Peak Concurrency: ${analytics.session.requests.peakConcurrency}
+
+## Backend Status
+- Healthy: ${analytics.session.backends.healthyBackends}/${analytics.session.backends.totalBackends}
+- Fallback Chain: ${analytics.session.backends.fallbackChain?.join(' → ')}
+
+## Recommendations
+- Primary: ${analytics.recommendations.recommended || 'None'}
+- Healthy: ${analytics.recommendations.healthy?.join(', ') || 'None'}
+- Degraded: ${analytics.recommendations.degraded?.join(', ') || 'None'}
+
+Generated: ${analytics.timestamp}`;
+  }
+
+  /**
+   * Start the MCP server
+   */
+  async start() {
+    const transport = new StdioServerTransport();
+    await this.server.connect(transport);
+
+    // Health monitoring is now on-demand only (reactive checks on failures)
+    // Automatic monitoring disabled to prevent excessive API calls
+    // this.healthMonitor.startMonitoring(30000);
+
+    console.error(`🚀 MKG v2 Server running on stdio transport`);
+    console.error(`📊 Health monitoring: on-demand only (reactive mode)`);
+  }
+
+  /**
+   * Graceful shutdown
+   */
+  async shutdown() {
+    console.error('🛑 Shutting down MKG v2 Server...');
+    this.healthMonitor.stopMonitoring();
+    await this.server.close();
+  }
+}
+
+// Main entry point
+async function main() {
+  const server = new MKGServerV2();
+
+  // Handle graceful shutdown
+  process.on('SIGINT', async () => {
+    await server.shutdown();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', async () => {
+    await server.shutdown();
+    process.exit(0);
+  });
+
+  await server.start();
+}
+
+// Run if main module (ESM compatible)
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === __filename) {
+  main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}
+
+export { MKGServerV2 };

@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "timestamp": 1765085262352,
+  "entries": [
+    {
+      "modelName": "Local-AI-Service",
+      "capabilities": {
+        "max_context": 65536,
+        "max_output": 8192,
+        "detection_source": "config_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:27:42.352Z"
+      },
+      "timestamp": 1765085262352,
+      "ttl": 3600000
+    },
+    {
+      "modelName": "Gemini-Enhanced-Backend",
+      "capabilities": {
+        "max_context": 4096,
+        "max_output": 2048,
+        "detection_source": "conservative_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:15:21.899Z"
+      },
+      "timestamp": 1765084521899,
+      "ttl": 3600000
+    },
+    {
+      "modelName": "NVIDIA-DeepSeek-V3.1",
+      "capabilities": {
+        "max_context": 4096,
+        "max_output": 2048,
+        "detection_source": "conservative_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:15:22.020Z"
+      },
+      "timestamp": 1765084522020,
+      "ttl": 3600000
+    },
+    {
+      "modelName": "NVIDIA-Qwen-3-Coder-480B",
+      "capabilities": {
+        "max_context": 4096,
+        "max_output": 2048,
+        "detection_source": "conservative_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:15:22.086Z"
+      },
+      "timestamp": 1765084522086,
+      "ttl": 3600000
+    },
+    {
+      "modelName": "OpenAI-ChatGPT-GPT4.1",
+      "capabilities": {
+        "max_context": 4096,
+        "max_output": 2048,
+        "detection_source": "conservative_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:15:22.539Z"
+      },
+      "timestamp": 1765084522539,
+      "ttl": 3600000
+    },
+    {
+      "modelName": "Groq-Llama-3.3-70B",
+      "capabilities": {
+        "max_context": 4096,
+        "max_output": 2048,
+        "detection_source": "conservative_fallback",
+        "validated": false,
+        "last_updated": "2025-12-07T05:15:23.121Z"
+      },
+      "timestamp": 1765084523121,
+      "ttl": 3600000
+    }
+  ]
+}

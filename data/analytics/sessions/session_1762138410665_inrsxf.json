@@ -1,0 +1,15 @@
+{
+  "session_id": "session_1762138410665_inrsxf",
+  "started_at": "2025-11-03T02:53:30.665Z",
+  "metrics": {
+    "total_requests": 0,
+    "successful_requests": 0,
+    "failed_requests": 0,
+    "total_tokens": 0,
+    "total_processing_time_ms": 0,
+    "backend_usage": {},
+    "tool_usage": {},
+    "routing_decisions": {}
+  },
+  "last_updated": "2025-11-03T03:24:38.719Z"
+}

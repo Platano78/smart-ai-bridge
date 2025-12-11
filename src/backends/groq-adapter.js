@@ -56,15 +56,17 @@ class GroqAdapter extends BackendAdapter {
     const startTime = Date.now();
 
     try {
+      // Lightweight health probe: minimal token usage (1-2 tokens)
       const response = await fetch(this.config.url, {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify({
           model: this.model,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 5
+          messages: [{ role: 'user', content: 'ok' }], // 1 token instead of "ping" (4 tokens)
+          max_tokens: 1, // Minimal response
+          temperature: 0
         }),
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(3000) // Quick 3s timeout for health checks
       });
 
       this.lastHealth = {

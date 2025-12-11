@@ -128,7 +128,7 @@ Rules:
 
     try {
       if (!router) {
-        console.log('[Playbook] No router available for lesson extraction');
+        console.error('[Playbook] No router available for lesson extraction');
         return [];
       }
 
@@ -145,7 +145,7 @@ Rules:
       const parsed = JSON.parse(jsonMatch[0]);
       return parsed.lessons || [];
     } catch (error) {
-      console.log('[Playbook] Lesson extraction failed (non-critical):', error.message);
+      console.error('[Playbook] Lesson extraction failed (non-critical):', error.message);
       return [];
     }
   }
@@ -172,12 +172,12 @@ Rules:
             `Task Type: ${executionContext.taskType}`
           ]
         });
-        console.log(`[Playbook] Stored lesson: ${lesson.lesson.substring(0, 50)}...`);
+        console.error(`[Playbook] Stored lesson: ${lesson.lesson.substring(0, 50)}...`);
         return true;
       }
 
       // Fallback: Log the lesson for manual review
-      console.log(`[Playbook] Lesson (no Faulkner): ${JSON.stringify({
+      console.error(`[Playbook] Lesson (no Faulkner): ${JSON.stringify({
         name: patternName,
         lesson: lesson.lesson,
         category: lesson.category,
@@ -186,7 +186,7 @@ Rules:
       })}`);
       return false;
     } catch (error) {
-      console.log('[Playbook] Failed to store lesson:', error.message);
+      console.error('[Playbook] Failed to store lesson:', error.message);
       return false;
     }
   }
@@ -230,7 +230,7 @@ Rules:
         ? this.cachedLessons.filter(l => l.category === category)
         : this.cachedLessons.slice(0, this.config.topLessonsToInject);
     } catch (error) {
-      console.log('[Playbook] Failed to retrieve lessons:', error.message);
+      console.error('[Playbook] Failed to retrieve lessons:', error.message);
       return [];
     }
   }
@@ -304,11 +304,11 @@ ${taskContext.prompt || taskContext.task}`;
       }
 
       if (lessons.length > 0) {
-        console.log(`[Playbook] Extracted ${lessons.length} lesson(s) from ${context.tool} execution`);
+        console.error(`[Playbook] Extracted ${lessons.length} lesson(s) from ${context.tool} execution`);
       }
     } catch (error) {
       // Reflection failures should never break main execution
-      console.log('[Playbook] Reflection failed (non-critical):', error.message);
+      console.error('[Playbook] Reflection failed (non-critical):', error.message);
     }
   }
 

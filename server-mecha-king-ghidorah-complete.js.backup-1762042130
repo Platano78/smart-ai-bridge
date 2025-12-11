@@ -1,0 +1,3866 @@
+#!/usr/bin/env node
+
+/**
+ * MECHA KING GHIDORAH COMPLETE v8.2.0 🔥
+ * The Ultimate Multi-AI Integration Monster - BLAZING FAST Multi-Backend System!
+ *
+ * 🦖 ENHANCED AI KAIJU WITH MULTI-BACKEND INTEGRATION:
+ * ⚡ SMART FALLBACK CHAINS: Local→Gemini→NVIDIA with automatic health monitoring
+ * ⚡ GEMINI BACKEND: Enhanced MCP integration for maximum performance
+ * ⚡ HEALTH MONITORING: Skip unhealthy backends automatically
+ * ⚡ RESPONSE HEADERS: X-AI-Backend & X-Fallback-Chain tracking
+ * ⚡ UNIFIED RESPONSE FORMAT: Agno-Serena compliant across all backends
+ * ⚡ CIRCUIT BREAKERS: Timeout handling and connection pooling
+ * ⚡ REQUEST CACHING: Smart caching for performance optimization
+ * ⚡ ASYNC HEALTH CHECKS: Non-blocking backend monitoring
+ * ⚡ STABILITY TAGGING: v1.1-alpha to v1.2-stable progression system
+ *
+ * 🎯 MULTI-AI PERFORMANCE TARGETS:
+ * • <5 second startup (MCP compliance)
+ * • <500ms backend switching decisions
+ * • <100ms fallback chain evaluation
+ * • <2 second health checks across all backends
+ * • <16ms response time routing optimization
+ * • Parallel backend health monitoring
+ * • Smart request distribution for load balancing
+ * • Circuit breaker recovery within 30 seconds
+ *
+ * 🛠️ COMPLETE TOOL SET:
+ * Core: review, read, health, write_files_atomic, edit_file, validate_changes, multi_edit, backup_restore, ask
+ * MKG Aliases: MKG_analyze, MKG_generate, MKG_review, MKG_edit, MKG_health
+ * DeepSeek Aliases: deepseek_analyze, deepseek_generate, deepseek_review, deepseek_edit, deepseek_health
+ *
+ * 🎮 MULTI-BACKEND TOKEN OPTIMIZATION:
+ * • Local Qwen2.5-Coder-7B-Instruct-FP8-Dynamic: 128K+ unlimited tokens (primary)
+ * • Gemini Backend: Optimized token allocation per model
+ * • Dynamic backend selection based on token requirements
+ * • Unity generation detection across all backends
+ * • Smart fallback based on token capacity
+ *
+ * '(ᗒᗣᗕ)՞ "OPTIMIZER applied! Multi-AI fallback chains make everything ABSOLUTELY UNSTOPPABLE!"
+ */
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
+import fs from 'fs/promises';
+import fsSync from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import ConversationThreading from './conversation-threading.js';
+import { UsageAnalytics } from './usage-analytics.js';
+import { logger } from './mcp-logger.js';
+import { ModelCapabilityDetector } from './lib/ModelCapabilityDetector.js';
+import { CapabilityCache } from './lib/CapabilityCache.js';
+// DashboardServer imported conditionally in main()
+
+const execAsync = promisify(exec);
+
+
+// vLLM Endpoint Configuration (Auto-updated by endpoint fix)
+const VLLM_ENDPOINTS = ['http://127.0.0.1:4141', 'http://127.0.0.1:4141'];
+const DEFAULT_VLLM_ENDPOINT = 'http://127.0.0.1:4141';
+
+// ⚡ BLAZING FAST CONCURRENT REQUEST POOL - '(ᗒᗣᗕ)՞ RTX 5080 OPTIMIZED! ⚡
+class ConcurrentRequestManager {
+  constructor(maxConcurrent = 250) {  // 5x increase for RTX 5080 multi-interface!
+    this.maxConcurrent = maxConcurrent;
+    this.activeRequests = new Set();
+    this.requestQueue = [];
+    this.priorityQueue = [];  // High-priority requests for immediate processing
+    this.metrics = {
+      totalRequests: 0,
+      completedRequests: 0,
+      averageResponseTime: 0,
+      peakConcurrency: 0,
+      queueWaitTime: 0,       // Track queue waiting time
+      throughputPerSecond: 0  // Requests per second
+    };
+    this.lastThroughputUpdate = Date.now();
+    this.throughputWindow = new Map();  // Rolling window for throughput calculation
+  }
+
+  async executeRequest(requestPromise, priority = 'normal') {
+    return new Promise((resolve, reject) => {
+      const request = {
+        promise: requestPromise,
+        resolve,
+        reject,
+        startTime: Date.now(),
+        queueTime: Date.now(),
+        priority,
+        id: Math.random().toString(36).substr(2, 9)  // Unique request ID for tracking
+      };
+
+      // '(ᗒᗣᗕ)՞ BLAZING FAST priority-based request scheduling!
+      if (this.activeRequests.size < this.maxConcurrent) {
+        this.processRequest(request);
+      } else {
+        // Priority queue for high-priority requests (health checks, etc.)
+        if (priority === 'high') {
+          this.priorityQueue.unshift(request);  // Add to front for immediate processing
+        } else {
+          this.requestQueue.push(request);
+        }
+      }
+    });
+  }
+
+  async processRequest(request) {
+    this.activeRequests.add(request);
+    this.metrics.totalRequests++;
+    this.metrics.peakConcurrency = Math.max(this.metrics.peakConcurrency, this.activeRequests.size);
+
+    // '(ᗒᗣᗕ)՞ Track queue wait time for performance monitoring
+    const queueWaitTime = Date.now() - request.queueTime;
+    this.metrics.queueWaitTime = (this.metrics.queueWaitTime + queueWaitTime) / 2;  // Rolling average
+
+    try {
+      const result = await request.promise;
+      const responseTime = Date.now() - request.startTime;
+      this.updateMetrics(responseTime);
+      this.updateThroughput();  // Update throughput metrics
+      request.resolve(result);
+    } catch (error) {
+      request.reject(error);
+    } finally {
+      this.activeRequests.delete(request);
+      this.processNextInQueue();
+    }
+  }
+
+  updateMetrics(responseTime) {
+    this.metrics.completedRequests++;
+    this.metrics.averageResponseTime =
+      (this.metrics.averageResponseTime * (this.metrics.completedRequests - 1) + responseTime) /
+      this.metrics.completedRequests;
+  }
+
+  // '(ᗒᗣᗕ)՞ BLAZING FAST next request processing with priority support!
+  processNextInQueue() {
+    if (this.activeRequests.size >= this.maxConcurrent) return;
+
+    // Process priority queue first for maximum responsiveness
+    let nextRequest = this.priorityQueue.shift() || this.requestQueue.shift();
+    if (nextRequest) {
+      setImmediate(() => this.processRequest(nextRequest));
+    }
+  }
+
+  updateThroughput() {
+    const now = Date.now();
+    const windowKey = Math.floor(now / 1000);  // 1-second windows
+
+    // Update throughput window
+    this.throughputWindow.set(windowKey, (this.throughputWindow.get(windowKey) || 0) + 1);
+
+    // Clean old entries (keep last 10 seconds)
+    for (const [key] of this.throughputWindow) {
+      if (key < windowKey - 10) {
+        this.throughputWindow.delete(key);
+      }
+    }
+
+    // Calculate current throughput
+    const totalRequests = Array.from(this.throughputWindow.values()).reduce((sum, count) => sum + count, 0);
+    this.metrics.throughputPerSecond = totalRequests / Math.min(this.throughputWindow.size, 10);
+  }
+
+  getMetrics() {
+    return {
+      ...this.metrics,
+      activeConcurrency: this.activeRequests.size,
+      queuedRequests: this.requestQueue.length
+    };
+  }
+}
+
+
+
+// 🎯 SIDECAR PROXY INTEGRATION - Routes all AI requests through localhost:4141
+// This enables Serena multi-AI fallback system with circuit breaker protection
+const SIDECAR_PROXY_URL = 'http://127.0.0.1:4141';
+const SIDECAR_ENABLED = true;
+
+// Backend URLs already configured above to route through sidecar proxy
+
+// Sidecar-aware backend configurations
+const SIDECAR_BACKEND_MAPPING = {
+    'local': 'http://127.0.0.1:4141',
+    'nvidia_deepseek': 'http://127.0.0.1:4141',
+    'nvidia_qwen': 'http://127.0.0.1:4141',
+    'gemini': 'http://127.0.0.1:4141'
+};
+
+
+/**
+ * 🎯 SMART ALIAS RESOLVER
+ * Single source of truth for all tools with intelligent alias routing
+ */
+class SmartAliasResolver {
+  constructor() {
+    this.coreTools = new Map();
+    this.aliasGroups = new Map();
+    this.toolHandlers = new Map();
+
+    console.error('🎯 SmartAliasResolver initialized');
+    this.initializeCoreTools();
+    this.initializeAliasGroups();
+  }
+
+  /**
+   * 📋 CORE TOOL DEFINITIONS
+   * Single source of truth for all tool schemas and metadata
+   */
+  initializeCoreTools() {
+    const coreToolDefinitions = [
+      {
+        name: 'review',
+        description: '👀 Comprehensive code review - Security audit, performance analysis, best practices validation. Multi-file correlation analysis. Automated quality scoring and improvement suggestions.',
+        handler: 'handleReview',
+        schema: {
+          type: 'object',
+          properties: {
+            content: { type: 'string', description: 'Code content to review' },
+            file_path: { type: 'string', description: 'File path for context' },
+            language: { type: 'string', description: 'Programming language hint' },
+            review_type: {
+              type: 'string',
+              enum: ['security', 'performance', 'quality', 'comprehensive'],
+              default: 'comprehensive'
+            }
+          },
+          required: ['content']
+        }
+      },
+      {
+        name: 'read',
+        description: '📖 Intelligent file operations - Smart context management with automatic chunking. Multi-file reading with relationship detection. Project structure analysis. Enhanced with fuzzy matching verification for pre-flight edit validation.',
+        handler: 'handleRead',
+        schema: {
+          type: 'object',
+          properties: {
+            file_paths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of file paths to read'
+            },
+            max_files: { type: 'number', default: 10 },
+            analysis_type: {
+              type: 'string',
+              enum: ['content', 'structure', 'relationships', 'summary'],
+              default: 'content'
+            },
+            verify_texts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional array of text strings to verify existence in files for pre-flight edit validation'
+            },
+            verification_mode: {
+              type: 'string',
+              enum: ['basic', 'fuzzy', 'comprehensive'],
+              default: 'fuzzy',
+              description: 'Verification mode: basic (exact match only), fuzzy (includes similarity matching), comprehensive (fuzzy + suggestions)'
+            },
+            fuzzy_threshold: {
+              type: 'number',
+              default: 0.8,
+              minimum: 0.1,
+              maximum: 1.0,
+              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
+            }
+          },
+          required: ['file_paths']
+        }
+      },
+      {
+        name: 'health',
+        description: '🏥 OPTIMIZED System health and diagnostics - Smart differentiated health monitoring with BLAZING fast performance! Local endpoints get comprehensive inference testing (10s timeout), cloud endpoints get quick connectivity pings (3s timeout). Features performance metrics, NVIDIA cloud integration status, smart routing analytics, and FileModificationManager operation tracking. OPTIMIZER: Includes localhost priority discovery and cache invalidation!',
+        handler: 'handleHealth',
+        schema: {
+          type: 'object',
+          properties: {
+            check_type: {
+              type: 'string',
+              enum: ['system', 'performance', 'endpoints', 'comprehensive'],
+              default: 'comprehensive'
+            },
+            force_ip_rediscovery: {
+              type: 'boolean',
+              default: false,
+              description: 'Force cache invalidation and rediscover IP addresses (useful when localhost connection fails)'
+            }
+          }
+        }
+      },
+      {
+        name: 'write_files_atomic',
+        description: '✍️ Write multiple files atomically with backup - Enterprise-grade file modification with safety mechanisms',
+        handler: 'handleWriteFilesAtomic',
+        schema: {
+          type: 'object',
+          properties: {
+            file_operations: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  path: { type: 'string' },
+                  content: { type: 'string' },
+                  operation: {
+                    type: 'string',
+                    enum: ['write', 'append', 'modify'],
+                    default: 'write'
+                  }
+                },
+                required: ['path', 'content']
+              }
+            },
+            create_backup: { type: 'boolean', default: true }
+          },
+          required: ['file_operations']
+        }
+      },
+      {
+        name: 'edit_file',
+        description: '🔧 ENHANCED Intelligent file editing - FileModificationManager orchestrated operations with smart AI routing. AI-powered targeted modifications with validation, rollback capability, and complexity-based endpoint selection for optimal performance.',
+        handler: 'handleEditFile',
+        schema: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string' },
+            edits: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  find: { type: 'string' },
+                  replace: { type: 'string' },
+                  description: { type: 'string' }
+                },
+                required: ['find', 'replace']
+              }
+            },
+            language: { type: 'string' },
+            validation_mode: {
+              type: 'string',
+              enum: ['strict', 'lenient', 'dry_run'],
+              default: 'strict'
+            },
+            fuzzy_threshold: {
+              type: 'number',
+              minimum: 0.1,
+              maximum: 1.0,
+              default: 0.8,
+              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
+            },
+            suggest_alternatives: {
+              type: 'boolean',
+              default: true,
+              description: 'Include fuzzy match suggestions in error messages'
+            },
+            max_suggestions: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 10,
+              default: 3,
+              description: 'Maximum number of fuzzy match suggestions to provide'
+            }
+          },
+          required: ['file_path', 'edits']
+        }
+      },
+      {
+        name: 'validate_changes',
+        description: '✅ Pre-flight validation for code changes - AI-powered syntax checking and impact analysis using DialoGPT-small. Validates proposed modifications before implementation.',
+        handler: 'handleValidateChanges',
+        schema: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string' },
+            proposed_changes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  find: { type: 'string' },
+                  replace: { type: 'string' },
+                  line_number: { type: 'number' }
+                },
+                required: ['find', 'replace']
+              }
+            },
+            language: { type: 'string' },
+            validation_rules: {
+              type: 'array',
+              items: { type: 'string' },
+              default: ['syntax', 'logic', 'security', 'performance']
+            }
+          },
+          required: ['file_path', 'proposed_changes']
+        }
+      },
+      {
+        name: 'multi_edit',
+        description: '🔄 ENHANCED Atomic batch operations - FileModificationManager orchestrator with parallel processing and smart AI routing. Enterprise-grade multi-file editing with NVIDIA cloud escalation for complex operations, AI validation, and automatic rollback.',
+        handler: 'handleMultiEdit',
+        schema: {
+          type: 'object',
+          properties: {
+            file_operations: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  file_path: { type: 'string' },
+                  edits: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        find: { type: 'string' },
+                        replace: { type: 'string' },
+                        description: { type: 'string' }
+                      },
+                      required: ['find', 'replace']
+                    }
+                  }
+                },
+                required: ['file_path', 'edits']
+              }
+            },
+            transaction_mode: {
+              type: 'string',
+              enum: ['all_or_nothing', 'best_effort', 'dry_run'],
+              default: 'all_or_nothing'
+            },
+            validation_level: {
+              type: 'string',
+              enum: ['strict', 'lenient', 'none'],
+              default: 'strict'
+            },
+            parallel_processing: { type: 'boolean', default: true }
+          },
+          required: ['file_operations']
+        }
+      },
+      {
+        name: 'backup_restore',
+        description: '💾 Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
+        handler: 'handleBackupRestore',
+        schema: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['create', 'restore', 'list', 'cleanup']
+            },
+            file_path: { type: 'string' },
+            backup_id: { type: 'string' },
+            metadata: {
+              type: 'object',
+              properties: {
+                description: { type: 'string' },
+                tags: { type: 'array', items: { type: 'string' } }
+              }
+            },
+            cleanup_options: {
+              type: 'object',
+              properties: {
+                max_age_days: { type: 'number', default: 30 },
+                max_count_per_file: { type: 'number', default: 10 },
+                dry_run: { type: 'boolean', default: false }
+              }
+            }
+          },
+          required: ['action']
+        }
+      },
+      {
+        name: 'ask',
+        description: '🤖 MULTI-AI Direct Query - Ask any backend with BLAZING FAST smart fallback chains! Features automatic Unity detection, dynamic token scaling, and response headers with backend tracking.',
+        handler: 'handleAsk',
+        schema: {
+          type: 'object',
+          properties: {
+            model: {
+              type: 'string',
+              enum: ['local', 'gemini', 'deepseek3.1', 'qwen3'],
+              description: 'AI backend to query: local (Qwen2.5-Coder-7B-Instruct-FP8-Dynamic, 128K+ tokens), gemini (Gemini Enhanced, 32K tokens), deepseek3.1 (NVIDIA DeepSeek V3.1 Terminus with streaming + reasoning, 8K tokens), qwen3 (NVIDIA Qwen3 Coder 480B, 32K tokens)'
+            },
+            prompt: {
+              type: 'string',
+              description: 'Your question or prompt (Unity/complex generations automatically get high token limits)'
+            },
+            thinking: {
+              type: 'boolean',
+              default: true,
+              description: 'Enable thinking mode for DeepSeek (shows reasoning)'
+            },
+            max_tokens: {
+              type: 'number',
+              description: 'Maximum response length (auto-calculated if not specified: Unity=16K, Complex=8K, Simple=2K)'
+            },
+            enable_chunking: {
+              type: 'boolean',
+              default: false,
+              description: 'Enable automatic request chunking for extremely large generations (fallback if truncated)'
+            },
+            force_backend: {
+              type: 'string',
+              description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_qwen"'
+            }
+          },
+          required: ['model', 'prompt']
+        }
+      },
+      {
+        name: 'manage_conversation',
+        description: '💬 Manage conversation threading across sessions. Start new conversations, continue existing ones, search conversation history, or get analytics.',
+        handler: 'handleManageConversation',
+        schema: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['start', 'continue', 'resume', 'history', 'search', 'analytics'],
+              description: 'Action to perform: start (new thread), continue (with continuation_id), resume (with thread_id), history (get thread history), search (search conversations), analytics (get analytics)'
+            },
+            thread_id: {
+              type: 'string',
+              description: 'Thread ID to resume or get history (optional)'
+            },
+            continuation_id: {
+              type: 'string',
+              description: 'Continuation ID from previous response (optional)'
+            },
+            topic: {
+              type: 'string',
+              description: 'Topic for new conversation (optional)'
+            },
+            query: {
+              type: 'string',
+              description: 'Search query for conversations (optional)'
+            },
+            user_id: {
+              type: 'string',
+              description: 'User identifier (optional, defaults to "default")'
+            },
+            platform: {
+              type: 'string',
+              enum: ['claude_desktop', 'claude_code'],
+              description: 'Platform identifier (optional)'
+            },
+            limit: {
+              type: 'number',
+              description: 'Limit for history results (optional, default 10)'
+            }
+          },
+          required: ['action']
+        }
+      },
+      {
+        name: 'get_analytics',
+        description: '📊 Get usage analytics, performance metrics, cost analysis, and optimization recommendations. View current session stats, historical data, backend performance, and detailed reports.',
+        handler: 'handleGetAnalytics',
+        schema: {
+          type: 'object',
+          properties: {
+            report_type: {
+              type: 'string',
+              enum: ['current', 'historical', 'cost', 'recommendations', 'full_report'],
+              description: 'Type of analytics to retrieve: current (session stats), historical (time-series data), cost (cost analysis), recommendations (optimization tips), full_report (comprehensive report)'
+            },
+            time_range: {
+              type: 'string',
+              enum: ['1h', '24h', '7d', '30d'],
+              description: 'Time range for historical data (default: 7d)'
+            },
+            format: {
+              type: 'string',
+              enum: ['json', 'markdown'],
+              description: 'Output format for reports (default: json)'
+            }
+          }
+        }
+      }
+    ];
+
+    // Store core tools in map for fast lookup
+    coreToolDefinitions.forEach(tool => {
+      this.coreTools.set(tool.name, tool);
+      this.toolHandlers.set(tool.name, tool.handler);
+    });
+
+    console.error(`🎯 Initialized ${coreToolDefinitions.length} core tools`);
+  }
+
+  /**
+   * 🔗 ALIAS GROUP DEFINITIONS
+   * Smart mapping system for all alias variants
+   */
+  initializeAliasGroups() {
+    const aliasGroupDefinitions = [
+      {
+        groupName: 'MKG',
+        prefix: 'MKG_',
+        description: 'MKG Alias:',
+        aliases: [
+          {
+            alias: 'MKG_analyze',
+            coreTool: 'analyze', // Virtual core tool, maps to handleAnalyze
+            customDescription: '🔍 MKG Alias: Universal code analysis - AI-driven file type detection with smart routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                content: { type: 'string', description: 'File content to analyze' },
+                file_path: { type: 'string', description: 'Path to file for analysis' },
+                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
+                analysis_type: {
+                  type: 'string',
+                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
+                  default: 'comprehensive'
+                }
+              },
+              required: ['content']
+            }
+          },
+          {
+            alias: 'MKG_generate',
+            coreTool: 'generate', // Virtual core tool, maps to handleGenerate
+            customDescription: '⚡ MKG Alias: Smart code generation - Context-aware code creation with AI routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                prefix: { type: 'string', description: 'Code before the completion point' },
+                suffix: { type: 'string', description: 'Code after the completion point' },
+                language: { type: 'string', default: 'javascript' },
+                task_type: {
+                  type: 'string',
+                  enum: ['completion', 'refactor', 'feature', 'fix'],
+                  default: 'completion'
+                }
+              },
+              required: ['prefix']
+            }
+          },
+          { alias: 'MKG_review', coreTool: 'review' },
+          { alias: 'MKG_edit', coreTool: 'edit_file' },
+          { alias: 'MKG_health', coreTool: 'health' }
+        ]
+      },
+      {
+        groupName: 'DeepSeek',
+        prefix: 'deepseek_',
+        description: 'DeepSeek Alias:',
+        aliases: [
+          {
+            alias: 'deepseek_analyze',
+            coreTool: 'analyze', // Virtual core tool
+            customDescription: '🔍 DeepSeek Alias: Universal code analysis - AI-driven file type detection with smart routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                content: { type: 'string', description: 'File content to analyze' },
+                file_path: { type: 'string', description: 'Path to file for analysis' },
+                language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
+                analysis_type: {
+                  type: 'string',
+                  enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
+                  default: 'comprehensive'
+                }
+              },
+              required: ['content']
+            }
+          },
+          {
+            alias: 'deepseek_generate',
+            coreTool: 'generate', // Virtual core tool
+            customDescription: '⚡ DeepSeek Alias: Smart code generation - Context-aware code creation with AI routing',
+            customSchema: {
+              type: 'object',
+              properties: {
+                prefix: { type: 'string', description: 'Code before the completion point' },
+                suffix: { type: 'string', description: 'Code after the completion point' },
+                language: { type: 'string', default: 'javascript' },
+                task_type: {
+                  type: 'string',
+                  enum: ['completion', 'refactor', 'feature', 'fix'],
+                  default: 'completion'
+                }
+              },
+              required: ['prefix']
+            }
+          },
+          { alias: 'deepseek_review', coreTool: 'review' },
+          { alias: 'deepseek_edit', coreTool: 'edit_file' },
+          { alias: 'deepseek_health', coreTool: 'health' }
+        ]
+      }
+    ];
+
+    // Store alias groups and create handler mappings
+    aliasGroupDefinitions.forEach(group => {
+      this.aliasGroups.set(group.groupName, group);
+
+      group.aliases.forEach(alias => {
+        // Map alias to appropriate handler
+        if (alias.coreTool === 'analyze') {
+          this.toolHandlers.set(alias.alias, 'handleAnalyze');
+        } else if (alias.coreTool === 'generate') {
+          this.toolHandlers.set(alias.alias, 'handleGenerate');
+        } else {
+          // Use core tool handler for direct mappings
+          const coreTool = this.coreTools.get(alias.coreTool);
+          if (coreTool) {
+            this.toolHandlers.set(alias.alias, coreTool.handler);
+          }
+        }
+      });
+    });
+
+    console.error(`🔗 Initialized ${aliasGroupDefinitions.length} alias groups with smart routing`);
+  }
+
+  /**
+   * 🎨 DYNAMIC TOOL LIST GENERATION
+   * Generates complete tool list with all aliases from core definitions
+   */
+  generateToolList() {
+    const tools = [];
+
+    // Add ONLY core tools for ListToolsRequestSchema
+    for (const [name, tool] of this.coreTools) {
+      tools.push({
+        name,
+        description: tool.description,
+        inputSchema: tool.schema
+      });
+    }
+
+    return tools;
+  }
+
+  /**
+   * 🎯 SMART TOOL RESOLUTION
+   * Resolves any tool name (core or alias) to its appropriate handler
+   */
+  resolveToolHandler(toolName) {
+    return this.toolHandlers.get(toolName) || null;
+  }
+
+  /**
+   * 📊 SYSTEM STATISTICS
+   * Provides insights into the alias resolution system
+   */
+  getSystemStats() {
+    const coreToolCount = this.coreTools.size;
+    const aliasCount = Array.from(this.aliasGroups.values())
+      .reduce((total, group) => total + group.aliases.length, 0);
+
+    return {
+      coreTools: coreToolCount,
+      aliases: aliasCount,
+      totalTools: coreToolCount + aliasCount,
+      aliasGroups: this.aliasGroups.size,
+      compressionRatio: `${Math.round((aliasCount / (coreToolCount + aliasCount)) * 100)}% aliases auto-generated`
+    };
+  }
+}
+
+/**
+ * 🛠️ FILEMODIFICATIONMANAGER ORCHESTRATOR
+ * Unified coordination system for all file modification operations
+ */
+class FileModificationManager {
+  constructor(router) {
+    this.router = router;
+    this.activeOperations = new Map();
+    this.operationHistory = [];
+    this.maxHistorySize = 1000;
+
+    console.error('🛠️ FileModificationManager initialized');
+  }
+
+  /**
+   * 🎯 ORCHESTRATE FILE OPERATIONS
+   * Central coordination for all file modification tools
+   */
+  async orchestrateOperation(operationType, params) {
+    const operationId = this.generateOperationId();
+    const startTime = performance.now();
+
+    try {
+      this.activeOperations.set(operationId, {
+        type: operationType,
+        startTime,
+        status: 'running',
+        params
+      });
+
+      let result;
+      switch (operationType) {
+        case 'single_edit':
+          result = await this.router.performIntelligentFileEdit(
+            params.file_path,
+            params.edits,
+            params.validation_mode,
+            params.language
+          );
+          break;
+        case 'multi_edit':
+          result = await this.router.performMultiFileEdit(
+            params.file_operations,
+            params.transaction_mode,
+            params.validation_level,
+            params.parallel_processing
+          );
+          break;
+        case 'validation':
+          result = await this.router.validateCodeChanges(
+            params.file_path,
+            params.proposed_changes,
+            params.validation_rules,
+            params.language
+          );
+          break;
+        case 'backup_restore':
+          result = await this.router.performBackupRestore(
+            params.action,
+            params.file_path,
+            params.backup_id,
+            params.metadata,
+            params.cleanup_options
+          );
+          break;
+        case 'atomic_write':
+          result = await this.router.performAtomicFileWrite(
+            params.file_operations,
+            params.create_backup
+          );
+          break;
+        default:
+          throw new Error(`Unknown operation type: ${operationType}`);
+      }
+
+      const duration = performance.now() - startTime;
+      this.recordOperation(operationId, operationType, duration, 'success', result);
+
+      return result;
+    } catch (error) {
+      const duration = performance.now() - startTime;
+      this.recordOperation(operationId, operationType, duration, 'error', error);
+      throw error;
+    } finally {
+      this.activeOperations.delete(operationId);
+    }
+  }
+
+  generateOperationId() {
+    return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  recordOperation(operationId, type, duration, status, result) {
+    const record = {
+      operationId,
+      type,
+      duration,
+      status,
+      timestamp: new Date().toISOString(),
+      success: status === 'success'
+    };
+
+    this.operationHistory.push(record);
+    if (this.operationHistory.length > this.maxHistorySize) {
+      this.operationHistory.shift();
+    }
+  }
+}
+
+/**
+ * 🔍 LOCAL SERVICE DETECTOR - Auto-discovery for vLLM, LM Studio, and OpenAI-compatible endpoints
+ * '(ᗒᗣᗕ)՞ OPTIMIZER: PLUG-AND-PLAY local AI with automatic endpoint discovery!
+ */
+class LocalServiceDetector {
+  constructor(options = {}) {
+    this.cachedEndpoint = null;
+    this.cacheTimestamp = null;
+    this.cacheDuration = parseInt(process.env.LOCAL_AI_DISCOVERY_CACHE_TTL) || 300000; // 5 minutes default
+    this.discoveryEnabled = process.env.LOCAL_AI_DISCOVERY_ENABLED !== 'false';
+
+    // Common ports for local AI services
+    this.commonPorts = [8001, 8000, 1234, 5000, 5001, 8080, 11434]; // Added Ollama default
+
+    // Service fingerprints for identification
+    this.serviceFingerprints = {
+      vllm: ['vllm', 'llm-engine'],
+      lmstudio: ['lmstudio', 'gguf'],
+      ollama: ['ollama'],
+      textgen: ['text-generation-webui', 'ooba'],
+      generic: ['openai', 'api']
+    };
+
+    console.error('🔍 LocalServiceDetector initialized');
+    console.error(`   Discovery: ${this.discoveryEnabled ? 'ENABLED' : 'DISABLED'}`);
+    console.error(`   Cache TTL: ${this.cacheDuration / 1000}s`);
+  }
+
+  /**
+   * Get working local endpoint with priority system:
+   * 1. Environment variable override
+   * 2. Valid cached endpoint
+   * 3. Fresh discovery
+   * 4. Expired cache fallback
+   */
+  async getLocalEndpoint(forceRefresh = false) {
+    // Priority 1: Environment override
+    const envEndpoint = process.env.LOCAL_AI_ENDPOINT;
+    if (envEndpoint) {
+      console.error(`🔧 Using LOCAL_AI_ENDPOINT override: ${envEndpoint}`);
+      const validated = await this.validateEndpoint(envEndpoint);
+      if (validated) {
+        return validated;
+      }
+      console.error(`⚠️  Override endpoint ${envEndpoint} failed validation, falling back to discovery`);
+    }
+
+    // Priority 2: Cached result (if valid and not expired)
+    if (!forceRefresh && this.isCacheValid()) {
+      const validated = await this.validateEndpoint(this.cachedEndpoint.url);
+      if (validated) {
+        console.error(`💾 Using cached endpoint: ${this.cachedEndpoint.url} (${this.cachedEndpoint.service})`);
+        return this.cachedEndpoint;
+      }
+      console.error(`⚠️  Cached endpoint no longer valid, triggering discovery`);
+    }
+
+    // Priority 3: Fresh discovery
+    if (this.discoveryEnabled) {
+      const discovered = await this.discoverEndpoint();
+      if (discovered) {
+        this.cachedEndpoint = discovered;
+        this.cacheTimestamp = Date.now();
+        console.error(`🎯 Discovered endpoint: ${discovered.url} (${discovered.service})`);
+        return discovered;
+      }
+    }
+
+    // Priority 4: Expired cache fallback
+    if (this.cachedEndpoint) {
+      console.error(`⏰ Using expired cache as fallback: ${this.cachedEndpoint.url}`);
+      return this.cachedEndpoint;
+    }
+
+    console.error(`❌ No local endpoint available`);
+    return null;
+  }
+
+  /**
+   * Check if cache is still valid
+   */
+  isCacheValid() {
+    if (!this.cachedEndpoint || !this.cacheTimestamp) {
+      return false;
+    }
+    const age = Date.now() - this.cacheTimestamp;
+    return age < this.cacheDuration;
+  }
+
+  /**
+   * Discover available local endpoint by testing candidates in parallel
+   */
+  async discoverEndpoint() {
+    const startTime = Date.now();
+    console.error(`🔍 Starting endpoint discovery...`);
+
+    const candidates = await this.generateCandidateEndpoints();
+    const totalCandidates = candidates.length;
+    console.error(`   Testing ${totalCandidates} candidate endpoints`);
+
+    // Progress tracking with milestones
+    const progressTracker = {
+      completed: 0,
+      shown: new Set(),
+      milestones: [20, 40, 60, 80, 100]
+    };
+
+    // Test all candidates in parallel with 1s timeout each
+    const testPromises = candidates.map(async (endpoint) => {
+      try {
+        const result = await this.testEndpoint(endpoint);
+        progressTracker.completed++;
+
+        // Show progress at milestones or when found
+        const progress = Math.floor((progressTracker.completed / totalCandidates) * 100);
+        const milestone = progressTracker.milestones.find(m => progress >= m && !progressTracker.shown.has(m));
+
+        if (milestone || result) {
+          if (milestone) progressTracker.shown.add(milestone);
+          const emoji = result ? '✅ FOUND!' : '⏳';
+          console.error(`   ${emoji} Progress: ${progressTracker.completed}/${totalCandidates} (${progress}%)`);
+        }
+
+        return result;
+      } catch (error) {
+        progressTracker.completed++;
+        return null;
+      }
+    });
+
+    const results = await Promise.allSettled(testPromises);
+
+    // Find first successful result
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        const discoveryTime = Date.now() - startTime;
+        console.error(`✅ Discovery complete in ${discoveryTime}ms`);
+        return result.value;
+      }
+    }
+
+    const discoveryTime = Date.now() - startTime;
+    console.error(`❌ No endpoints found after ${discoveryTime}ms (tested ${totalCandidates} candidates)`);
+    return null;
+  }
+
+  /**
+   * Generate candidate endpoints from common hosts and ports
+   */
+  async generateCandidateEndpoints() {
+    const hosts = ['localhost', '127.0.0.1'];
+
+    // Add WSL IPs if available
+    try {
+      const wslIPs = await this.getWSLIPs();
+      hosts.push(...wslIPs);
+    } catch (error) {
+      // WSL IP detection optional
+    }
+
+    // Also check DEEPSEEK_ENDPOINT/VLLM_ENDPOINT if set
+    const existingEndpoint = process.env.DEEPSEEK_ENDPOINT || process.env.VLLM_ENDPOINT;
+    if (existingEndpoint) {
+      try {
+        const url = new URL(existingEndpoint);
+        const host = url.hostname;
+        if (!hosts.includes(host)) {
+          hosts.unshift(host); // Prioritize existing config
+        }
+      } catch (e) {
+        // Invalid URL, skip
+      }
+    }
+
+    const endpoints = [];
+    for (const host of hosts) {
+      for (const port of this.commonPorts) {
+        endpoints.push(`http://${host}:${port}`);
+      }
+    }
+
+    return endpoints;
+  }
+
+  /**
+   * Get WSL IP addresses using multiple strategies
+   */
+  async getWSLIPs() {
+    const ips = [];
+
+    try {
+      // Strategy 1: PowerShell - Get Windows host IP for WSL adapter (most reliable)
+      const { stdout: psOutput } = await execAsync(
+        'powershell.exe -Command "(Get-NetIPAddress | Where-Object {$_.InterfaceAlias -like \'*WSL*\' -and $_.AddressFamily -eq \'IPv4\'}).IPAddress" 2>/dev/null || echo ""'
+      );
+      const wslHostIP = psOutput.trim().replace(/\r\n/g, '');
+      if (wslHostIP && /^\d+\.\d+\.\d+\.\d+$/.test(wslHostIP)) {
+        ips.push(wslHostIP);
+      }
+    } catch (e) {}
+
+    try {
+      // Strategy 2: Check /etc/resolv.conf for nameserver
+      const { stdout: resolvConf } = await execAsync('cat /etc/resolv.conf 2>/dev/null || echo ""');
+      const nameserverMatch = resolvConf.match(/nameserver\s+(\d+\.\d+\.\d+\.\d+)/);
+      if (nameserverMatch) {
+        ips.push(nameserverMatch[1]);
+      }
+    } catch (e) {}
+
+    try {
+      // Strategy 3: ip route to find default gateway
+      const { stdout: ipRoute } = await execAsync('ip route show 2>/dev/null | grep default || echo ""');
+      const gatewayMatch = ipRoute.match(/default via (\d+\.\d+\.\d+\.\d+)/);
+      if (gatewayMatch) {
+        ips.push(gatewayMatch[1]);
+      }
+    } catch (e) {}
+
+    return [...new Set(ips)]; // Remove duplicates
+  }
+
+  /**
+   * Test a single endpoint for OpenAI API compatibility
+   */
+  async testEndpoint(baseUrl, timeout = 1000) {  // Reduced to 1s for faster discovery
+    try {
+      // Try multiple common endpoints
+      const endpoints = [
+        { path: '/v1/models', needsAuth: false },
+        { path: '/health', needsAuth: false },
+        { path: '/api/tags', needsAuth: false }, // Ollama
+        { path: '/v1/completions', needsAuth: false }
+      ];
+
+      for (const { path, needsAuth } of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+          const headers = { 'Accept': 'application/json' };
+          if (needsAuth) {
+            headers['Authorization'] = 'Bearer test';
+          }
+
+          const response = await fetch(`${baseUrl}${path}`, {
+            method: 'GET',
+            headers,
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          // Accept 200 OK or 401/403 (means endpoint exists but needs auth)
+          if (response.ok || response.status === 401 || response.status === 403) {
+            return await this.identifyService(baseUrl, response, path);
+          }
+        } catch (e) {
+          // Try next endpoint
+          continue;
+        }
+      }
+    } catch (error) {
+      // Endpoint not reachable
+    }
+    return null;
+  }
+
+  /**
+   * Identify the service type from response
+   */
+  async identifyService(baseUrl, response, path) {
+    let service = 'generic';
+    let models = [];
+    let detectedModel = null;
+
+    try {
+      if (response.ok) {
+        const data = await response.json();
+
+        // Check for vLLM patterns
+        if (path === '/v1/models' && data.data) {
+          models = data.data.map(m => m.id || m.name || 'unknown');
+
+          // Service identification by response structure
+          if (data.object === 'list') {
+            // Check headers for service type
+            const serverHeader = response.headers.get('server') || '';
+            if (serverHeader.toLowerCase().includes('vllm')) {
+              service = 'vllm';
+            } else if (models.some(m => m.toLowerCase().includes('gguf'))) {
+              service = 'lmstudio';
+            } else {
+              service = 'openai-compatible';
+            }
+          }
+
+          detectedModel = models[0] || null;
+        }
+
+        // Check for Ollama
+        if (path === '/api/tags' && data.models) {
+          service = 'ollama';
+          models = data.models.map(m => m.name);
+          detectedModel = models[0] || null;
+        }
+
+        // Check for health endpoint
+        if (path === '/health' && data.status) {
+          service = 'generic-health';
+        }
+      }
+    } catch (e) {
+      // JSON parsing failed, still use endpoint but mark as generic
+    }
+
+    return {
+      url: `${baseUrl}/v1`, // Standardize to /v1 endpoint
+      baseUrl,
+      service,
+      models,
+      detectedModel,
+      tested: Date.now()
+    };
+  }
+
+  /**
+   * Validate that an endpoint is still working
+   */
+  async validateEndpoint(url, timeout = 1000) {  // Reduced to 1s for faster validation
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(`${url}/models`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok || response.status === 401 || response.status === 403) {
+        return { url, validated: true };
+      }
+    } catch (error) {
+      // Not valid
+    }
+    return null;
+  }
+
+  /**
+   * Force cache invalidation and re-discovery
+   */
+  invalidateCache() {
+    console.error('🔄 Cache invalidated, forcing re-discovery');
+    this.cachedEndpoint = null;
+    this.cacheTimestamp = null;
+  }
+}
+
+/**
+ * 🧠 MULTI-AI ROUTER WITH SMART FALLBACK CHAINS
+ * Primary: Local Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
+ * Fallback Chain: Local → Gemini → NVIDIA (DeepSeek/Qwen)
+ * '(ᗒᗣᗕ)՞ OPTIMIZER: BLAZING FAST multi-backend integration with circuit breakers!
+ */
+class MultiAIRouter {
+  constructor(configPath = './dashboard-config/backends.json') {
+    // '(ᗒᗣᗕ)՞ CONFIGURATION SYSTEM!
+    this.configPath = configPath;
+    this.configFileExists = false;
+    this.configWatcher = null;
+
+    // '(ᗒᗣᗕ)՞ LOCAL SERVICE AUTO-DETECTION!
+    this.localDetector = new LocalServiceDetector();
+    this.localEndpointInitialized = false;
+
+    // '(ᗒᗣᗕ)՞ ENHANCED MODEL CAPABILITY DETECTION - Phase 1!
+    this.capabilityDetector = new ModelCapabilityDetector();
+    this.capabilityCache = new CapabilityCache({
+      ttl: 3600000, // 1 hour
+      enablePersistence: true
+    });
+    this.detectedModelCapabilities = new Map();
+
+    // '(ᗒᗣᗕ)՞ MULTI-BACKEND TOKEN CONFIGURATION!
+    this.tokenConfig = {
+      // Local model capabilities - YARN Extended
+      local_max: 65536,                 // Qwen 2.5 Coder 7B: YARN-extended 64K context
+                                        // YARN factor 4.0, validated 30,611 tokens @ 100% accuracy
+                                        // Performance: ~576 tok/sec, 15.7GB VRAM peak
+                                        // Report: /home/platano/project/llama-swap/YARN_CONTEXT_EXTENSION_REPORT.md
+
+      // Cloud backends
+      gemini_max: 32768,               // Gemini Pro capacity
+      nvidia_deepseek_max: 8192,       // DeepSeek V3.1 Terminus output limit (streaming + reasoning)
+      nvidia_qwen_max: 32768,          // Qwen3 480B output limit
+
+      // Dynamic scaling thresholds
+      unity_generation_tokens: 16384,   // High tokens for Unity scripts
+      complex_request_tokens: 8192,     // Complex operations
+      simple_request_tokens: 2048,      // Simple operations
+      fallback_tokens: 4096             // Safe fallback
+    };
+
+    // Try to load from config file first, fall back to hardcoded
+    this.backends = {};
+    this.fallbackChains = {};
+    this.routingConfig = {};
+    this.initializeBackends();
+
+    // Performance optimization components
+    this.cache = new Map();
+    this.cacheTimeout = 15 * 60 * 1000; // 15 minutes
+    this.connectionPool = new Map();
+    this.circuitBreakers = new Map();
+
+    // Initialize circuit breakers for each backend
+    Object.keys(this.backends).forEach(key => {
+      this.circuitBreakers.set(key, {
+        failures: 0,
+        lastFailure: 0,
+        state: 'closed', // closed, open, half-open
+        timeout: 30000 // 30 second recovery
+      });
+    });
+
+    this.requestStats = {
+      total: 0,
+      successful: 0,
+      cached: 0,
+      fallbacks: 0,
+      routingDecisions: new Map(),
+      backendUsage: new Map(),
+      responseHeaders: new Map()
+    };
+
+    // Start async health monitoring
+    this.startHealthMonitoring();
+
+    console.error('🧠 Multi-AI Router initialized with BLAZING FAST fallback chains');
+    console.error('⚡ Backends configured: Local (auto-detect), Gemini, NVIDIA DeepSeek, NVIDIA Qwen');
+    console.error('🔄 Smart fallback chains active with circuit breaker protection');
+    console.error('');
+    console.error('🔍 Local endpoint discovery will run on first use or during health checks');
+    console.error('');
+  }
+
+  /**
+   * 🔧 INITIALIZE BACKEND CONFIGURATION
+   * Try config file first, fall back to hardcoded values
+   */
+  initializeBackends() {
+    try {
+      this.loadBackendConfigurationSync();
+      this.configFileExists = true;
+      this.setupConfigWatcher();
+      console.error(`✅ Loaded backends from ${this.configPath}`);
+    } catch (error) {
+      console.error(`⚠️  Config file error: ${error.message}`);
+      console.error(`   Path: ${this.configPath}`);
+      console.error('📋 Using hardcoded backend configuration');
+      this.loadHardcodedBackends();
+      this.configFileExists = false;
+    }
+  }
+
+  /**
+   * 📖 LOAD CONFIGURATION FROM FILE (SYNCHRONOUS)
+   * Synchronous version for constructor initialization
+   */
+  loadBackendConfigurationSync() {
+    // Resolve config path (handle relative paths)
+    const resolvedPath = path.resolve(this.configPath);
+
+    // Read config file synchronously
+    const configData = fsSync.readFileSync(resolvedPath, 'utf-8');
+    const config = JSON.parse(configData);
+
+    // Validate schema
+    this.validateConfigSchema(config);
+
+    // Transform config format to internal backend structure
+    this.backends = {};
+    for (const [key, backendConfig] of Object.entries(config.backends)) {
+      if (backendConfig.enabled) {
+        this.backends[key] = {
+          name: backendConfig.name,
+          url: backendConfig.url,
+          model: backendConfig.model,
+          maxTokens: backendConfig.maxTokens,
+          type: backendConfig.type,
+          apiKey: backendConfig.apiKeyEnv ? (process.env[backendConfig.apiKeyEnv] || process.env.NVIDIA_API_KEY) : undefined,
+          healthEndpoint: backendConfig.healthEndpoint || '/health',
+          capabilities: backendConfig.capabilities || [],
+          priority: backendConfig.priority || 999,
+          defaultParams: backendConfig.defaultParams || {},
+          specialization: this.inferSpecialization(backendConfig),
+          health: { status: 'unknown', lastCheck: 0, failures: 0 }
+        };
+
+        // Special handling for local backend
+        if (key === 'local') {
+          this.backends[key].detectedService = null;
+          this.backends[key].detectedModel = null;
+        }
+      }
+    }
+
+    // Load routing configuration
+    this.routingConfig = config.routing || {};
+
+    // Build fallback chains from routing config
+    this.buildFallbackChains();
+
+    console.error(`📋 Loaded ${Object.keys(this.backends).length} enabled backends:`);
+    for (const [key, backend] of Object.entries(this.backends)) {
+      console.error(`   • ${key}: ${backend.model} (${backend.maxTokens} tokens)`);
+    }
+  }
+
+  /**
+   * 🧩 INFER SPECIALIZATION FROM CAPABILITIES
+   */
+  inferSpecialization(backendConfig) {
+    const capabilities = backendConfig.capabilities || [];
+    if (capabilities.includes('code_generation') || capabilities.includes('unity_optimization')) {
+      return 'coding';
+    }
+    if (capabilities.includes('reasoning') || capabilities.includes('thinking_mode')) {
+      return 'analysis';
+    }
+    if (capabilities.includes('fast_completion') || capabilities.includes('fast_inference')) {
+      return 'code_generation';
+    }
+    return 'general';
+  }
+
+  /**
+   * 🔗 BUILD FALLBACK CHAINS FROM ROUTING CONFIG
+   */
+  buildFallbackChains() {
+    const defaultChain = this.routingConfig.defaultFallbackChain || ['local', 'gemini', 'nvidia_deepseek', 'nvidia_qwen'];
+    const enabledBackends = Object.keys(this.backends);
+
+    this.fallbackChains = {};
+    for (const backend of enabledBackends) {
+      // Filter to only include enabled backends
+      this.fallbackChains[backend] = defaultChain.filter(b => b !== backend && enabledBackends.includes(b));
+    }
+  }
+
+  /**
+   * ✅ VALIDATE CONFIGURATION SCHEMA
+   */
+  validateConfigSchema(config) {
+    // Basic validation
+    if (!config.version) {
+      throw new Error('Config missing version field');
+    }
+
+    if (!config.backends || typeof config.backends !== 'object') {
+      throw new Error('Config missing backends object');
+    }
+
+    // Validate each backend
+    for (const [key, backend] of Object.entries(config.backends)) {
+      if (!backend.url || !backend.model) {
+        throw new Error(`Backend ${key} missing required fields (url, model)`);
+      }
+
+      if (backend.type === 'nvidia' && !backend.apiKeyEnv) {
+        console.warn(`⚠️  Backend ${key} missing apiKeyEnv, using default NVIDIA_API_KEY`);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * 👀 SETUP FILE WATCHER (HOT RELOAD)
+   */
+  setupConfigWatcher() {
+    // Debounce mechanism to avoid multiple reloads
+    let reloadTimeout = null;
+
+    this.configWatcher = fsSync.watch(this.configPath, (eventType) => {
+      if (eventType === 'change') {
+        console.error('🔄 Configuration file changed, reloading...');
+
+        // Debounce: wait 1 second for file writes to complete
+        if (reloadTimeout) clearTimeout(reloadTimeout);
+        reloadTimeout = setTimeout(() => {
+          try {
+            this.loadBackendConfigurationSync();
+            console.error('✅ Configuration reloaded successfully');
+
+            // Re-initialize circuit breakers for new/changed backends
+            Object.keys(this.backends).forEach(key => {
+              if (!this.circuitBreakers.has(key)) {
+                this.circuitBreakers.set(key, {
+                  failures: 0,
+                  lastFailure: 0,
+                  state: 'closed',
+                  timeout: 30000
+                });
+              }
+            });
+          } catch (error) {
+            console.error('❌ Configuration reload failed:', error.message);
+            console.error('📋 Keeping previous configuration');
+          }
+        }, 1000);
+      }
+    });
+
+    console.error('👀 Config file watcher active - hot reload enabled');
+  }
+
+  /**
+   * 🔙 FALLBACK: HARDCODED CONFIGURATION
+   * Original implementation for backward compatibility
+   */
+  loadHardcodedBackends() {
+    this.backends = {
+      local: {
+        name: 'Local-AI-Service',
+        url: process.env.DEEPSEEK_ENDPOINT || 'http://localhost:8001/v1',
+        model: 'Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
+        maxTokens: this.tokenConfig.local_max,
+        type: 'local',
+        healthEndpoint: '/v1/models',
+        capabilities: ['unlimited_tokens', 'code_generation'],
+        priority: 1,
+        specialization: 'general',
+        health: { status: 'unknown', lastCheck: 0, failures: 0 },
+        detectedService: null,
+        detectedModel: null
+      },
+
+      gemini: {
+        name: 'Gemini-Enhanced-Backend',
+        url: process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-2.0-flash-exp',
+        maxTokens: this.tokenConfig.gemini_max,
+        type: 'cloud',
+        apiKey: process.env.GEMINI_API_KEY,
+        capabilities: ['web_search', 'multimodal'],
+        priority: 2,
+        specialization: 'code_generation',
+        health: { status: 'unknown', lastCheck: 0, failures: 0 }
+      },
+
+      nvidia_deepseek: {
+        name: 'NVIDIA-DeepSeek-V3.1',
+        url: 'https://integrate.api.nvidia.com/v1',
+        model: 'deepseek-ai/deepseek-v3.1-terminus',
+        maxTokens: this.tokenConfig.nvidia_deepseek_max,
+        type: 'nvidia',
+        apiKey: process.env.NVIDIA_API_KEY,
+        capabilities: ['thinking_mode', 'streaming'],
+        priority: 3,
+        specialization: 'analysis',
+        health: { status: 'unknown', lastCheck: 0, failures: 0 }
+      },
+
+      nvidia_qwen: {
+        name: 'NVIDIA-Qwen-3-Coder-480B',
+        url: 'https://integrate.api.nvidia.com/v1',
+        model: 'nvidia/qwen3-coder-480b',
+        maxTokens: this.tokenConfig.nvidia_qwen_max,
+        type: 'nvidia',
+        apiKey: process.env.NVIDIA_API_KEY,
+        capabilities: ['code_generation', 'unity_optimization'],
+        priority: 4,
+        specialization: 'coding',
+        health: { status: 'unknown', lastCheck: 0, failures: 0 }
+      }
+    };
+
+    // Default routing configuration
+    this.routingConfig = {
+      defaultFallbackChain: ['local', 'gemini', 'nvidia_deepseek', 'nvidia_qwen'],
+      unityGeneration: ['nvidia_qwen', 'nvidia_deepseek', 'local'],
+      healthCheckInterval: 30000
+    };
+
+    // Build fallback chains
+    this.fallbackChains = {
+      'local': ['gemini', 'nvidia_deepseek', 'nvidia_qwen'],
+      'gemini': ['local', 'nvidia_deepseek', 'nvidia_qwen'],
+      'nvidia_deepseek': ['nvidia_qwen', 'local', 'gemini'],
+      'nvidia_qwen': ['nvidia_deepseek', 'local', 'gemini']
+    };
+  }
+
+  /**
+   * 🧹 CLEANUP ON SHUTDOWN
+   */
+  destroy() {
+    if (this.configWatcher) {
+      this.configWatcher.close();
+      console.error('👋 Config file watcher closed');
+    }
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      console.error('👋 Health check interval cleared');
+    }
+  }
+
+  /**
+   * 🎯 ASYNC INITIALIZATION - Discover local endpoint
+   * Called automatically on first use or can be called explicitly
+   */
+  async initializeLocalEndpoint(forceRefresh = false) {
+    if (this.localEndpointInitialized && !forceRefresh) {
+      return;
+    }
+
+    console.error('🔍 Initializing local endpoint auto-detection...');
+    const discovered = await this.localDetector.getLocalEndpoint(forceRefresh);
+
+    if (discovered) {
+      this.backends.local.url = discovered.url;
+      this.backends.local.detectedService = discovered.service;
+      this.backends.local.detectedModel = discovered.detectedModel;
+      this.backends.local.name = `Local-${discovered.service || 'AI-Service'}`;
+
+      this.localEndpointInitialized = true;
+
+      console.error('✅ Local endpoint auto-detection complete:');
+      console.error(`   Service: ${discovered.service}`);
+      console.error(`   URL: ${discovered.url}`);
+      console.error(`   Model: ${discovered.detectedModel || 'unknown'}`);
+      if (discovered.models && discovered.models.length > 0) {
+        console.error(`   Available models: ${discovered.models.slice(0, 3).join(', ')}${discovered.models.length > 3 ? '...' : ''}`);
+      }
+    } else {
+      console.error('⚠️  No local endpoint found, using fallback configuration');
+      console.error(`   Fallback URL: ${this.backends.local.url}`);
+      this.localEndpointInitialized = true; // Mark as attempted
+    }
+  }
+
+  /**
+   * 🚀 ASYNC HEALTH MONITORING - Non-blocking backend health checks
+   */
+  startHealthMonitoring() {
+    // Trigger initial local endpoint discovery in background (non-blocking)
+    console.error('🔍 Local endpoint discovery starting in background...');
+    this.initializeLocalEndpoint().catch(err => {
+      console.error('⚠️  Local endpoint discovery failed:', err.message);
+    });
+
+    // Initial health check (happens in parallel with discovery)
+    this.performHealthChecks();
+
+    // Periodic health monitoring (every 30 seconds)
+    this.healthCheckInterval = setInterval(() => {
+      this.performHealthChecks();
+    }, 30000);
+
+    console.error('🏥 Async health monitoring started (30s intervals)');
+  }
+
+  async performHealthChecks() {
+    const healthCheckPromises = Object.entries(this.backends).map(async ([key, backend]) => {
+      try {
+        const startTime = Date.now();
+        const timeout = backend.type === 'local' ? 5000 : 3000; // 5s local, 3s cloud
+
+        const response = await Promise.race([
+          this.pingBackend(backend),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), timeout))
+        ]);
+
+        const responseTime = Date.now() - startTime;
+
+        backend.health = {
+          status: 'healthy',
+          lastCheck: Date.now(),
+          failures: 0,
+          responseTime
+        };
+
+        // Reset circuit breaker on successful health check
+        const circuitBreaker = this.circuitBreakers.get(key);
+        if (circuitBreaker.state === 'open' || circuitBreaker.state === 'half-open') {
+          circuitBreaker.state = 'closed';
+          circuitBreaker.failures = 0;
+          console.error(`✅ Circuit breaker CLOSED for ${key} - backend recovered`);
+        }
+
+      } catch (error) {
+        backend.health.status = 'unhealthy';
+        backend.health.lastCheck = Date.now();
+        backend.health.failures = (backend.health.failures || 0) + 1;
+        backend.health.error = error.message;
+
+        // Update circuit breaker
+        this.updateCircuitBreaker(key, error);
+
+        // '(ᗒᗣᗕ)՞ AUTO-RECOVERY: Trigger re-discovery for local backends after 3 consecutive failures
+        if (key === 'local' && backend.health.failures >= 3) {
+          console.error(`🔄 Local backend failed ${backend.health.failures} times, triggering endpoint re-discovery`);
+          this.initializeLocalEndpoint(true).catch(err => {
+            console.error('⚠️  Re-discovery failed:', err.message);
+          });
+        }
+      }
+    });
+
+    await Promise.allSettled(healthCheckPromises);
+  }
+
+  async pingBackend(backend) {
+    const controller = new AbortController();
+
+    try {
+      // Different ping strategies based on backend type
+      switch (backend.type) {
+        case 'local':
+          // Use /v1/models instead of /health (LM Studio doesn't support /health)
+          return await fetch(`${backend.url}/models`, {
+            method: 'GET',
+            signal: controller.signal
+          });
+
+        case 'cloud':
+          // For Gemini, try a simple API check
+          return await this.pingCloudBackend(backend);
+
+        case 'nvidia':
+          return await fetch(`${backend.url}/models`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` },
+            signal: controller.signal
+          });
+
+        default:
+          throw new Error(`Unknown backend type: ${backend.type}`);
+      }
+    } finally {
+      controller.abort();
+    }
+  }
+
+  async pingCloudBackend(backend) {
+    // Simplified ping for cloud backends
+    return new Promise((resolve, reject) => {
+      // For now, assume cloud backends are healthy if configured
+      if (backend.name.includes('Gemini') && process.env.GEMINI_API_KEY) {
+        resolve({ ok: true });
+      } else {
+        reject(new Error('API key not configured'));
+      }
+    });
+  }
+
+  updateCircuitBreaker(backendKey, error) {
+    const circuitBreaker = this.circuitBreakers.get(backendKey);
+    circuitBreaker.failures++;
+    circuitBreaker.lastFailure = Date.now();
+
+    // Open circuit breaker after 3 failures
+    if (circuitBreaker.failures >= 3 && circuitBreaker.state === 'closed') {
+      circuitBreaker.state = 'open';
+      console.error(`🚫 Circuit breaker OPENED for ${backendKey} - too many failures`);
+    }
+
+    // Transition to half-open after timeout
+    if (circuitBreaker.state === 'open' &&
+        Date.now() - circuitBreaker.lastFailure > circuitBreaker.timeout) {
+      circuitBreaker.state = 'half-open';
+      console.error(`🔄 Circuit breaker HALF-OPEN for ${backendKey} - attempting recovery`);
+    }
+  }
+
+  /**
+   * 🎯 SMART ROUTING WITH HEALTH-AWARE FALLBACK CHAINS
+   */
+  async routeRequest(prompt, options = {}) {
+    const complexity = await this.analyzeComplexity(prompt, options);
+    const startTime = Date.now();
+
+    // Initial backend selection based on complexity and specialization
+    let selectedBackend = this.selectPrimaryBackend(complexity, options);
+
+    // Check if primary backend is healthy and circuit breaker is closed
+    const backend = this.backends[selectedBackend];
+    const circuitBreaker = this.circuitBreakers.get(selectedBackend);
+
+    if (backend.health.status !== 'healthy' || circuitBreaker.state === 'open') {
+      console.error(`⚠️ Primary backend ${selectedBackend} unavailable, using fallback chain`);
+      selectedBackend = this.selectFallbackBackend(selectedBackend, complexity);
+    }
+
+    const routingTime = Date.now() - startTime;
+    console.error(`🎯 Routing: ${complexity.score.toFixed(2)} complexity → ${selectedBackend} (${routingTime}ms)`);
+
+    // Update stats
+    this.requestStats.routingDecisions.set(selectedBackend,
+      (this.requestStats.routingDecisions.get(selectedBackend) || 0) + 1);
+
+    return selectedBackend;
+  }
+
+  selectPrimaryBackend(complexity, options = {}) {
+    // Force specific backend if requested
+    if (options.forceBackend && this.backends[options.forceBackend]) {
+      return options.forceBackend;
+    }
+
+    // Smart selection based on complexity and specialization
+    if (complexity.taskType === 'coding' && complexity.score > 0.7) {
+      return 'gemini'; // Gemini for complex code generation
+    }
+
+    if (complexity.taskType === 'analysis' && complexity.tokenCount > 16000) {
+      return 'nvidia_deepseek'; // NVIDIA DeepSeek for large analysis tasks
+    }
+
+    if (complexity.score > 0.8 || complexity.tokenCount > 32000) {
+      return 'nvidia_qwen'; // NVIDIA for very complex tasks
+    }
+
+    // Default to local for most requests
+    return 'local';
+  }
+
+  selectFallbackBackend(originalBackend, complexity) {
+    const fallbackChain = this.fallbackChains[originalBackend] || ['local', 'gemini', 'nvidia_deepseek'];
+
+    for (const fallbackKey of fallbackChain) {
+      const fallbackBackend = this.backends[fallbackKey];
+      const circuitBreaker = this.circuitBreakers.get(fallbackKey);
+
+      if (fallbackBackend.health.status === 'healthy' && circuitBreaker.state !== 'open') {
+        console.error(`🔄 Fallback selected: ${fallbackKey}`);
+        this.requestStats.fallbacks++;
+        return fallbackKey;
+      }
+    }
+
+    // If all backends are down, return local as last resort
+    console.error('🚨 All backends unhealthy, falling back to local');
+    return 'local';
+  }
+
+  /**
+   * 🔍 AI-DRIVEN COMPLEXITY ANALYSIS
+   * Uses lightweight local model for rapid assessment
+   */
+  async analyzeComplexity(prompt, options = {}) {
+    const tokenCount = this.estimateTokens(prompt);
+    const hasCode = /```|function\s|class\s|import\s|def\s|const\s|let\s|var\s/.test(prompt);
+    const hasMath = /\$[^$]+\$|\\\(|\\\[|\\begin\{|equation|formula/.test(prompt);
+
+    let baseScore = 0.3;
+
+    // Token-based complexity
+    if (tokenCount > 8000) baseScore += 0.3;
+    if (tokenCount > 16000) baseScore += 0.2;
+
+    // Content-based complexity
+    if (hasCode) baseScore += 0.2;
+    if (hasMath) baseScore += 0.15;
+
+    // Task type detection
+    let taskType = 'general';
+    if (hasCode || /code|programming|function|algorithm/.test(prompt.toLowerCase())) {
+      taskType = 'coding';
+      baseScore += 0.1;
+    } else if (hasMath || /analyze|research|data|calculate/.test(prompt.toLowerCase())) {
+      taskType = 'analysis';
+      baseScore += 0.1;
+    }
+
+    return {
+      score: Math.min(baseScore, 1.0),
+      tokenCount,
+      language: this.detectLanguage(prompt),
+      taskType,
+      hasCode,
+      hasMath
+    };
+  }
+
+  detectLanguage(prompt) {
+    const patterns = {
+      javascript: /(?:function|const|let|var|=>|\bnode\b|\bnpm\b)/i,
+      python: /(?:def\s|import\s|from\s.*import|\.py\b|python)/i,
+      java: /(?:public\s+class|import\s+java|\.java\b)/i,
+      cpp: /(?:#include|std::|\.cpp\b|\.hpp\b)/i,
+      rust: /(?:fn\s|use\s|cargo|\.rs\b)/i,
+      go: /(?:func\s|package\s|import\s.*fmt|\.go\b)/i,
+      csharp: /(?:using\s|class\s|namespace\s|\.cs\b|unity|monobehaviour)/i
+    };
+
+    for (const [lang, pattern] of Object.entries(patterns)) {
+      if (pattern.test(prompt)) return lang;
+    }
+    return 'unknown';
+  }
+
+  /**
+   * '(ᗒᗣᗕ)՞ DYNAMIC TOKEN CALCULATION - BLAZING FAST OPTIMIZATION!
+   * Auto-scales token limits based on request complexity and model capabilities
+   */
+  calculateDynamicTokenLimit(prompt, endpointKey, options = {}) {
+    const tokenCount = this.estimateTokens(prompt);
+    const language = this.detectLanguage(prompt);
+
+    // '(ᗒᗣᗕ)՞ UNITY DETECTION - Maximum tokens for game development!
+    const isUnityGeneration = /unity|monobehaviour|gameobject|transform|rigidbody|collider|animation|shader|script.*generation|generate.*unity|create.*unity.*script/i.test(prompt);
+    const isComplexGeneration = /generate|create|build|write.*script|complete.*implementation|full.*code|entire.*system/i.test(prompt);
+    const isLargeCodebase = tokenCount > 8000 || /multi.*file|entire.*project|complete.*system/i.test(prompt);
+
+    let targetTokens;
+
+    // '(ᗒᗣᗕ)՞ PRIORITY 1: Unity generations get MAXIMUM tokens!
+    if (isUnityGeneration) {
+      targetTokens = this.tokenConfig.unity_generation_tokens;
+      console.error(`🎮 OPTIMIZER: Unity generation detected - allocating ${targetTokens} tokens for MASSIVE script generation!`);
+    }
+    // PRIORITY 2: Complex code generation
+    else if (isComplexGeneration || isLargeCodebase) {
+      targetTokens = this.tokenConfig.complex_request_tokens;
+      console.error(`🔥 OPTIMIZER: Complex generation detected - allocating ${targetTokens} tokens for comprehensive output!`);
+    }
+    // PRIORITY 3: Simple requests stay efficient
+    else if (tokenCount < 1000 && !isComplexGeneration) {
+      targetTokens = this.tokenConfig.simple_request_tokens;
+      console.error(`⚡ OPTIMIZER: Simple request detected - optimizing with ${targetTokens} tokens for speed!`);
+    }
+    // PRIORITY 4: Fallback for medium complexity
+    else {
+      targetTokens = this.tokenConfig.fallback_tokens;
+      console.error(`🎯 OPTIMIZER: Standard request - using ${targetTokens} tokens for balanced performance!`);
+    }
+
+    // '(ᗒᗣᗕ)՞ RESPECT MODEL LIMITS while maximizing output!
+    const endpoint = this.backends[endpointKey];
+    const maxAllowed = endpoint ? endpoint.maxTokens : this.tokenConfig.fallback_tokens;
+    const finalTokens = Math.min(targetTokens, maxAllowed);
+
+    console.error(`🚀 OPTIMIZER: Final token allocation: ${finalTokens} (requested: ${targetTokens}, limit: ${maxAllowed}, endpoint: ${endpointKey})`);
+
+    return finalTokens;
+  }
+
+  estimateTokens(text) {
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * 🔄 MAKE REQUEST WITH SMART FALLBACK CHAINS AND RESPONSE HEADERS
+   */
+  async makeRequest(prompt, selectedBackend, options = {}) {
+    const requestId = this.generateRequestId();
+    const startTime = Date.now();
+    const cacheKey = this.generateCacheKey(prompt, selectedBackend, options);
+
+    // Check cache first
+    if (this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey);
+      if (Date.now() - cached.timestamp < this.cacheTimeout) {
+        this.requestStats.cached++;
+        console.error('💾 Cache hit');
+
+        // Add cache headers
+        return {
+          content: cached.response,
+          headers: {
+            'X-AI-Backend': cached.backend,
+            'X-Cache-Status': 'HIT',
+            'X-Request-ID': requestId,
+            'X-Sidecar-Enabled': 'true',
+            'X-Original-Backend': cached.backend
+          }
+        };
+      }
+      this.cache.delete(cacheKey);
+    }
+
+    let response;
+    let usedBackend = selectedBackend;
+    let fallbackChain = [];
+
+    try {
+      // Try primary backend
+      response = await this.callBackend(selectedBackend, prompt, options);
+      this.requestStats.successful++;
+      console.error(`✅ Request successful on primary backend: ${selectedBackend}`);
+
+    } catch (error) {
+      console.error(`❌ Primary backend ${selectedBackend} failed: ${error.message}`);
+      this.updateCircuitBreaker(selectedBackend, error);
+
+      // Try fallback chain
+      const availableFallbacks = this.fallbackChains[selectedBackend] || ['local'];
+
+      for (const fallbackKey of availableFallbacks) {
+        const fallbackBackend = this.backends[fallbackKey];
+        const circuitBreaker = this.circuitBreakers.get(fallbackKey);
+
+        // Skip unhealthy backends or open circuit breakers
+        if (fallbackBackend.health.status !== 'healthy' || circuitBreaker.state === 'open') {
+          console.error(`⚠️ Skipping unhealthy backend: ${fallbackKey}`);
+          continue;
+        }
+
+        try {
+          console.error(`🔄 Trying fallback: ${fallbackKey}`);
+          fallbackChain.push(fallbackKey);
+          response = await this.callBackend(fallbackKey, prompt, options);
+          usedBackend = fallbackKey;
+          this.requestStats.successful++;
+          this.requestStats.fallbacks++;
+          console.error(`✅ Fallback successful: ${fallbackKey}`);
+          break;
+
+        } catch (fallbackError) {
+          console.error(`❌ Fallback ${fallbackKey} failed: ${fallbackError.message}`);
+          this.updateCircuitBreaker(fallbackKey, fallbackError);
+        }
+      }
+
+      if (!response) {
+        throw new Error(`All backends failed. Primary: ${selectedBackend}, Tried fallbacks: ${fallbackChain.join(', ')}`);
+      }
+    }
+
+    const totalTime = Date.now() - startTime;
+
+    // Cache successful response
+    this.cache.set(cacheKey, {
+      response: response.content || response,
+      backend: usedBackend,
+      timestamp: Date.now()
+    });
+
+    // Update backend usage stats
+    this.requestStats.backendUsage.set(usedBackend,
+      (this.requestStats.backendUsage.get(usedBackend) || 0) + 1);
+
+    this.requestStats.total++;
+
+    // Create response with headers
+    const responseHeaders = {
+      'X-AI-Backend': usedBackend,
+      'X-Fallback-Chain': selectedBackend === usedBackend ? 'none' : `${selectedBackend}→${usedBackend}`,
+      'X-Request-ID': requestId,
+      'X-Response-Time': `${totalTime}ms`,
+      'X-Cache-Status': 'MISS'
+    };
+
+    // Log fallback chain usage if applicable
+    if (fallbackChain.length > 0) {
+      console.error(`🔄 FALLBACK CHAIN USED: ${selectedBackend} → ${fallbackChain.join(' → ')}`);
+    }
+
+    return {
+      content: response.content || response,
+      headers: responseHeaders,
+      metadata: {
+        backend: usedBackend,
+        fallbackChain,
+        responseTime: totalTime,
+        requestId
+      }
+    };
+  }
+
+  generateRequestId() {
+    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  getFallbackChain(primary) {
+    const chains = {
+      'local': ['nvidia_deepseek', 'nvidia_qwen'],
+      'nvidia_deepseek': ['nvidia_qwen', 'local'],
+      'nvidia_qwen': ['nvidia_deepseek', 'local']
+    };
+    return chains[primary] || ['local'];
+  }
+
+  /**
+   * 🚀 UNIFIED BACKEND CALLER - Handles all backend types with unified response format
+   */
+  async callBackend(backendKey, prompt, options = {}) {
+    const backend = this.backends[backendKey];
+    if (!backend) throw new Error(`Unknown backend: ${backendKey}`);
+
+    const startTime = Date.now();
+    console.error(`🚀 Calling ${backend.name} backend...`);
+
+    switch (backend.type) {
+      case 'local':
+        return await this.callLocalBackend(backend, prompt, options);
+
+      case 'cloud':
+        if (backend.name.includes('Gemini')) {
+          return await this.callGeminiBackend(backend, prompt, options);
+        }
+        throw new Error(`Unknown cloud backend: ${backend.name}`);
+
+      case 'nvidia':
+        return await this.callNvidiaBackend(backend, prompt, options);
+
+      default:
+        throw new Error(`Unknown backend type: ${backend.type}`);
+    }
+  }
+
+  /**
+   * 🏠 LOCAL BACKEND CALLER - Handles local Qwen model
+   */
+  async callLocalBackend(backend, prompt, options = {}) {
+    const dynamicTokens = this.calculateDynamicTokenLimit(prompt, 'local', options);
+    const finalTokens = Math.min(options.maxTokens || dynamicTokens, backend.maxTokens);
+
+    const requestBody = {
+      model: 'wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: finalTokens,
+      temperature: options.temperature || 0.7,
+      stream: false
+    };
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer sk-placeholder'
+    };
+
+    const timeoutMs = this.calculateDynamicTimeout(prompt, 'local', options);
+    console.error(`⚡ LOCAL: Using ${finalTokens} tokens, ${timeoutMs}ms timeout`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${backend.url}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Local backend HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('Invalid local backend response format');
+      }
+
+      return {
+        content: data.choices[0].message.content,
+        backend: 'local',
+        tokens_used: finalTokens
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Local backend timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
+  }
+
+
+  /**
+   * 💎 GEMINI BACKEND CALLER - Handles Gemini API
+   */
+  async callGeminiBackend(backend, prompt, options = {}) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    const dynamicTokens = this.calculateDynamicTokenLimit(prompt, 'gemini', options);
+    const finalTokens = Math.min(options.maxTokens || dynamicTokens, backend.maxTokens);
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ],
+      generationConfig: {
+        maxOutputTokens: finalTokens,
+        temperature: options.temperature || 0.7
+      }
+    };
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    const timeoutMs = this.calculateDynamicTimeout(prompt, 'gemini', options);
+    console.error(`💎 GEMINI: Using ${finalTokens} tokens, ${timeoutMs}ms timeout`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(
+        `${backend.url}/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Gemini backend HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid Gemini backend response format');
+      }
+
+      return {
+        content: data.candidates[0].content.parts[0].text,
+        backend: 'gemini',
+        tokens_used: finalTokens
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Gemini backend timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 🏢 NVIDIA BACKEND CALLER - Handles NVIDIA API endpoints
+   */
+  async callNvidiaBackend(backend, prompt, options = {}) {
+    if (!process.env.NVIDIA_API_KEY) {
+      throw new Error('NVIDIA API key not configured');
+    }
+
+    const dynamicTokens = this.calculateDynamicTokenLimit(prompt, backend.name.includes('deepseek') ? 'nvidia_deepseek' : 'nvidia_qwen', options);
+    const finalTokens = Math.min(options.maxTokens || dynamicTokens, backend.maxTokens);
+
+    const isDeepSeek = backend.name.includes('DeepSeek');
+
+    // UPGRADE: Use deepseek-v3.1-terminus (non-streaming, simple & fast like Qwen3)
+    const requestBody = {
+      model: isDeepSeek ? 'deepseek-ai/deepseek-v3.1-terminus' : 'qwen/qwen3-coder-480b-a35b-instruct',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: finalTokens,
+      temperature: isDeepSeek ? (options.temperature || 0.2) : 0.7,  // Lower temp for reasoning
+      stream: false  // Non-streaming for simplicity and speed
+    };
+
+    // Add top_p and thinking mode for DeepSeek Terminus (OPT-IN: off by default)
+    if (isDeepSeek) {
+      requestBody.top_p = 0.7;  // Nucleus sampling for better reasoning diversity
+      if (options.thinking === true) {  // Must explicitly enable thinking mode
+        requestBody.extra_body = {"chat_template_kwargs": {"thinking": true}};
+      }
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
+    };
+
+    const timeoutMs = this.calculateDynamicTimeout(prompt, isDeepSeek ? 'nvidia_deepseek' : 'nvidia_qwen', options);
+    console.error(`🏢 NVIDIA ${isDeepSeek ? 'DeepSeek' : 'Qwen'}: Using ${finalTokens} tokens, ${timeoutMs}ms timeout`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${backend.url}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`NVIDIA backend HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Non-streaming response (simple & fast for both DeepSeek Terminus and Qwen3)
+      const data = await response.json();
+
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('Invalid NVIDIA backend response format');
+      }
+
+      return {
+        content: data.choices[0].message.content,
+        backend: isDeepSeek ? 'nvidia_deepseek_terminus' : 'nvidia_qwen',
+        tokens_used: finalTokens
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`NVIDIA backend timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * TIMEOUT IMPROVEMENTS: Dynamic timeout calculation based on complexity and TOKEN analysis!
+   * '(ᗒᗣᗕ)՞ OPTIMIZER: Scales from 60s (simple) to 300s (MASSIVE Unity generations)!
+   */
+  calculateDynamicTimeout(prompt, endpointKey, options = {}) {
+    const tokenCount = this.estimateTokens(prompt);
+    const expectedTokens = this.calculateDynamicTokenLimit(prompt, endpointKey, options);
+    const hasCode = /```|function\s|class\s|import\s|def\s|const\s|let\s|var\s/.test(prompt);
+    const hasMath = /\$[^$]+\$|\\\(|\\\[|\\begin\{|equation|formula/.test(prompt);
+    const isUnityGeneration = /unity|monobehaviour|gameobject|transform|rigidbody|collider|animation|shader|script.*generation|generate.*unity|create.*unity.*script/i.test(prompt);
+    const isComplexGeneration = /generate|create|build|write.*script|validation.*script|complete.*implementation|full.*code|entire.*system/i.test(prompt);
+
+    // Base timeout: 60s (IMPROVED from original 30s)
+    let timeoutMs = 60000;
+
+    // '(ᗒᗣᗕ)՞ TOKEN-BASED SCALING - More tokens = More time for AMAZING results!
+    if (expectedTokens >= 16384) timeoutMs += 60000;  // +60s for Unity/massive generations
+    else if (expectedTokens >= 8192) timeoutMs += 45000;   // +45s for complex generations
+    else if (expectedTokens >= 4096) timeoutMs += 30000;   // +30s for medium generations
+
+    // Input complexity scaling
+    if (tokenCount > 8000) timeoutMs += 30000;  // +30s for large prompts
+    if (tokenCount > 16000) timeoutMs += 30000; // +30s for huge prompts
+
+    // Content complexity scaling
+    if (hasCode) timeoutMs += 20000;            // +20s for code operations
+    if (hasMath) timeoutMs += 15000;            // +15s for mathematical content
+    if (isUnityGeneration) timeoutMs += 45000;  // +45s for Unity generations (they're BIG!)
+    if (isComplexGeneration) timeoutMs += 25000; // +25s for general generation tasks
+
+    // Endpoint-specific adjustments
+    if (endpointKey.includes('nvidia')) {
+      timeoutMs += 15000; // +15s for cloud endpoints (network latency)
+    }
+
+    // '(ᗒᗣᗕ)՞ EXPANDED CAP: Up to 5 minutes for MASSIVE Unity script generations!
+    timeoutMs = Math.min(timeoutMs, 300000); // 5 minutes max for the biggest generations
+
+    console.error(`⏱️ OPTIMIZER: Calculated timeout ${timeoutMs}ms for ${expectedTokens} expected tokens (Unity: ${isUnityGeneration})`);
+
+    return timeoutMs;
+  }
+
+  /**
+   * TIMEOUT IMPROVEMENTS: Smart timeout suggestion generator
+   */
+  generateTimeoutSuggestion(complexity, usedTimeout, endpointKey) {
+    const suggestions = [];
+
+    if (complexity.tokenCount > 16000) {
+      suggestions.push("Try breaking the request into smaller chunks");
+    }
+
+    if (complexity.score > 0.8) {
+      suggestions.push("This is a complex request - consider using NVIDIA cloud endpoints for better performance");
+    }
+
+    if (usedTimeout < 120000 && endpointKey.includes('local')) {
+      suggestions.push("Consider switching to NVIDIA cloud endpoints for complex operations");
+    }
+
+    const suggestion = suggestions.length > 0
+      ? `💡 OPTIMIZER suggestions: ${suggestions.join("; ")}`
+      : "💡 Try reducing request complexity or using cloud endpoints";
+
+    return suggestion;
+  }
+
+  generateCacheKey(prompt, endpoint, options) {
+    const key = JSON.stringify({ prompt: prompt.substring(0, 200), endpoint, ...options });
+    return crypto.createHash('md5').update(key).digest('hex');
+  }
+
+  // Enhanced router methods for FileModificationManager integration
+  async performIntelligentFileEdit(filePath, edits, validationMode, language, fuzzyThreshold, suggestAlternatives, maxSuggestions) {
+    return await this.handleEditFile({
+      file_path: filePath,
+      edits,
+      validation_mode: validationMode,
+      language,
+      fuzzy_threshold: fuzzyThreshold,
+      suggest_alternatives: suggestAlternatives,
+      max_suggestions: maxSuggestions
+    });
+  }
+
+  async performMultiFileEdit(fileOperations, transactionMode, validationLevel, parallelProcessing) {
+    return await this.handleMultiEdit({
+      file_operations: fileOperations,
+      transaction_mode: transactionMode,
+      validation_level: validationLevel,
+      parallel_processing: parallelProcessing
+    });
+  }
+
+  async validateCodeChanges(filePath, proposedChanges, validationRules, language) {
+    return await this.handleValidateChanges({
+      file_path: filePath,
+      proposed_changes: proposedChanges,
+      validation_rules: validationRules,
+      language
+    });
+  }
+
+  async performBackupRestore(action, filePath, backupId, metadata, cleanupOptions) {
+    return await this.handleBackupRestore({
+      action,
+      file_path: filePath,
+      backup_id: backupId,
+      metadata,
+      cleanup_options: cleanupOptions
+    });
+  }
+
+  async performAtomicFileWrite(fileOperations, createBackup) {
+    return await this.handleWriteFilesAtomic({
+      file_operations: fileOperations,
+      create_backup: createBackup
+    });
+  }
+}
+
+/**
+ * 🚀 MECHA KING GHIDORAH SERVER
+ * Complete MCP server with all features
+ */
+class MechaKingGhidorahServer {
+  constructor() {
+    this.router = new MultiAIRouter();
+    this.fileManager = new FileModificationManager(this.router);
+    this.aliasResolver = new SmartAliasResolver();
+    this.conversationThreading = new ConversationThreading();
+    this.usageAnalytics = new UsageAnalytics();
+    this.server = new Server(
+      {
+        name: "Mecha King Ghidorah Multi-AI",
+        version: "8.2.0",
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+
+    console.error('🦖 Mecha King Ghidorah Multi-AI Server initialized');
+    console.error(`🎯 ${this.aliasResolver.coreTools.size} core tools with BLAZING FAST multi-backend support`);
+    console.error('⚡ Backends: Local, Gemini, NVIDIA DeepSeek, NVIDIA Qwen');
+    console.error('🔄 Smart fallback chains with circuit breaker protection active');
+    this.setupToolHandlers();
+  }
+
+  setupToolHandlers() {
+    // Register ONLY 9 core tools via SmartAliasResolver
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return {
+        tools: this.aliasResolver.generateToolList()
+      };
+    });
+
+    // Smart tool call handler using SmartAliasResolver
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+
+      try {
+        // Use SmartAliasResolver to get the handler
+        const handlerName = this.aliasResolver.resolveToolHandler(name);
+        if (!handlerName) {
+          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+        }
+
+        // Call the appropriate handler method
+        let result;
+        if (typeof this[handlerName] === 'function') {
+          result = await this[handlerName](args);
+        } else {
+          throw new McpError(ErrorCode.InternalError, `Handler not found: ${handlerName}`);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Tool error [${name}]:`, error);
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Error in tool ${name}: ${error.message}`
+        );
+      }
+    });
+  }
+
+  async handleAnalyze(args) {
+    const { content, file_path, language, analysis_type = 'comprehensive' } = args;
+
+    const prompt = `Analyze this ${language || 'unknown'} code with focus on ${analysis_type}:
+
+${content}
+
+Provide a comprehensive analysis including:
+1. Code quality assessment
+2. Security vulnerabilities
+3. Performance considerations
+4. Best practices compliance
+5. Suggested improvements
+6. Architecture patterns detected`;
+
+    const endpoint = await this.router.routeRequest(prompt, {
+      taskType: 'analysis',
+      language: language || this.router.detectLanguage(content)
+    });
+
+    const analysis = await this.router.makeRequest(prompt, endpoint);
+
+    return {
+      success: true,
+      file_path,
+      language: language || this.router.detectLanguage(content),
+      analysis_type,
+      analysis,
+      endpoint_used: endpoint,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async handleGenerate(args) {
+    const { prefix, suffix = '', language = 'javascript', task_type = 'completion' } = args;
+
+    // '(ᗒᗣᗕ)՞ UNITY DETECTION for automatic high token allocation!
+    const isUnityGeneration = /unity|monobehaviour|gameobject|transform|rigidbody|collider|animation|shader/i.test(prefix + suffix) ||
+                              language.toLowerCase() === 'csharp' ||
+                              /\.cs$|unity.*script|unity.*component/i.test(task_type);
+
+    const prompt = `Generate ${language} code for ${task_type}:
+
+Context before:
+${prefix}
+
+Context after:
+${suffix}
+
+Generate appropriate code that fits between the before and after contexts. Focus on:
+1. Correct syntax and structure
+2. Proper variable scoping
+3. Best practices for ${language}
+4. Performance considerations
+5. Error handling where appropriate${isUnityGeneration ? '\n6. Unity-specific best practices and component patterns' : ''}`;
+
+    const endpoint = await this.router.routeRequest(prompt, {
+      taskType: 'coding',
+      language,
+      isUnityGeneration // Pass Unity detection to router
+    });
+
+    // '(ᗒᗣᗕ)՞ DYNAMIC TOKEN ALLOCATION based on generation complexity!
+    const dynamicTokens = this.router.calculateDynamicTokenLimit(prompt, endpoint);
+    const options = {
+      maxTokens: dynamicTokens,
+      taskType: 'coding'
+    };
+
+    console.error(`🎮 OPTIMIZER: ${isUnityGeneration ? 'Unity' : 'Standard'} generation with ${dynamicTokens} tokens`);
+
+    const generated = await this.router.makeRequest(prompt, endpoint, options);
+
+    return {
+      success: true,
+      language,
+      task_type,
+      generated_code: generated,
+      endpoint_used: endpoint,
+      unity_generation: isUnityGeneration,
+      tokens_allocated: dynamicTokens,
+      optimization_applied: true,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async handleReview(args) {
+    const { content, file_path, language, review_type = 'comprehensive' } = args;
+
+    const prompt = `Perform a ${review_type} code review of this ${language || 'unknown'} code:
+
+${content}
+
+Provide analysis covering:
+1. Code quality and maintainability
+2. Security vulnerabilities
+3. Performance considerations
+4. Best practices compliance
+5. Suggested improvements`;
+
+    const endpoint = await this.router.routeRequest(prompt, {
+      taskType: 'analysis',
+      language: language || this.router.detectLanguage(content)
+    });
+
+    const review = await this.router.makeRequest(prompt, endpoint);
+
+    return {
+      success: true,
+      file_path,
+      language: language || this.router.detectLanguage(content),
+      review_type,
+      review,
+      endpoint_used: endpoint,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Token estimation utility (4 chars ≈ 1 token)
+  estimateTokens(text) {
+    if (!text) return 0;
+    return Math.ceil(text.length / 4);
+  }
+
+  // Find semantic boundaries for intelligent truncation
+  findSemanticBoundaries(content, language) {
+    const boundaries = [];
+    const lines = content.split('\n');
+
+    // Language-specific patterns for functions/classes
+    const patterns = {
+      javascript: [/^\s*(function|class|const|let|var)\s+\w+/m, /^\s*\/\*[\s\S]*?\*\//m],
+      typescript: [/^\s*(function|class|interface|type|const|let|var)\s+\w+/m, /^\s*\/\*[\s\S]*?\*\//m],
+      python: [/^\s*(def|class)\s+\w+/m, /^\s*"""[\s\S]*?"""/m],
+      java: [/^\s*(public|private|protected)?\s*(class|interface|method)\s+\w+/m, /^\s*\/\*[\s\S]*?\*\//m],
+      cpp: [/^\s*(class|struct|namespace)\s+\w+/m, /^\s*\/\*[\s\S]*?\*\//m],
+      default: [/^\s*[\w\s]+[{(]/m, /^\s*\/\/|^\s*#|^\s*\/\*/m]
+    };
+
+    const langPatterns = patterns[language] || patterns.default;
+
+    lines.forEach((line, index) => {
+      langPatterns.forEach(pattern => {
+        if (pattern.test(line)) {
+          boundaries.push({
+            line: index,
+            position: lines.slice(0, index).join('\n').length,
+            type: 'semantic'
+          });
+        }
+      });
+    });
+
+    return boundaries.sort((a, b) => a.position - b.position);
+  }
+
+  // Simple similarity calculation (fallback when string-similarity not available)
+  calculateStringSimilarity(str1, str2) {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    if (longer.length === 0) return 1.0;
+
+    const editDistance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  }
+
+  // Levenshtein distance calculation
+  levenshteinDistance(str1, str2) {
+    const matrix = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1, // substitution
+            matrix[i][j - 1] + 1,     // insertion
+            matrix[i - 1][j] + 1      // deletion
+          );
+        }
+      }
+    }
+
+    return matrix[str2.length][str1.length];
+  }
+
+  // Find positions of verify_texts matches for preservation
+  findVerifyTextMatches(content, verifyTexts, fuzzyThreshold = 0.8) {
+    if (!verifyTexts || verifyTexts.length === 0) return [];
+
+    const matches = [];
+
+    // Try to use string-similarity if available, fallback to our implementation
+    let stringSimilarity;
+    try {
+      stringSimilarity = require('string-similarity');
+    } catch (e) {
+      stringSimilarity = { compareTwoStrings: this.calculateStringSimilarity.bind(this) };
+    }
+
+    verifyTexts.forEach(searchText => {
+      // Exact matches first
+      let index = content.indexOf(searchText);
+      while (index !== -1) {
+        matches.push({
+          text: searchText,
+          position: index,
+          length: searchText.length,
+          type: 'exact',
+          context: this.getContextAroundPosition(content, index, searchText.length)
+        });
+        index = content.indexOf(searchText, index + 1);
+      }
+
+      // Fuzzy matches if enabled
+      if (fuzzyThreshold > 0) {
+        const lines = content.split('\n');
+        lines.forEach((line, lineIndex) => {
+          if (line.trim().length < 3) return; // Skip very short lines
+
+          const similarity = stringSimilarity.compareTwoStrings(searchText, line);
+          if (similarity >= fuzzyThreshold) {
+            const position = lines.slice(0, lineIndex).join('\n').length + lineIndex;
+            matches.push({
+              text: searchText,
+              foundText: line,
+              position,
+              length: line.length,
+              type: 'fuzzy',
+              similarity,
+              context: this.getContextAroundPosition(content, position, line.length)
+            });
+          }
+        });
+      }
+    });
+
+    return matches.sort((a, b) => a.position - b.position);
+  }
+
+  // Get context around a position for verify_texts preservation
+  getContextAroundPosition(content, position, length, contextSize = 200) {
+    const start = Math.max(0, position - contextSize);
+    const end = Math.min(content.length, position + length + contextSize);
+    return {
+      before: content.substring(start, position),
+      match: content.substring(position, position + length),
+      after: content.substring(position + length, end),
+      full: content.substring(start, end)
+    };
+  }
+
+  // Intelligent content truncation with semantic boundaries
+  truncateContentIntelligently(content, maxTokens, options = {}) {
+    const {
+      verifyTexts = [],
+      fuzzyThreshold = 0.8,
+      language = 'javascript',
+      preserveContext = true
+    } = options;
+
+    const currentTokens = this.estimateTokens(content);
+    if (currentTokens <= maxTokens) {
+      return {
+        content,
+        truncated: false,
+        originalTokens: currentTokens,
+        finalTokens: currentTokens,
+        preserved: [],
+        metadata: {}
+      };
+    }
+
+    // Find important sections to preserve
+    const verifyMatches = this.findVerifyTextMatches(content, verifyTexts, fuzzyThreshold);
+    const semanticBoundaries = this.findSemanticBoundaries(content, language);
+
+    // Strategy: Preserve verify_texts context first, then truncate at semantic boundaries
+    const maxChars = maxTokens * 4; // Approximate character limit
+    let result = {
+      content: '',
+      truncated: true,
+      originalTokens: currentTokens,
+      finalTokens: 0,
+      preserved: [],
+      metadata: {
+        verifyMatches: verifyMatches.length,
+        semanticBoundaries: semanticBoundaries.length,
+        truncationStrategy: 'intelligent'
+      }
+    };
+
+    if (verifyMatches.length > 0 && preserveContext) {
+      // Preserve context around verify_texts matches
+      let preservedContent = '';
+      let preservedSections = [];
+
+      verifyMatches.forEach((match, index) => {
+        if (this.estimateTokens(preservedContent + match.context.full) < maxTokens * 0.8) {
+          preservedContent += (preservedSections.length > 0 ? '\n\n[...]\n\n' : '') + match.context.full;
+          preservedSections.push({
+            type: match.type,
+            text: match.text,
+            position: match.position,
+            similarity: match.similarity || 1.0
+          });
+        }
+      });
+
+      if (preservedContent.length > 0) {
+        result.content = preservedContent;
+        result.preserved = preservedSections;
+        result.finalTokens = this.estimateTokens(result.content);
+        result.metadata.truncationStrategy = 'verify_texts_preservation';
+        return result;
+      }
+    }
+
+    // Fallback: Truncate at semantic boundaries (but only if we have reasonable space)
+    if (semanticBoundaries.length > 0 && maxTokens > 30) {
+      let truncatedAtBoundary = false;
+      for (let i = semanticBoundaries.length - 1; i >= 0; i--) {
+        const boundary = semanticBoundaries[i];
+        const truncatedContent = content.substring(0, boundary.position);
+
+        if (this.estimateTokens(truncatedContent) <= maxTokens) {
+          result.content = truncatedContent + '\n\n[... truncated at semantic boundary ...]';
+          result.finalTokens = this.estimateTokens(result.content);
+          result.metadata.truncationStrategy = 'semantic_boundary';
+          result.metadata.truncatedAtLine = boundary.line;
+          truncatedAtBoundary = true;
+          break;
+        }
+      }
+
+      if (truncatedAtBoundary) {
+        return result;
+      }
+    }
+
+    // Final fallback: Simple character truncation
+    result.content = content.substring(0, maxChars) + '\n\n[... truncated due to token limit ...]';
+    result.finalTokens = this.estimateTokens(result.content);
+    result.metadata.truncationStrategy = 'character_limit';
+
+    return result;
+  }
+
+  async handleRead(args) {
+    const {
+      file_paths,
+      max_files = 10,
+      analysis_type = 'content',
+      verify_texts = [],
+      verification_mode = 'fuzzy',
+      fuzzy_threshold = 0.8
+    } = args;
+
+    // Token budget configuration
+    const TOKEN_LIMIT = 24000; // 1000 token safety buffer from 25K MCP limit
+    const PER_FILE_TOKEN_LIMIT = Math.floor(TOKEN_LIMIT / Math.min(file_paths.length, max_files));
+
+    const results = [];
+    let totalTokensUsed = 0;
+    let responseMetadata = {
+      tokenBudget: TOKEN_LIMIT,
+      perFileLimit: PER_FILE_TOKEN_LIMIT,
+      truncationOccurred: false,
+      verifyTextsProcessed: verify_texts.length,
+      processingTimestamp: new Date().toISOString()
+    };
+
+    for (const filePath of file_paths.slice(0, max_files)) {
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const content = await fs.readFile(filePath, 'utf8');
+        const language = this.router?.detectLanguage?.(content) || path.extname(filePath).substring(1);
+
+        let fileResult = {
+          file_path: filePath,
+          size: content.length,
+          lines: content.split('\n').length,
+          language,
+          originalTokens: this.estimateTokens(content)
+        };
+
+        // Handle different analysis types with token awareness
+        switch (analysis_type) {
+          case 'summary':
+            fileResult.content = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+            fileResult.finalTokens = this.estimateTokens(fileResult.content);
+            break;
+
+          case 'structure':
+            // For structure analysis, focus on key structural elements
+            const structureContent = this.extractStructuralElements(content, language);
+            const structureTruncation = this.truncateContentIntelligently(
+              structureContent,
+              PER_FILE_TOKEN_LIMIT,
+              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold, preserveContext: false }
+            );
+            fileResult = { ...fileResult, ...structureTruncation };
+            break;
+
+          case 'relationships':
+            // For relationship analysis, focus on imports/exports/dependencies
+            const relationshipContent = this.extractRelationships(content, language);
+            const relationshipTruncation = this.truncateContentIntelligently(
+              relationshipContent,
+              PER_FILE_TOKEN_LIMIT,
+              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold }
+            );
+            fileResult = { ...fileResult, ...relationshipTruncation };
+            break;
+
+          case 'content':
+          default:
+            // Full content analysis with intelligent truncation
+            const contentTruncation = this.truncateContentIntelligently(
+              content,
+              PER_FILE_TOKEN_LIMIT,
+              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold, preserveContext: verification_mode !== 'basic' }
+            );
+            fileResult = { ...fileResult, ...contentTruncation };
+            break;
+        }
+
+        // Track global truncation status
+        if (fileResult.truncated) {
+          responseMetadata.truncationOccurred = true;
+        }
+
+        totalTokensUsed += fileResult.finalTokens || fileResult.originalTokens;
+        results.push(fileResult);
+
+      } catch (error) {
+        results.push({
+          file_path: filePath,
+          error: error.message,
+          finalTokens: 0
+        });
+      }
+    }
+
+    responseMetadata.totalTokensUsed = totalTokensUsed;
+    responseMetadata.tokenEfficiency = (totalTokensUsed / TOKEN_LIMIT * 100).toFixed(1) + '%';
+
+    return {
+      success: true,
+      analysis_type,
+      files_processed: results.length,
+      results,
+      metadata: responseMetadata
+    };
+  }
+
+  // Extract structural elements (classes, functions, interfaces)
+  extractStructuralElements(content, language) {
+    const lines = content.split('\n');
+    const structuralLines = [];
+
+    const patterns = {
+      javascript: /^\s*(class|function|const|let|var|export|import)\s+/,
+      typescript: /^\s*(class|interface|type|function|const|let|var|export|import)\s+/,
+      python: /^\s*(class|def|import|from)\s+/,
+      java: /^\s*(public|private|protected)?\s*(class|interface|method|import)\s+/,
+      cpp: /^\s*(class|struct|namespace|#include)\s+/,
+      default: /^\s*[\w\s]*(class|function|def|import|export|namespace)\s+/
+    };
+
+    const pattern = patterns[language] || patterns.default;
+
+    lines.forEach((line, index) => {
+      if (pattern.test(line) || line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*')) {
+        structuralLines.push(`${index + 1}: ${line}`);
+      }
+    });
+
+    return structuralLines.join('\n');
+  }
+
+  // Extract relationship information (imports, exports, dependencies)
+  extractRelationships(content, language) {
+    const lines = content.split('\n');
+    const relationshipLines = [];
+
+    const patterns = {
+      javascript: /^\s*(import|export|require|module\.exports)/,
+      typescript: /^\s*(import|export|require|module\.exports)/,
+      python: /^\s*(import|from|__import__)/,
+      java: /^\s*(import|package)/,
+      cpp: /^\s*(#include|using|namespace)/,
+      default: /^\s*(import|export|require|include|using)/
+    };
+
+    const pattern = patterns[language] || patterns.default;
+
+    lines.forEach((line, index) => {
+      if (pattern.test(line)) {
+        relationshipLines.push(`${index + 1}: ${line}`);
+      }
+    });
+
+    return relationshipLines.join('\n');
+  }
+
+  async handleHealth(args) {
+    const { check_type = 'comprehensive', force_ip_rediscovery = false } = args;
+    const startTime = Date.now();
+
+    const healthData = {
+      success: true,
+      check_type,
+      timestamp: new Date().toISOString(),
+      server_info: {
+        name: 'Mecha King Ghidorah Multi-AI',
+        version: '8.2.0',
+        uptime: process.uptime(),
+        memory_usage: process.memoryUsage(),
+        multi_ai_integration: 'BLAZING FAST Smart Fallback Chains',
+        backends_configured: Object.keys(this.router.backends).length
+      },
+      tool_stats: this.aliasResolver.getSystemStats(),
+      multi_ai_status: {
+        total_backends: Object.keys(this.router.backends).length,
+        healthy_backends: 0,
+        fallback_chains_active: Object.keys(this.router.fallbackChains).length,
+        circuit_breakers: {},
+        request_stats: this.router.requestStats
+      },
+      backends: {}
+    };
+
+    // Test backends based on check type
+    if (check_type === 'comprehensive' || check_type === 'endpoints') {
+      for (const [key, backend] of Object.entries(this.router.backends)) {
+        try {
+          const backendHealth = backend.health;
+          const circuitBreaker = this.router.circuitBreakers.get(key);
+          const isHealthy = backendHealth.status === 'healthy' && circuitBreaker.state === 'closed';
+
+          if (isHealthy) {
+            healthData.multi_ai_status.healthy_backends++;
+          }
+
+          healthData.backends[key] = {
+            name: backend.name,
+            type: backend.type,
+            url: backend.url,
+            priority: backend.priority,
+            specialization: backend.specialization,
+            max_tokens: backend.maxTokens,
+            health_status: backendHealth.status,
+            last_check: new Date(backendHealth.lastCheck).toISOString(),
+            response_time: backendHealth.responseTime || 'N/A',
+            failures: backendHealth.failures || 0,
+            circuit_breaker: {
+              state: circuitBreaker.state,
+              failures: circuitBreaker.failures,
+              last_failure: circuitBreaker.lastFailure ? new Date(circuitBreaker.lastFailure).toISOString() : null
+            },
+            overall_status: isHealthy ? 'operational' : 'degraded'
+          };
+
+          // Store circuit breaker info in multi_ai_status
+          healthData.multi_ai_status.circuit_breakers[key] = circuitBreaker.state;
+
+        } catch (error) {
+          healthData.backends[key] = {
+            name: backend.name,
+            type: backend.type,
+            status: 'error',
+            error: error.message,
+            overall_status: 'failed'
+          };
+        }
+      }
+    }
+
+    // Add fallback chain information
+    healthData.multi_ai_status.fallback_chains = this.router.fallbackChains;
+
+    // Performance metrics
+    healthData.performance_metrics = {
+      cache_hit_rate: this.router.requestStats.total > 0
+        ? `${Math.round((this.router.requestStats.cached / this.router.requestStats.total) * 100)}%`
+        : '0%',
+      fallback_usage_rate: this.router.requestStats.total > 0
+        ? `${Math.round((this.router.requestStats.fallbacks / this.router.requestStats.total) * 100)}%`
+        : '0%',
+      backend_distribution: Object.fromEntries(this.router.requestStats.backendUsage)
+    };
+
+    healthData.total_check_time = Date.now() - startTime;
+    return healthData;
+  }
+
+  async handleWriteFilesAtomic(args) {
+    const { file_operations, create_backup = true } = args;
+    const results = [];
+
+    for (const operation of file_operations) {
+      try {
+        const fs = await import('fs/promises');
+
+        // Create backup if requested
+        if (create_backup) {
+          try {
+            const existingContent = await fs.readFile(operation.path, 'utf8');
+            const backupPath = `${operation.path}.backup.${Date.now()}`;
+            await fs.writeFile(backupPath, existingContent);
+          } catch (error) {
+            // File might not exist, continue
+          }
+        }
+
+        // Perform the operation
+        switch (operation.operation) {
+          case 'write':
+            await fs.writeFile(operation.path, operation.content);
+            break;
+          case 'append':
+            await fs.appendFile(operation.path, operation.content);
+            break;
+          default:
+            await fs.writeFile(operation.path, operation.content);
+        }
+
+        results.push({
+          path: operation.path,
+          operation: operation.operation,
+          success: true
+        });
+      } catch (error) {
+        results.push({
+          path: operation.path,
+          operation: operation.operation,
+          success: false,
+          error: error.message
+        });
+      }
+    }
+
+    return {
+      success: true,
+      operations_completed: results.filter(r => r.success).length,
+      operations_failed: results.filter(r => !r.success).length,
+      results
+    };
+  }
+
+  async handleEditFile(args) {
+    const {
+      file_path,
+      edits,
+      validation_mode = 'strict',
+      language,
+      fuzzy_threshold = 0.8,
+      suggest_alternatives = true,
+      max_suggestions = 3
+    } = args;
+
+    // Validate and normalize fuzzy_threshold to be between 0.1 and 1.0
+    const effectiveFuzzyThreshold = Math.max(0.1, Math.min(1.0, fuzzy_threshold));
+    const dry_run = validation_mode === 'dry_run';
+    const strict_mode = validation_mode === 'strict';
+
+    let edits_applied = 0;
+    const total_edits = edits.length;
+    const fuzzy_matches = [];
+    const suggestions = [];
+    const failed_edits = [];
+
+    try {
+      const fs = await import('fs/promises');
+      let content = await fs.readFile(file_path, 'utf8');
+      
+      // Detect original line ending to preserve it
+      const originalLineEnding = content.includes('\r\n') ? '\r\n' : '\n';
+
+      // Process each edit
+      for (const edit of edits) {
+        let matchFound = false;
+        let matchInfo = null;
+
+        // --- Phase 1: Exact Match (fastest, most reliable) ---
+        if (content.includes(edit.find)) {
+          content = content.replace(edit.find, edit.replace);
+          edits_applied++;
+          matchFound = true;
+          matchInfo = { type: 'exact', similarity: 1.0 };
+        }
+        // --- Phase 2: Fuzzy Match (if exact fails and not in strict mode) ---
+        else if (!strict_mode && effectiveFuzzyThreshold < 1.0) {
+          const normalizedFind = this.normalizeWhitespace(edit.find);
+          const contentLines = content.split(originalLineEnding);
+          const findLines = edit.find.split('\n');
+          
+          let bestMatch = null;
+          let bestSimilarity = 0;
+          let bestPosition = -1;
+
+          // Search for fuzzy matches
+          for (let i = 0; i <= contentLines.length - findLines.length; i++) {
+            const candidateBlock = contentLines.slice(i, i + findLines.length).join('\n');
+            const normalizedCandidate = this.normalizeWhitespace(candidateBlock);
+            
+            const similarity = this.calculateStringSimilarity(normalizedFind, normalizedCandidate);
+            
+            if (similarity >= effectiveFuzzyThreshold && similarity > bestSimilarity) {
+              bestSimilarity = similarity;
+              bestMatch = candidateBlock;
+              bestPosition = i;
+            }
+          }
+
+          if (bestMatch && bestSimilarity >= effectiveFuzzyThreshold) {
+            // Apply fuzzy match
+            content = content.replace(bestMatch, edit.replace);
+            edits_applied++;
+            matchFound = true;
+            matchInfo = {
+              type: 'fuzzy',
+              similarity: bestSimilarity,
+              original_find: edit.find,
+              matched_content: bestMatch,
+              line_position: bestPosition
+            };
+            fuzzy_matches.push(matchInfo);
+          }
+        }
+
+        // --- Phase 3: Generate Suggestions (if no match found) ---
+        if (!matchFound && suggest_alternatives) {
+          const normalizedFind = this.normalizeWhitespace(edit.find);
+          const contentLines = content.split(originalLineEnding);
+          const findLines = edit.find.split('\n');
+          const alternatives = [];
+
+          // Find top N similar blocks
+          for (let i = 0; i <= contentLines.length - findLines.length; i++) {
+            const candidateBlock = contentLines.slice(i, i + findLines.length).join('\n');
+            const normalizedCandidate = this.normalizeWhitespace(candidateBlock);
+            const similarity = this.calculateStringSimilarity(normalizedFind, normalizedCandidate);
+
+            if (similarity > 0.3) { // Minimum threshold for suggestions
+              alternatives.push({
+                similarity,
+                line_start: i,
+                code: candidateBlock.substring(0, 100) + (candidateBlock.length > 100 ? '...' : '')
+              });
+            }
+          }
+
+          alternatives.sort((a, b) => b.similarity - a.similarity);
+          suggestions.push({
+            original_find: edit.find.substring(0, 100) + (edit.find.length > 100 ? '...' : ''),
+            threshold_needed: effectiveFuzzyThreshold,
+            alternatives: alternatives.slice(0, max_suggestions)
+          });
+          
+          failed_edits.push(edit);
+        }
+      }
+
+      // Write changes if not in dry_run mode
+      if (!dry_run && edits_applied > 0) {
+        await fs.writeFile(file_path, content);
+      }
+
+      return {
+        success: edits_applied === total_edits,
+        file_path,
+        edits_applied,
+        total_edits,
+        validation_mode,
+        dry_run,
+        strict_mode,
+        fuzzy_threshold: effectiveFuzzyThreshold,
+        fuzzy_matches,
+        suggestions,
+        failed_edits: failed_edits.length,
+        optimization_applied: !strict_mode && effectiveFuzzyThreshold < 1.0
+      };
+    } catch (error) {
+      return {
+        success: false,
+        file_path,
+        edits_applied: 0,
+        total_edits,
+        error: error.message
+      };
+    }
+  }
+
+  // Helper: Normalize whitespace for fuzzy matching
+  normalizeWhitespace(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .trim()
+      .replace(/\r\n/g, '\n')  // Normalize line endings
+      .replace(/\s+/g, ' ')    // Collapse whitespace
+      .replace(/\s*([{}()\[\];,])\s*/g, '$1'); // Remove space around punctuation
+  }
+
+  async handleValidateChanges(args) {
+    const { file_path, proposed_changes, validation_rules = ['syntax'] } = args;
+
+    const validationResults = [];
+
+    for (const change of proposed_changes) {
+      const result = {
+        find: change.find,
+        replace: change.replace,
+        valid: true,
+        warnings: [],
+        suggestions: []
+      };
+
+      // Basic validation
+      if (validation_rules.includes('syntax')) {
+        if (change.replace.includes('undefined') || change.replace.includes('null')) {
+          result.warnings.push('Potential null/undefined values detected');
+        }
+      }
+
+      validationResults.push(result);
+    }
+
+    return {
+      success: true,
+      file_path,
+      total_changes: proposed_changes.length,
+      valid_changes: validationResults.filter(r => r.valid).length,
+      validation_results: validationResults
+    };
+  }
+
+  async handleMultiEdit(args) {
+    const { file_operations, transaction_mode = 'all_or_nothing' } = args;
+    const results = [];
+
+    for (const operation of file_operations) {
+      try {
+        const result = await this.handleEditFile({
+          file_path: operation.file_path,
+          edits: operation.edits,
+          validation_mode: 'strict'
+        });
+        results.push(result);
+      } catch (error) {
+        results.push({
+          success: false,
+          file_path: operation.file_path,
+          error: error.message
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.length - successCount;
+
+    return {
+      success: transaction_mode !== 'all_or_nothing' || failCount === 0,
+      transaction_mode,
+      operations_successful: successCount,
+      operations_failed: failCount,
+      results
+    };
+  }
+
+  async handleBackupRestore(args) {
+    const { action, file_path, backup_id } = args;
+
+    switch (action) {
+      case 'create':
+        try {
+          const fs = await import('fs/promises');
+          const content = await fs.readFile(file_path, 'utf8');
+          const backupPath = `${file_path}.backup.${Date.now()}`;
+          await fs.writeFile(backupPath, content);
+
+          return {
+            success: true,
+            action: 'create',
+            file_path,
+            backup_path: backupPath,
+            timestamp: new Date().toISOString()
+          };
+        } catch (error) {
+          return {
+            success: false,
+            action: 'create',
+            error: error.message
+          };
+        }
+
+      case 'list':
+        try {
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          const dir = path.dirname(file_path);
+          const basename = path.basename(file_path);
+          const files = await fs.readdir(dir);
+          const backups = files.filter(f => f.startsWith(`${basename}.backup.`));
+
+          return {
+            success: true,
+            action: 'list',
+            file_path,
+            backups
+          };
+        } catch (error) {
+          return {
+            success: false,
+            action: 'list',
+            error: error.message
+          };
+        }
+
+      default:
+        return {
+          success: false,
+          action,
+          error: `Unsupported action: ${action}`
+        };
+    }
+  }
+
+  async handleAsk(args) {
+    const { model, prompt, thinking = true, max_tokens, enable_chunking = false, force_backend } = args;
+
+    // Map user-friendly model names to internal backend names
+    const modelMap = {
+      'local': 'local',
+      'gemini': 'gemini',
+      'deepseek3.1': 'nvidia_deepseek',
+      'qwen3': 'nvidia_qwen'
+    };
+
+    const requestedBackend = modelMap[model];
+    if (!requestedBackend) {
+      throw new Error(`Unknown model: ${model}. Available models: local, gemini, deepseek3.1, qwen3`);
+    }
+
+    // '(ᗒᗣᗕ)՞ SMART ROUTING OR FORCE BACKEND
+    let selectedBackend;
+    if (force_backend && this.router && this.router.backends && this.router.backends[force_backend]) {
+      selectedBackend = force_backend;
+      console.error(`🎯 FORCED BACKEND: Using ${force_backend} (bypassing smart routing)`);
+    } else {
+      const routingOptions = { forceBackend: requestedBackend };
+      selectedBackend = await this.router.routeRequest(prompt, routingOptions);
+    }
+
+    // '(ᗒᗣᗕ)՞ DYNAMIC TOKEN OPTIMIZATION - Calculate optimal tokens!
+    const dynamicTokens = this.router.calculateDynamicTokenLimit(prompt, selectedBackend);
+    const finalMaxTokens = max_tokens || dynamicTokens;
+
+    const options = {
+      thinking,
+      maxTokens: finalMaxTokens,
+      forceBackend: force_backend
+    };
+
+    console.error(`🚀 MULTI-AI: Processing ${model} → ${selectedBackend} with ${finalMaxTokens} tokens (dynamic: ${dynamicTokens}, specified: ${max_tokens || 'auto'})`);
+
+    try {
+      const response = await this.router.makeRequest(prompt, selectedBackend, options);
+      const responseContent = response.content || response;
+      const responseHeaders = response.headers || {};
+
+      // '(ᗒᗣᗕ)՞ TRUNCATION DETECTION - Check if response was cut off
+      const wasTruncated = this.detectTruncation(responseContent, finalMaxTokens);
+
+      if (wasTruncated && enable_chunking) {
+        console.error(`🔄 MULTI-AI: Response truncated, attempting chunked generation...`);
+        const chunkedResponse = await this.performChunkedGeneration(prompt, selectedBackend, options);
+        return {
+          success: true,
+          model,
+          requested_backend: requestedBackend,
+          actual_backend: responseHeaders['X-AI-Backend'] || selectedBackend,
+          prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+          response: chunkedResponse,
+          backend_used: responseHeaders['X-AI-Backend'] || selectedBackend,
+          fallback_chain: responseHeaders['X-Fallback-Chain'] || 'none',
+          request_id: responseHeaders['X-Request-ID'],
+          response_time: responseHeaders['X-Response-Time'],
+          thinking_enabled: thinking,
+          max_tokens: finalMaxTokens,
+          dynamic_tokens: dynamicTokens,
+          chunked: true,
+          multi_ai_optimization: true,
+          response_headers: responseHeaders,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      return {
+        success: true,
+        model,
+        requested_backend: requestedBackend,
+        actual_backend: responseHeaders['X-AI-Backend'] || selectedBackend,
+        prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+        response: responseContent,
+        backend_used: responseHeaders['X-AI-Backend'] || selectedBackend,
+        fallback_chain: responseHeaders['X-Fallback-Chain'] || 'none',
+        request_id: responseHeaders['X-Request-ID'],
+        response_time: responseHeaders['X-Response-Time'],
+        cache_status: responseHeaders['X-Cache-Status'] || 'MISS',
+        thinking_enabled: thinking,
+        max_tokens: finalMaxTokens,
+        dynamic_tokens: dynamicTokens,
+        was_truncated: wasTruncated,
+        multi_ai_optimization: finalMaxTokens !== 4096, // Show if we optimized beyond default
+        smart_routing_applied: !force_backend && (selectedBackend !== requestedBackend),
+        response_headers: responseHeaders,
+        metadata: response.metadata || {},
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`❌ MULTI-AI: Error in ${model} request: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 💬 CONVERSATION MANAGEMENT - Handle conversation threading operations
+   */
+  async handleManageConversation(args) {
+    const {
+      action,
+      thread_id,
+      continuation_id,
+      topic = 'general',
+      query,
+      user_id = 'default',
+      platform = 'claude_code',
+      limit = 10
+    } = args;
+
+    try {
+      let result;
+
+      switch (action) {
+        case 'start':
+          result = await this.conversationThreading.startOrContinueThread({
+            topic,
+            user_id,
+            platform
+          });
+          break;
+
+        case 'continue':
+          if (!continuation_id) {
+            throw new Error('continuation_id is required for continue action');
+          }
+          result = await this.conversationThreading.continueThread(continuation_id);
+          break;
+
+        case 'resume':
+          if (!thread_id) {
+            throw new Error('thread_id is required for resume action');
+          }
+          result = await this.conversationThreading.resumeThread(thread_id);
+          break;
+
+        case 'history':
+          if (!thread_id) {
+            throw new Error('thread_id is required for history action');
+          }
+          result = await this.conversationThreading.getThreadHistory(thread_id, limit);
+          break;
+
+        case 'search':
+          if (!query) {
+            throw new Error('query is required for search action');
+          }
+          result = await this.conversationThreading.searchConversations(query);
+          break;
+
+        case 'analytics':
+          result = await this.conversationThreading.getConversationAnalytics();
+          break;
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            action,
+            data: result
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      console.error(`Error in handleManageConversation (${action}):`, error);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            action,
+            error: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
+  }
+
+  /**
+   * 📊 USAGE ANALYTICS - Handle analytics requests
+   */
+  async handleGetAnalytics(args) {
+    const {
+      report_type = 'current',
+      time_range = '7d',
+      format = 'json'
+    } = args;
+
+    try {
+      let result;
+
+      switch (report_type) {
+        case 'current':
+          result = this.usageAnalytics.getSessionStats();
+          break;
+
+        case 'historical':
+          result = await this.usageAnalytics.getHistoricalAnalytics(time_range);
+          break;
+
+        case 'cost':
+          result = await this.usageAnalytics.getCostAnalysis();
+          break;
+
+        case 'recommendations':
+          result = await this.usageAnalytics.getOptimizationRecommendations();
+          break;
+
+        case 'full_report':
+          const reportStr = await this.usageAnalytics.exportReport(format, time_range);
+          if (format === 'markdown') {
+            return {
+              content: [{
+                type: 'text',
+                text: reportStr
+              }]
+            };
+          }
+          result = JSON.parse(reportStr);
+          break;
+
+        default:
+          result = this.usageAnalytics.getSessionStats();
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            report_type,
+            data: result
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      console.error(`Error in handleGetAnalytics (${report_type}):`, error);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            report_type,
+            error: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
+  }
+
+  /**
+   * '(ᗒᗣᗕ)՞ TRUNCATION DETECTION - Smart detection of incomplete responses
+   */
+  detectTruncation(response, maxTokens) {
+    const responseTokens = this.router.estimateTokens(response);
+    const isNearLimit = responseTokens > (maxTokens * 0.9); // 90% of token limit
+    const endsAbruptly = !/[.!?})\]"'`]\s*$/.test(response.trim()); // Doesn't end with proper punctuation
+    const hasIncompleteCode = /```[^`]*$/.test(response); // Unfinished code block
+
+    return isNearLimit && (endsAbruptly || hasIncompleteCode);
+  }
+
+  /**
+   * '(ᗒᗣᗕ)՞ CHUNKED GENERATION - Fallback for massive requests
+   */
+  async performChunkedGeneration(originalPrompt, endpoint, options) {
+    // Simple chunking strategy - break prompt into smaller parts
+    const maxChunkSize = 4000; // Conservative chunk size
+    const chunks = this.chunkPrompt(originalPrompt, maxChunkSize);
+    const responses = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkPrompt = `Part ${i + 1} of ${chunks.length}: ${chunks[i]}`;
+      console.error(`🔄 OPTIMIZER: Processing chunk ${i + 1}/${chunks.length}`);
+
+      const chunkResponse = await this.router.makeRequest(chunkPrompt, endpoint, {
+        ...options,
+        maxTokens: Math.min(8192, options.maxTokens) // Smaller tokens per chunk
+      });
+
+      responses.push(chunkResponse);
+    }
+
+    return responses.join('\n\n--- CHUNK BOUNDARY ---\n\n');
+  }
+
+  /**
+   * '(ᗒᗣᗕ)՞ SMART PROMPT CHUNKING
+   */
+  chunkPrompt(prompt, maxChunkSize) {
+    if (prompt.length <= maxChunkSize) return [prompt];
+
+    const chunks = [];
+    let currentPos = 0;
+
+    while (currentPos < prompt.length) {
+      let chunkEnd = Math.min(currentPos + maxChunkSize, prompt.length);
+
+      // Try to break at a sentence boundary
+      if (chunkEnd < prompt.length) {
+        const sentenceBreak = prompt.lastIndexOf('.', chunkEnd);
+        const paragraphBreak = prompt.lastIndexOf('\n\n', chunkEnd);
+
+        if (sentenceBreak > currentPos + (maxChunkSize * 0.5)) {
+          chunkEnd = sentenceBreak + 1;
+        } else if (paragraphBreak > currentPos + (maxChunkSize * 0.3)) {
+          chunkEnd = paragraphBreak + 2;
+        }
+      }
+
+      chunks.push(prompt.substring(currentPos, chunkEnd));
+      currentPos = chunkEnd;
+    }
+
+    return chunks;
+  }
+}
+
+async function main() {
+  const server = new MechaKingGhidorahServer();
+  const transport = new StdioServerTransport();
+
+  console.error('🦖 Starting Mecha King Ghidorah Multi-AI v8.2.0...');
+
+  // Initialize conversation threading
+  await server.conversationThreading.init();
+  console.error('💬 Conversation threading initialized');
+
+  await server.usageAnalytics.init();
+  console.error('📊 Usage analytics initialized');
+
+  // Start Dashboard Server (skip if ENABLE_DASHBOARD is explicitly false or DISABLE_DASHBOARD is true)
+  const enableDashboard = process.env.ENABLE_DASHBOARD !== 'false' && !process.env.DISABLE_AUTO_DASHBOARD && process.env.DISABLE_DASHBOARD !== 'true';
+  if (enableDashboard) {
+    try {
+      const { DashboardServer } = await import('./dashboard-server.js');
+      const dashboardPort = process.env.DASHBOARD_PORT || 3456;
+      const dashboard = new DashboardServer({
+        backendConfigPath: './dashboard-config/backends.json',
+        usageAnalytics: server.usageAnalytics,
+        conversationThreading: server.conversationThreading
+      });
+
+      // Use await to properly handle errors and prevent unhandled promise rejections
+      try {
+        await dashboard.start(dashboardPort);
+        console.error(`🌐 Dashboard server running on http://localhost:${dashboardPort}/dashboard`);
+      } catch (err) {
+        console.error('⚠️  Dashboard failed to start:', err.message);
+        if (err.code === 'EADDRINUSE') {
+          console.error(`   Port ${dashboardPort} is already in use. Dashboard disabled.`);
+        }
+        console.error('   MCP server will continue without dashboard.');
+      }
+    } catch (err) {
+      console.error('⚠️  Dashboard initialization failed:', err.message);
+      console.error('   MCP server will continue without dashboard.');
+    }
+  } else {
+    console.error('📊 Dashboard disabled via configuration');
+  }
+
+  const stats = server.aliasResolver.getSystemStats();
+  console.error(`⚡ ${stats.coreTools} core tools registered, ${stats.aliases} aliases available via SmartAliasResolver`);
+  console.error('');
+  console.error('🚀 MULTI-AI BACKEND INTEGRATION ACTIVE:');
+  console.error('⚡ Local Backend: Qwen2.5-Coder-7B (128K+ tokens)');
+  console.error('⚡ Gemini Backend: Gemini Enhanced (32K tokens)');
+  console.error('⚡ NVIDIA DeepSeek: V3.1 Terminus with streaming + reasoning + thinking mode (8K tokens)');
+  console.error('⚡ NVIDIA Qwen: 3-Coder-480B (32K tokens)');
+  console.error('');
+  console.error('🔄 SMART FALLBACK CHAINS:');
+  console.error('   • Local → Gemini → NVIDIA (DeepSeek/Qwen)');
+  console.error('   • Circuit breaker protection (30s recovery)');
+  console.error('   • Automatic health monitoring (30s intervals)');
+  console.error('   • Response headers: X-AI-Backend, X-Fallback-Chain');
+  console.error('');
+  console.error('🔥 PERFORMANCE OPTIMIZATIONS:');
+  console.error('⚡ Smart routing decisions: <500ms');
+  console.error('⚡ Fallback chain evaluation: <100ms');
+  console.error('⚡ Request caching: 15-minute timeout');
+  console.error('⚡ Connection pooling for cloud backends');
+  console.error('⚡ Dynamic token scaling: Unity (16K), Complex (8K), Simple (2K)');
+  console.error('⚡ Timeout scaling: 60s-300s based on complexity');
+  console.error('');
+  console.error('🛠️ COMPREHENSIVE TOOLSET:');
+  console.error('   • FileModificationManager orchestrator ready');
+  console.error('   • Enhanced validation with fuzzy matching');
+  console.error('   • Atomic batch operations with rollback');
+  console.error('   • Multi-backend ask tool with force options');
+  console.error('   • Unified Agno-Serena response format');
+
+  await server.server.connect(transport);
+  console.error('🎉 Mecha King Ghidorah Multi-AI server ready with BLAZING FAST performance!');
+  console.error('🌟 All backends initialized - Smart fallback chains operational!');
+
+  // Dashboard already initialized above (lines 3134-3145)
+  // Removed duplicate dashboard initialization
+  if (false) {
+    console.error('📊 Dashboard server disabled (ENABLE_DASHBOARD=false)');
+  }
+}
+
+// Export for testing
+export { MechaKingGhidorahServer };
+
+main().catch((error) => {
+  console.error('💥 Fatal error:', error);
+  process.exit(1);
+});

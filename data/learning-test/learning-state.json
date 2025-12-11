@@ -1,0 +1,377 @@
+{
+  "toolMetrics": {
+    "local_qwen_coder": {
+      "confidence": 0.8327719999999998,
+      "totalCalls": 5,
+      "successfulCalls": 5,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 5,
+          "success": 5
+        },
+        "medium": {
+          "calls": 0,
+          "success": 0
+        },
+        "high": {
+          "calls": 0,
+          "success": 0
+        }
+      },
+      "byTaskType": {
+        "code_generation": {
+          "calls": 5,
+          "success": 5
+        }
+      },
+      "trend": "stable",
+      "lastUpdated": 1764628112034
+    },
+    "nvidia_qwen480b": {
+      "confidence": 0.18339436421959993,
+      "totalCalls": 12,
+      "successfulCalls": 5,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 0,
+          "success": 0
+        },
+        "medium": {
+          "calls": 0,
+          "success": 0
+        },
+        "high": {
+          "calls": 12,
+          "success": 5
+        }
+      },
+      "byTaskType": {
+        "refactoring": {
+          "calls": 12,
+          "success": 5
+        }
+      },
+      "trend": "degrading",
+      "lastUpdated": 1764628112035
+    },
+    "nvidia_deepseek_v3": {
+      "confidence": 0.7627999999999998,
+      "totalCalls": 3,
+      "successfulCalls": 3,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 0,
+          "success": 0
+        },
+        "medium": {
+          "calls": 3,
+          "success": 3
+        },
+        "high": {
+          "calls": 0,
+          "success": 0
+        }
+      },
+      "byTaskType": {
+        "analysis": {
+          "calls": 3,
+          "success": 3
+        }
+      },
+      "trend": "stable",
+      "lastUpdated": 1764628112034
+    }
+  },
+  "taskPatterns": {
+    "low:code_generation:single": {
+      "toolPerformance": {
+        "local_qwen_coder": {
+          "calls": 5,
+          "successSum": 4.5
+        }
+      },
+      "totalSamples": 5
+    },
+    "high:refactoring:multi": {
+      "toolPerformance": {
+        "nvidia_qwen480b": {
+          "calls": 12,
+          "successSum": 5.6999999999999975
+        }
+      },
+      "totalSamples": 12
+    },
+    "medium:analysis:multi": {
+      "toolPerformance": {
+        "nvidia_deepseek_v3": {
+          "calls": 3,
+          "successSum": 2.6999999999999997
+        }
+      },
+      "totalSamples": 3
+    }
+  },
+  "sourceMetrics": {
+    "rule_based": {
+      "calls": 5,
+      "successSum": 4.5,
+      "confidence": 0.9
+    },
+    "orchestrator": {
+      "calls": 15,
+      "successSum": 8.399999999999999,
+      "confidence": 0.5599999999999999
+    }
+  },
+  "perceptionHits": {
+    "triggered": 3,
+    "skipped": 17,
+    "beneficial": 3
+  },
+  "routingHistory": [
+    {
+      "timestamp": 1764628112034,
+      "task": "Write a simple Python function",
+      "tool": "local_qwen_coder",
+      "source": "rule_based",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "low",
+        "taskType": "code_generation",
+        "fileCount": 1
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Write a simple Python function",
+      "tool": "local_qwen_coder",
+      "source": "rule_based",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "low",
+        "taskType": "code_generation",
+        "fileCount": 1
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Write a simple Python function",
+      "tool": "local_qwen_coder",
+      "source": "rule_based",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "low",
+        "taskType": "code_generation",
+        "fileCount": 1
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Write a simple Python function",
+      "tool": "local_qwen_coder",
+      "source": "rule_based",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "low",
+        "taskType": "code_generation",
+        "fileCount": 1
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Write a simple Python function",
+      "tool": "local_qwen_coder",
+      "source": "rule_based",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "low",
+        "taskType": "code_generation",
+        "fileCount": 1
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Analyze codebase security",
+      "tool": "nvidia_deepseek_v3",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "medium",
+        "taskType": "analysis",
+        "fileCount": 5
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Analyze codebase security",
+      "tool": "nvidia_deepseek_v3",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "medium",
+        "taskType": "analysis",
+        "fileCount": 5
+      }
+    },
+    {
+      "timestamp": 1764628112034,
+      "task": "Analyze codebase security",
+      "tool": "nvidia_deepseek_v3",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "medium",
+        "taskType": "analysis",
+        "fileCount": 5
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.8999999999999999,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    },
+    {
+      "timestamp": 1764628112035,
+      "task": "Complex refactoring task",
+      "tool": "nvidia_qwen480b",
+      "source": "orchestrator",
+      "success": 0.1,
+      "context": {
+        "complexity": "high",
+        "taskType": "refactoring",
+        "fileCount": 8
+      }
+    }
+  ],
+  "savedAt": 1764628112035
+}

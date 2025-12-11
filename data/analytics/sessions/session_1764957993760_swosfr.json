@@ -1,0 +1,15 @@
+{
+  "session_id": "session_1764957993760_swosfr",
+  "started_at": "2025-12-05T18:06:33.760Z",
+  "metrics": {
+    "total_requests": 0,
+    "successful_requests": 0,
+    "failed_requests": 0,
+    "total_tokens": 0,
+    "total_processing_time_ms": 0,
+    "backend_usage": {},
+    "tool_usage": {},
+    "routing_decisions": {}
+  },
+  "last_updated": "2025-12-05T20:28:29.478Z"
+}

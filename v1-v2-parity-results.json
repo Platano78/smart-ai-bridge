@@ -1,0 +1,233 @@
+{
+  "timestamp": "2025-12-07T06:00:37.400Z",
+  "totalTests": 11,
+  "passed": 11,
+  "failed": 0,
+  "tests": [
+    {
+      "tool": "health",
+      "params": {},
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "health": {
+          "overall": true,
+          "healthyBackends": 5,
+          "totalBackends": 6
+        },
+        "backends": {
+          "totalBackends": 6,
+          "healthyBackends": 5
+        },
+        "requests": {
+          "totalRequests": 0
+        },
+        "recommendations": {
+          "recommended": "local"
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "read",
+      "params": {
+        "file_paths": [
+          "./test-data/sample.txt"
+        ]
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "ReadHandler",
+        "content": "file content",
+        "metadata": {
+          "lines": 10,
+          "size": 100
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "edit_file",
+      "params": {
+        "file_path": "./test-data/sample.txt",
+        "edits": [
+          {
+            "find": "Original",
+            "replace": "Modified"
+          }
+        ]
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "EditFileHandler",
+        "editsApplied": 1,
+        "metadata": {
+          "backupCreated": true
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "multi_edit",
+      "params": {
+        "file_operations": [
+          {
+            "file_path": "./test-data/sample.txt",
+            "edits": [
+              {
+                "find": "Modified",
+                "replace": "Final"
+              }
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "MultiEditHandler",
+        "filesProcessed": 2,
+        "totalEdits": 5
+      },
+      "error": null
+    },
+    {
+      "tool": "write_files_atomic",
+      "params": {
+        "file_operations": [
+          {
+            "path": "./test-data/new-file.txt",
+            "content": "New content"
+          }
+        ]
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "WriteFilesAtomicHandler",
+        "filesWritten": 1
+      },
+      "error": null
+    },
+    {
+      "tool": "review",
+      "params": {
+        "content": "function test() { return true; }",
+        "language": "javascript"
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "ReviewHandler",
+        "review": {
+          "issues": [],
+          "score": 95
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "validate_changes",
+      "params": {
+        "file_path": "./test-data/sample.txt",
+        "proposed_changes": [
+          {
+            "find": "test",
+            "replace": "prod"
+          }
+        ]
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "ValidateChangesHandler",
+        "valid": true,
+        "issues": []
+      },
+      "error": null
+    },
+    {
+      "tool": "backup_restore",
+      "params": {
+        "action": "create",
+        "file_path": "./test-data/sample.txt"
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "BackupRestoreHandler",
+        "action": "create",
+        "backupId": "backup_123"
+      },
+      "error": null
+    },
+    {
+      "tool": "ask",
+      "params": {
+        "model": "local",
+        "prompt": "Test prompt"
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "AskHandler",
+        "response": "AI response",
+        "backend_used": "local"
+      },
+      "error": null
+    },
+    {
+      "tool": "get_analytics",
+      "params": {},
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "AnalyticsHandler",
+        "analytics": {
+          "requests": 100,
+          "avgLatency": 50
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "manage_conversation",
+      "params": {
+        "action": "start",
+        "topic": "Test conversation"
+      },
+      "passed": true,
+      "differences": [],
+      "v1Response": null,
+      "v2Response": {
+        "success": true,
+        "handler": "ConversationHandler",
+        "action": "start",
+        "threadId": "thread_123"
+      },
+      "error": null
+    }
+  ]
+}

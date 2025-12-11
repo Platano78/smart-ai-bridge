@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+
+/**
+ * MKG v9.1 Verification Engine Tests
+ */
+
+const toolsConfig = require('../src/config/tools-config.json');
+const { VerificationEngine } = require('../src/verification');
+
+const testCases = [
+  {
+    name: 'Valid Python code',
+    code: `\`\`\`python
+import os
+import json
+
+def read_file(path):
+    with open(path, 'r') as f:
+        return json.load(f)
+\`\`\``,
+    expectedPass: true
+  },
+  {
+    name: 'Python code with syntax error',
+    code: `\`\`\`python
+def broken_function(
+    print("missing closing paren")
+\`\`\``,
+    expectedPass: false
+  },
+  {
+    name: 'Valid JavaScript code',
+    code: `\`\`\`javascript
+const fs = require('fs');
+const path = require('path');
+
+function readConfig() {
+  return JSON.parse(fs.readFileSync('./config.json'));
+}
+\`\`\``,
+    expectedPass: true
+  },
+  {
+    name: 'Non-code text',
+    code: 'This is just a regular text response with no code.',
+    expectedPass: true,
+    shouldSkip: true
+  },
+  {
+    name: 'JavaScript with unknown import',
+    code: `\`\`\`javascript
+import { nonExistentModule } from './fake/path/module';
+
+console.log(nonExistentModule);
+\`\`\``,
+    expectedPass: false // Path doesn't exist
+  }
+];
+
+async function testVerification() {
+  console.log('\n✅ MKG v9.1 Verification Engine Tests\n');
+  console.log('='.repeat(70));
+
+  const verification = new VerificationEngine(toolsConfig);
+  
+  // Mock perception with some existing files
+  verification.setPerception({
+    existingFiles: ['package.json', 'server.js', 'src/index.js', 'config/settings.json'],
+    language: { primary: 'javascript' }
+  });
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of testCases) {
+    console.log(`\n📝 Test: ${test.name}`);
+    
+    try {
+      const result = await verification.verify(test.code);
+      
+      if (result.skipped && test.shouldSkip) {
+        console.log(`   ✅ Correctly skipped (${result.reason})`);
+        passed++;
+        continue;
+      }
+
+      const actualPass = result.passed;
+      const match = actualPass === test.expectedPass;
+      
+      if (match) {
+        console.log(`   ✅ Expected: ${test.expectedPass ? 'PASS' : 'FAIL'}, Got: ${actualPass ? 'PASS' : 'FAIL'}`);
+        passed++;
+      } else {
+        console.log(`   ❌ Expected: ${test.expectedPass ? 'PASS' : 'FAIL'}, Got: ${actualPass ? 'PASS' : 'FAIL'}`);
+        failed++;
+      }
+
+      if (result.allIssues && result.allIssues.length > 0) {
+        console.log(`   📋 Issues found:`);
+        result.allIssues.slice(0, 3).forEach(issue => {
+          console.log(`      - [${issue.type}] ${issue.message}`);
+        });
+      }
+
+      console.log(`   ⏱️  Verification time: ${result.verificationTime}ms`);
+      
+    } catch (error) {
+      console.log(`   ❌ Error: ${error.message}`);
+      failed++;
+    }
+  }
+
+  console.log('\n' + '='.repeat(70));
+  console.log(`\n📊 Results: ${passed} passed, ${failed} failed`);
+  console.log('\n📈 Verification Stats:');
+  console.log(JSON.stringify(verification.getStats(), null, 2));
+}
+
+testVerification().catch(error => {
+  console.error('Verification tests failed:', error);
+  process.exit(1);
+});

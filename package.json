@@ -40,8 +40,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "acorn": "^8.15.0",
+    "glob": "^13.0.0",
     "openai": "^4.0.0",
-    "tiktoken": "^1.0.22"
+    "tiktoken": "^1.0.22",
+    "yaml": "^2.8.2"
   },
   "keywords": [
     "mcp",
