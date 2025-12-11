@@ -262,20 +262,109 @@ class SubagentHandler extends BaseHandler {
   }
 
   /**
-   * Check if a backend is available
+   * Check if a backend is available with actual health check
    * @private
    * @param {string} backend - Backend name
    * @returns {Promise<boolean>}
    */
   async isBackendAvailable(backend) {
+    const HEALTH_TIMEOUT = 5000; // 5 second timeout for health check
+
     try {
       // Use router's backend availability check if available
       if (this.context?.router?.isBackendAvailable) {
         return await this.context.router.isBackendAvailable(backend);
       }
-      // Default to assuming available (will fail at request time if not)
+
+      // For local backend, do a quick health ping
+      if (backend === 'local') {
+        return await this.checkLocalHealth(HEALTH_TIMEOUT);
+      }
+
+      // For NVIDIA backends, check with cached health status
+      if (backend.startsWith('nvidia_')) {
+        return await this.checkNvidiaHealth(backend, HEALTH_TIMEOUT);
+      }
+
+      // For other backends (gemini, groq), assume available
+      // They have their own timeout handling in adapters
       return true;
     } catch (e) {
+      console.error(`[SubagentHandler] Health check failed for ${backend}:`, e.message);
+      return false;
+    }
+  }
+
+  /**
+   * Check local backend health with timeout
+   * @private
+   * @param {number} timeout - Timeout in ms
+   * @returns {Promise<boolean>}
+   */
+  async checkLocalHealth(timeout) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      // Try to reach local endpoint (vLLM or LM Studio)
+      const endpoints = [
+        'http://localhost:8000/v1/models',  // vLLM
+        'http://localhost:1234/v1/models',  // LM Studio
+        'http://127.0.0.1:8000/v1/models',
+        'http://127.0.0.1:1234/v1/models'
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            console.error(`[SubagentHandler] Local backend healthy at ${endpoint}`);
+            return true;
+          }
+        } catch (e) {
+          // Try next endpoint
+        }
+      }
+
+      clearTimeout(timeoutId);
+      console.error('[SubagentHandler] Local backend not responding');
+      return false;
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        console.error('[SubagentHandler] Local health check timed out');
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Check NVIDIA backend health with cached status
+   * @private
+   * @param {string} backend - Backend name (nvidia_deepseek, nvidia_qwen)
+   * @param {number} timeout - Timeout in ms
+   * @returns {Promise<boolean>}
+   */
+  async checkNvidiaHealth(backend, timeout) {
+    try {
+      // Use cached health status from BackendHealthManager if available
+      if (this.context?.healthManager?.getBackendStatus) {
+        const status = this.context.healthManager.getBackendStatus(backend);
+        if (status && status.healthy !== undefined) {
+          console.error(`[SubagentHandler] ${backend} cached status: ${status.healthy ? 'healthy' : 'unhealthy'}`);
+          return status.healthy;
+        }
+      }
+
+      // If no health manager, be conservative - NVIDIA backends are slow to timeout
+      // Return false to prefer local backend which responds quickly
+      console.error(`[SubagentHandler] No health status for ${backend}, skipping (prefer local)`);
+      return false;
+    } catch (e) {
+      console.error(`[SubagentHandler] NVIDIA health check error:`, e.message);
       return false;
     }
   }
