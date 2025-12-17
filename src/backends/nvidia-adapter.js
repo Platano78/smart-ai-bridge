@@ -12,6 +12,16 @@ import { BackendAdapter } from './backend-adapter.js';
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 
 /**
+ * Calculate dynamic timeout based on requested max_tokens
+ * @param {number} maxTokens - Maximum tokens to generate
+ * @returns {number} Timeout in milliseconds
+ */
+function calculateDynamicTimeout(maxTokens) {
+  // ~15ms per token (NVIDIA generates ~50-100 t/s), min 30s, max 5min
+  return Math.min(Math.max(30000, maxTokens * 15), 300000);
+}
+
+/**
  * DeepSeek V3.1 Terminus adapter
  */
 class NvidiaDeepSeekAdapter extends BackendAdapter {
@@ -48,11 +58,17 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       body.reasoning = true;
     }
 
+    // Dynamic timeout: options > env var > dynamic calculation
+    const requestedTokens = options.maxTokens || this.config.maxTokens;
+    const timeout = options.timeout
+      || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
+      || calculateDynamicTimeout(requestedTokens);
+
     const response = await fetch(this.config.url, {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(timeout)
     });
 
     if (!response.ok) {
@@ -132,11 +148,17 @@ class NvidiaQwenAdapter extends BackendAdapter {
       stream: false
     };
 
+    // Dynamic timeout: options > env var > dynamic calculation
+    const requestedTokens = options.maxTokens || this.config.maxTokens;
+    const timeout = options.timeout
+      || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
+      || calculateDynamicTimeout(requestedTokens);
+
     const response = await fetch(this.config.url, {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(timeout)
     });
 
     if (!response.ok) {
