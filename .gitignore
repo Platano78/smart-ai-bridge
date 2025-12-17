@@ -167,6 +167,8 @@ keys/
 # Archive & Backup (Exclude embedded repos)
 # ========================================
 archive/
+archive-*/
+archived-*/
 *.git/
 
 # ========================================
@@ -196,7 +198,9 @@ Icon
 # Backup files
 *.bak
 *.backup
+*.backup.*
 *.old
+*.backup-*
 
 # ========================================
 # Claude Desktop Configurations (Dynamic)

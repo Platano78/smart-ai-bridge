@@ -189,13 +189,18 @@ class LocalAdapter extends BackendAdapter {
    * Make request to local llama-server instance
    * @param {string} prompt - Prompt to send
    * @param {Object} [options] - Request options
+   * @param {string} [options.routerModel] - Router mode model profile name
    * @returns {Promise<Object>}
    */
   async makeRequest(prompt, options = {}) {
     await this.ensureInitialized();
 
+    // Router mode: use routerModel as the model name if provided
+    // This tells the router which preset to use
+    const modelToUse = options.routerModel || this.model || undefined;
+
     const body = {
-      model: this.model || undefined, // Let server use default if not set
+      model: modelToUse, // Router uses this to select preset
       messages: [{ role: 'user', content: prompt }],
       max_tokens: options.maxTokens || this.config.maxTokens,
       temperature: options.temperature || 0.7,

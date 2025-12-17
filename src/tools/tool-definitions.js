@@ -314,6 +314,10 @@ const CORE_TOOL_DEFINITIONS = [
         force_backend: {
           type: 'string',
           description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_qwen", "openai_chatgpt", "groq_llama"'
+        },
+        model_profile: {
+          type: 'string',
+          description: 'Router mode model profile for local backend. Available profiles: coding-reap25b (complex refactoring, ~25s), coding-seed-coder (standard coding, ~8s), coding-qwen-7b (fast coding, ~10s), agents-qwen3-14b (multi-agent, ~10s), agents-nemotron (parallel inference, ~12s), agents-seed-coder (high throughput, ~8s), fast-deepseek-lite (quick analysis, ~8s), fast-qwen14b (fast coding, ~12s)'
         }
       },
       required: ['model', 'prompt']

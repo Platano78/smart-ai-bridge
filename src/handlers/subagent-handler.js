@@ -46,13 +46,26 @@ class SubagentHandler extends BaseHandler {
    * @returns {Promise<Object>}
    */
   async execute(args) {
-    const {
+    let {
       role,
       task,
       file_patterns = [],
       context = {},
       verdict_mode = 'summary'
     } = args;
+
+    // Handle auto-role selection
+    if (role === 'auto') {
+      const selectedRole = await this.selectBestRole(task, context);
+      if (selectedRole) {
+        role = selectedRole;
+        console.log(`[SUBAGENT] Auto-selected role: ${role}`);
+      } else {
+        // Default fallback
+        role = 'code-reviewer';
+        console.log(`[SUBAGENT] Auto-selection fallback: ${role}`);
+      }
+    }
 
     // Validate role
     const roleValidation = validateRole(role);
@@ -367,6 +380,65 @@ class SubagentHandler extends BaseHandler {
       console.error(`[SubagentHandler] NVIDIA health check error:`, e.message);
       return false;
     }
+  }
+
+  /**
+   * Select the best role for a task using orchestrator LLM
+   * @private
+   * @param {string} task - Task description
+   * @param {Object} context - Additional context
+   * @returns {Promise<string|null>} Selected role or null
+   */
+  async selectBestRole(task, context = {}) {
+    const availableRoles = Object.keys(roleTemplates).filter(r => r !== 'auto');
+    
+    const prompt = `Select the BEST role for this task. Reply with ONLY the role name, nothing else.
+
+Task: ${task}
+${context.phase ? `Phase: ${context.phase}` : ''}
+
+Available roles:
+${availableRoles.map(r => `- ${r}: ${roleTemplates[r].description}`).join('\n')}
+
+Best role:`;
+
+    try {
+      // Use orchestrator for intelligent selection
+      const router = this.context?.router;
+      if (!router) {
+        console.log('[SUBAGENT] No router available for auto-selection');
+        return null;
+      }
+
+      const response = await router.route({
+        prompt,
+        max_tokens: 50,
+        temperature: 0.1
+      });
+
+      if (response?.content) {
+        // Extract role name from response
+        const selected = response.content
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z-]/g, '');
+        
+        // Validate it's a real role
+        if (availableRoles.includes(selected)) {
+          return selected;
+        }
+        
+        // Try fuzzy match
+        const match = availableRoles.find(r => 
+          selected.includes(r) || r.includes(selected)
+        );
+        if (match) return match;
+      }
+    } catch (error) {
+      console.log(`[SUBAGENT] Auto-selection error: ${error.message}`);
+    }
+
+    return null;
   }
 
   /**

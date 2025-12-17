@@ -23,6 +23,20 @@ const MODEL_MAP = {
   'llama': 'groq_llama'
 };
 
+/**
+ * Router mode model profiles with estimated load times (seconds)
+ */
+const ROUTER_PROFILES = {
+  'coding-reap25b': { loadTime: 25, vram: '~15GB', slots: 2, desc: 'Complex refactoring, architecture' },
+  'coding-seed-coder': { loadTime: 8, vram: '~5GB', slots: 2, desc: 'Standard coding, bug fixes' },
+  'coding-qwen-7b': { loadTime: 10, vram: '~5GB', slots: 2, desc: 'Fast coding tasks' },
+  'agents-qwen3-14b': { loadTime: 10, vram: '~12GB', slots: 8, desc: 'Multi-agent orchestration' },
+  'agents-nemotron': { loadTime: 12, vram: '~8GB', slots: 10, desc: 'Fast parallel inference' },
+  'agents-seed-coder': { loadTime: 8, vram: '~5GB', slots: 10, desc: 'High throughput agents' },
+  'fast-deepseek-lite': { loadTime: 8, vram: '~6GB', slots: 8, desc: 'Quick analysis' },
+  'fast-qwen14b': { loadTime: 12, vram: '~8GB', slots: 8, desc: 'Fast coding, more capable' }
+};
+
 class AskHandler extends BaseHandler {
   /**
    * Execute AI query
@@ -33,6 +47,7 @@ class AskHandler extends BaseHandler {
    * @param {number} [args.max_tokens] - Maximum response tokens
    * @param {boolean} [args.enable_chunking=false] - Enable chunked generation
    * @param {string} [args.force_backend] - Force specific backend
+   * @param {string} [args.model_profile] - Router mode model profile (e.g., 'coding-reap25b')
    * @returns {Promise<Object>}
    */
   async execute(args) {
@@ -42,7 +57,8 @@ class AskHandler extends BaseHandler {
       thinking = true,
       max_tokens,
       enable_chunking = false,
-      force_backend
+      force_backend,
+      model_profile
     } = args;
 
     if (!model) {
@@ -55,6 +71,22 @@ class AskHandler extends BaseHandler {
     const requestedBackend = MODEL_MAP[model];
     if (requestedBackend === undefined) {
       throw new Error(`Unknown model: ${model}. Available models: ${Object.keys(MODEL_MAP).join(', ')}`);
+    }
+
+    // Router mode: handle model_profile for local backend
+    let routerModelProfile = null;
+    if (model_profile && (model === 'local' || requestedBackend === 'local')) {
+      if (!ROUTER_PROFILES[model_profile]) {
+        const available = Object.keys(ROUTER_PROFILES).join(', ');
+        throw new Error(`Unknown model_profile: ${model_profile}. Available: ${available}`);
+      }
+      routerModelProfile = model_profile;
+      const profileInfo = ROUTER_PROFILES[model_profile];
+      console.error(`\n[MKG] 🎯 Router mode: ${model_profile}`);
+      console.error(`[MKG]    ${profileInfo.desc} | ${profileInfo.vram} | ${profileInfo.slots} slots`);
+
+      // Check router status and load model if needed
+      await this.ensureRouterModel(model_profile, profileInfo);
     }
 
     // Smart routing or forced backend
@@ -84,7 +116,8 @@ class AskHandler extends BaseHandler {
     const options = {
       thinking,
       maxTokens: finalMaxTokens,
-      forceBackend: force_backend
+      forceBackend: force_backend,
+      routerModel: routerModelProfile  // Pass router profile name as model for router mode
     };
 
     console.error(`🚀 MULTI-AI: Processing ${model} → ${selectedBackend} with ${finalMaxTokens} tokens`);
@@ -276,6 +309,113 @@ class AskHandler extends BaseHandler {
     } catch (error) {
       // Non-blocking - don't fail request if learning fails
       console.error(`Learning recording failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Ensure router model is loaded, with terminal feedback
+   * @private
+   * @param {string} profileName - Router preset name
+   * @param {Object} profileInfo - Profile metadata (loadTime, vram, etc.)
+   */
+  async ensureRouterModel(profileName, profileInfo) {
+    const ROUTER_URL = 'http://localhost:8081';
+
+    try {
+      // Check router health
+      const healthResponse = await fetch(`${ROUTER_URL}/health`, {
+        signal: AbortSignal.timeout(3000)
+      });
+
+      if (!healthResponse.ok) {
+        console.error(`[MKG] ⚠️  Router not healthy, falling back to default local`);
+        return;
+      }
+
+      // Get current model status
+      const modelsResponse = await fetch(`${ROUTER_URL}/models`, {
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (!modelsResponse.ok) {
+        console.error(`[MKG] ⚠️  Cannot query router models`);
+        return;
+      }
+
+      const modelsData = await modelsResponse.json();
+      const targetModel = modelsData.data?.find(m => m.id === profileName);
+
+      if (!targetModel) {
+        console.error(`[MKG] ⚠️  Profile '${profileName}' not found in router config`);
+        return;
+      }
+
+      const modelStatus = targetModel.status?.value || 'unknown';
+
+      if (modelStatus === 'loaded' || modelStatus === 'running') {
+        console.error(`[MKG] ✅ Model already loaded: ${profileName}`);
+        return;
+      }
+
+      // Model needs loading
+      console.error(`[MKG] 📥 Loading model: ${profileName} (~${profileInfo.loadTime}s estimated)`);
+
+      const loadStartTime = Date.now();
+
+      // Trigger model load
+      const loadResponse = await fetch(`${ROUTER_URL}/models/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: profileName }),
+        signal: AbortSignal.timeout(120000) // 2 minute timeout for large models
+      });
+
+      if (!loadResponse.ok) {
+        const errorText = await loadResponse.text();
+        console.error(`[MKG] ❌ Failed to load model: ${errorText}`);
+        return;
+      }
+
+      // Poll for loading progress
+      const maxWait = profileInfo.loadTime * 2 * 1000; // Double estimated time as max
+      const pollInterval = 1000;
+      let elapsed = 0;
+
+      while (elapsed < maxWait) {
+        await new Promise(r => setTimeout(r, pollInterval));
+        elapsed = Date.now() - loadStartTime;
+
+        try {
+          const statusResponse = await fetch(`${ROUTER_URL}/models`, {
+            signal: AbortSignal.timeout(3000)
+          });
+
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            const currentModel = statusData.data?.find(m => m.id === profileName);
+            const currentStatus = currentModel?.status?.value || 'unknown';
+
+            if (currentStatus === 'loaded' || currentStatus === 'running') {
+              const loadTime = ((Date.now() - loadStartTime) / 1000).toFixed(1);
+              console.error(`[MKG] ✅ Model ready! (${loadTime}s)`);
+              return;
+            }
+
+            // Show progress
+            const progress = Math.min(100, Math.round((elapsed / (profileInfo.loadTime * 1000)) * 100));
+            const bar = '█'.repeat(Math.floor(progress / 5)) + '░'.repeat(20 - Math.floor(progress / 5));
+            console.error(`[MKG] ${bar} ${progress}% (${(elapsed / 1000).toFixed(0)}s)`);
+          }
+        } catch (pollError) {
+          // Continue polling
+        }
+      }
+
+      console.error(`[MKG] ⚠️  Model load timed out, proceeding anyway...`);
+
+    } catch (error) {
+      console.error(`[MKG] ⚠️  Router check failed: ${error.message}`);
+      console.error(`[MKG]    Falling back to default local endpoint`);
     }
   }
 }

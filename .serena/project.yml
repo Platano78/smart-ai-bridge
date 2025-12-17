@@ -1,0 +1,10 @@
+language: typescript
+ignore_all_files_in_gitignore: true
+ignored_paths:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+read_only: false
+excluded_tools: []
+initial_prompt: ""
+project_name: "deepseek-mcp-bridge"

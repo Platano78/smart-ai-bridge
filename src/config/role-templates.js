@@ -412,6 +412,17 @@ OUTPUT: Complete, working implementation code that passes the tests.`,
     fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
   },
 
+  // Special meta-role: auto-selects best role using orchestrator
+  'auto': {
+    description: 'Auto-select best role using orchestrator LLM analysis',
+    system_prompt: '', // Will be replaced by selected role
+    suggested_tools: [],
+    output_format: 'dynamic',
+    required_capabilities: [],
+    context_sensitivity: 'high',
+    isMetaRole: true  // Flag for special handling
+  },
+
   'tdd-quality-reviewer': {
     description: 'TDD Quality Gate - Reviews outputs and decides iterate/pass',
     category: 'review',

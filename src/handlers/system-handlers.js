@@ -98,8 +98,83 @@ class HealthHandler extends BaseHandler {
       healthData.performance_metrics = this.context.healthMonitor.getMetrics();
     }
 
+    // Router status check
+    healthData.router_status = await this._checkRouterStatus();
+
     healthData.total_check_time = Date.now() - startTime;
     return healthData;
+  }
+
+  /**
+   * Check router status and get loaded models
+   * @private
+   * @returns {Promise<Object>} Router status information
+   */
+  async _checkRouterStatus() {
+    const routerBaseUrl = 'http://localhost:8081';
+    const routerStatus = {
+      status: 'offline',
+      models: [],
+      available_presets: 0,
+      error: null
+    };
+
+    try {
+      // Check router health endpoint
+      const healthResponse = await fetch(`${routerBaseUrl}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+
+      if (!healthResponse.ok) {
+        routerStatus.error = `Router health check failed with status ${healthResponse.status}`;
+        return routerStatus;
+      }
+
+      const healthData = await healthResponse.json();
+      routerStatus.status = healthData.status || 'online';
+
+      // Get models from router
+      const modelsResponse = await fetch(`${routerBaseUrl}/models`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (modelsResponse.ok) {
+        const modelsData = await modelsResponse.json();
+
+        // Extract loaded models
+        if (modelsData.data && Array.isArray(modelsData.data)) {
+          routerStatus.models = modelsData.data
+            .filter(model => model.status?.value === 'loaded')
+            .map(model => ({
+              id: model.id,
+              name: model.name || model.id,
+              size: model.size,
+              quantization: model.quantization
+            }));
+
+          // Total available presets (all models regardless of status)
+          routerStatus.available_presets = modelsData.data.length;
+        }
+      } else {
+        routerStatus.error = `Failed to fetch models: status ${modelsResponse.status}`;
+      }
+
+    } catch (error) {
+      routerStatus.error = error.message;
+
+      // More specific error messages
+      if (error.name === 'AbortError') {
+        routerStatus.error = 'Router request timed out after 5 seconds';
+      } else if (error.code === 'ECONNREFUSED') {
+        routerStatus.error = 'Router connection refused - service may not be running';
+      }
+    }
+
+    return routerStatus;
   }
 }
 
