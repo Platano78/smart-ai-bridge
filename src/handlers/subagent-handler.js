@@ -7,6 +7,8 @@
  * suggested tools, and specialized behavior.
  */
 
+import { promises as fs } from 'fs';
+import path from 'path';
 import { BaseHandler } from './base-handler.js';
 import { roleTemplates } from '../config/role-templates.js';
 import { validateRole } from '../utils/role-validator.js';
@@ -85,11 +87,18 @@ class SubagentHandler extends BaseHandler {
         ? await this.resolveFilePatterns(file_patterns)
         : [];
 
-      // Generate specialized prompt
-      const prompt = this.generatePrompt(template, task, resolvedFiles, context);
-
-      // Route to appropriate backend for subagent
+      // Select backend FIRST (needed for dynamic file size limits)
       const backend = await this.selectBackendForRole(role, task);
+
+      // Read file contents with backend-specific size limits
+      console.log(`[SubagentHandler] Reading ${resolvedFiles.length} files for backend: ${backend}`);
+      const fileContents = resolvedFiles.length > 0
+        ? await this.readFileContents(resolvedFiles, this.getFileSizeLimits(backend))
+        : [];
+      console.log(`[SubagentHandler] File contents loaded: ${fileContents.length} files, ${fileContents.filter(f => f.content).length} with content`);
+
+      // Generate specialized prompt with actual file contents
+      const prompt = this.generatePrompt(template, task, fileContents, context);
 
       // Execute subagent task
       const response = await this.makeRequest(prompt, backend, {
@@ -113,7 +122,7 @@ class SubagentHandler extends BaseHandler {
         backend_used: backend,
         response: responseContent,
         verdict,
-        files_analyzed: resolvedFiles.length,
+        files_analyzed: fileContents.length,
         suggested_tools: template.suggested_tools,
         processing_time_ms: processingTime,
         metrics: this.metrics.getMetricsSummary()
@@ -163,8 +172,28 @@ class SubagentHandler extends BaseHandler {
       task
     ];
 
+    // Include actual file contents (not just paths)
     if (files.length > 0) {
-      parts.push('', '## Files to Analyze', files.map(f => `- ${f}`).join('\n'));
+      parts.push('', '## Files to Analyze');
+      for (const file of files) {
+        if (file.error) {
+          // Handle file read errors gracefully
+          parts.push(`\n### ${file.path}\n**Error reading file**: ${file.error}`);
+        } else if (file.content) {
+          // Format file with syntax highlighting based on extension
+          const ext = path.extname(file.path).slice(1) || 'text';
+          const truncationNote = file.truncated
+            ? ` (truncated: ${file.content.length}/${file.originalSize} bytes)`
+            : '';
+          parts.push(`\n### ${file.path}${truncationNote}`);
+          parts.push('```' + ext);
+          parts.push(file.content);
+          parts.push('```');
+        } else {
+          // Fallback for backwards compatibility (if file is just a path string)
+          parts.push(`\n- ${file}`);
+        }
+      }
     }
 
     if (template.suggested_tools && template.suggested_tools.length > 0) {
@@ -456,6 +485,72 @@ Best role:`;
     }
 
     return [...new Set(allFiles)]; // Deduplicate
+  }
+
+
+  /**
+   * Get file size limits based on backend context window
+   * @param {string} backend - Backend identifier
+   * @returns {Object} - { maxTotalSize, maxSizePerFile }
+   */
+  getFileSizeLimits(backend) {
+    const LIMITS = {
+      local: { maxTotalSize: 400000, maxSizePerFile: 100000 },
+      nvidia_deepseek: { maxTotalSize: 50000, maxSizePerFile: 25000 },
+      nvidia_qwen: { maxTotalSize: 150000, maxSizePerFile: 50000 },
+      gemini: { maxTotalSize: 150000, maxSizePerFile: 50000 },
+      openai_chatgpt: { maxTotalSize: 500000, maxSizePerFile: 100000 },
+      groq_llama: { maxTotalSize: 150000, maxSizePerFile: 50000 }
+    };
+    return LIMITS[backend] || LIMITS.nvidia_qwen; // Safe default
+  }
+
+  /**
+   * Read file contents with size limits
+   * @param {string[]} filePaths - Array of file paths to read
+   * @param {Object} options - Size limit options
+   * @param {number} [options.maxSizePerFile=50000] - Max bytes per file
+   * @param {number} [options.maxTotalSize=200000] - Max total bytes
+   * @returns {Promise<Array<{path: string, content?: string, truncated?: boolean, error?: string}>>}
+   */
+  async readFileContents(filePaths, options = {}) {
+    const { maxSizePerFile = 50000, maxTotalSize = 200000 } = options;
+    const contents = [];
+    let totalSize = 0;
+
+    for (const filePath of filePaths) {
+      if (totalSize >= maxTotalSize) {
+        console.log(`[SubagentHandler] Skipping ${filePath} - total size limit reached (${totalSize}/${maxTotalSize})`);
+        break;
+      }
+
+      try {
+        const content = await fs.readFile(filePath, 'utf8');
+        const remainingBudget = maxTotalSize - totalSize;
+        const effectiveMax = Math.min(maxSizePerFile, remainingBudget);
+        const truncated = content.length > effectiveMax;
+        const finalContent = truncated ? content.slice(0, effectiveMax) : content;
+
+        contents.push({
+          path: filePath,
+          content: finalContent,
+          truncated,
+          originalSize: content.length
+        });
+
+        totalSize += finalContent.length;
+        console.log(`[SubagentHandler] Read ${filePath}: ${finalContent.length} bytes${truncated ? ' (truncated)' : ''}`);
+      } catch (err) {
+        console.error(`[SubagentHandler] Failed to read ${filePath}:`, err.message);
+        contents.push({
+          path: filePath,
+          error: err.message
+        });
+      }
+    }
+
+    console.log(`[SubagentHandler] Total files read: ${contents.length}, total size: ${totalSize} bytes`);
+    return contents;
   }
 }
 

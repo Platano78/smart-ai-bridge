@@ -407,7 +407,10 @@ class LocalAdapter extends BackendAdapter {
    * @returns {Object} Parsed response with metadata
    */
   parseResponse(response) {
-    const content = response.choices?.[0]?.message?.content ||
+    // Handle reasoning models that return reasoning_content instead of/with content
+    const message = response.choices?.[0]?.message;
+    const content = message?.content ||
+                   message?.reasoning_content ||
                    response.content ||
                    response.text ||
                    '';
