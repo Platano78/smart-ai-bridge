@@ -29,6 +29,7 @@ import { PlaybookSystem } from './src/intelligence/playbook-system.js';
 import { ConcurrentRequestManager } from './src/utils/concurrent-request-manager.js';
 import { CompoundLearningEngine } from './src/intelligence/compound-learning.js';
 import { OrchestratorClient } from './src/clients/orchestrator-client.js';
+import ConversationThreading from './src/threading/index.js';
 
 // Version info
 const VERSION = '2.0.0';
@@ -67,6 +68,9 @@ class MKGServerV2 {
       healthCacheTTL: 30000
     });
 
+    // Initialize conversation threading
+    this.conversationThreading = new ConversationThreading('./data/conversations');
+
     // Create router interface (compatibility layer for handlers)
     this.router = this.createRouterInterface();
 
@@ -74,7 +78,8 @@ class MKGServerV2 {
     this.handlerFactory = new HandlerFactory({
       router: this.router,
       server: this,
-      playbook: this.playbook
+      playbook: this.playbook,
+      conversationThreading: this.conversationThreading
     });
 
     // Register backends with health monitor
@@ -455,7 +460,7 @@ class MKGServerV2 {
     }
 
     // Perform actual health check
-    const result = await this.healthMonitor.checkBackend(backend);
+    const result = await this.healthMonitor.checkBackend(backend, force);
 
     // Cache result
     this.healthCache.set(backend, {

@@ -425,8 +425,8 @@ class LocalAdapter extends BackendAdapter {
       backend: this.name,
       success: true,
       metadata: {
-        // Use our detected modelId, fall back to response.model
-        model: this.modelId || response.model || 'local',
+        // Use response.model first (actual model used), fall back to detected
+        model: response.model || this.modelId || 'local',
         detectedModel: this.modelId,
         endpoint: this.config.url,
         finishReason: response.choices?.[0]?.finish_reason
