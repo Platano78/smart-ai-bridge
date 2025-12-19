@@ -15,8 +15,9 @@ const MODEL_MAP = {
   'auto': null,           // Let Orchestrator decide
   'local': 'local',
   'gemini': 'gemini',
-  'deepseek3.1': 'nvidia_deepseek',
+  'deepseek': 'nvidia_deepseek',
   'qwen3': 'nvidia_qwen',
+  'minimax': 'nvidia_minimax',
   'chatgpt': 'openai_chatgpt',
   'openai': 'openai_chatgpt',
   'groq': 'groq_llama',

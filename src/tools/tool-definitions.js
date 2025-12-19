@@ -290,8 +290,8 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         model: {
           type: 'string',
-          enum: ['auto', 'local', 'gemini', 'deepseek3.1', 'qwen3', 'chatgpt', 'groq'],
-          description: 'AI backend to query: auto (Orchestrator-8B decides optimal backend), local (Qwen2.5-Coder-7B-Instruct-FP8-Dynamic, 128K+ tokens), gemini (Gemini Enhanced, 32K tokens), deepseek3.1 (NVIDIA DeepSeek V3.1 Terminus with streaming + reasoning, 8K tokens), qwen3 (NVIDIA Qwen3 Coder 480B, 32K tokens), chatgpt (OpenAI GPT-4.1, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s)'
+          enum: ['auto', 'local', 'gemini', 'deepseek', 'qwen3', 'minimax', 'chatgpt', 'groq'],
+          description: 'AI backend to query: auto (Orchestrator-8B decides optimal backend), local (Qwen2.5-Coder-7B-Instruct-FP8-Dynamic, 128K+ tokens), gemini (Gemini Enhanced, 32K tokens), deepseek (NVIDIA DeepSeek V3.2 with streaming + reasoning, 8K tokens), qwen3 (NVIDIA Qwen3 Coder 480B, 32K tokens), minimax (NVIDIA MiniMax M2, reasoning with think blocks, 8K tokens), chatgpt (OpenAI GPT-4.1, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s)'
         },
         prompt: {
           type: 'string',
@@ -402,7 +402,7 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         backend: {
           type: 'string',
-          description: 'Backend name to check (local, gemini, deepseek3.1, qwen3, chatgpt, groq_llama)'
+          description: 'Backend name to check (local, gemini, deepseek, qwen3, chatgpt, groq_llama)'
         },
         force: {
           type: 'boolean',

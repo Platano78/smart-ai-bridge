@@ -10,7 +10,7 @@
  */
 
 import { LocalAdapter } from './local-adapter.js';
-import { NvidiaDeepSeekAdapter, NvidiaQwenAdapter } from './nvidia-adapter.js';
+import { NvidiaDeepSeekAdapter, NvidiaQwenAdapter, NvidiaMiniMaxAdapter } from './nvidia-adapter.js';
 import { GeminiAdapter } from './gemini-adapter.js';
 import { OpenAIAdapter } from './openai-adapter.js';
 import { GroqAdapter } from './groq-adapter.js';
@@ -22,6 +22,7 @@ const ADAPTER_CLASSES = {
   'local': LocalAdapter,
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
   'nvidia_qwen': NvidiaQwenAdapter,
+  'nvidia_minimax': NvidiaMiniMaxAdapter,
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter
@@ -42,7 +43,7 @@ const DEFAULT_BACKENDS = {
     type: 'nvidia_deepseek',
     enabled: true,
     priority: 2,
-    description: 'NVIDIA DeepSeek V3.1 Terminus (reasoning)',
+    description: 'NVIDIA DeepSeek V3.2 (reasoning)',
     config: {}
   },
   nvidia_qwen: {
@@ -71,6 +72,13 @@ const DEFAULT_BACKENDS = {
     enabled: true,
     priority: 6,
     description: 'Groq Llama 3.3 70B (ultra-fast 500+ t/s)',
+    config: {}
+  },
+  nvidia_minimax: {
+    type: 'nvidia_minimax',
+    enabled: true,
+    priority: 7,
+    description: 'NVIDIA MiniMax M2 (reasoning with think blocks)',
     config: {}
   }
 };
@@ -349,13 +357,17 @@ class BackendRegistry {
       enabledBackends: enabled,
       healthyBackends: healthy,
       fallbackChain: this.fallbackChain,
-      backends: Array.from(this.backends.values()).map(b => ({
-        name: b.name,
-        type: b.type,
-        enabled: b.enabled,
-        priority: b.priority,
-        description: b.description
-      }))
+      backends: Array.from(this.backends.values()).map(b => {
+        const adapter = this.adapters.get(b.name);
+        return {
+          name: b.name,
+          type: b.type,
+          enabled: b.enabled,
+          priority: b.priority,
+          description: b.description,
+          healthy: adapter?.lastHealth?.healthy ?? null
+        };
+      })
     };
   }
 
