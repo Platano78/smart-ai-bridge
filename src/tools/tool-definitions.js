@@ -485,6 +485,43 @@ const CORE_TOOL_DEFINITIONS = [
       },
       required: ['task']
     }
+  },
+  {
+    name: 'council',
+    description: '🏛️ Multi-AI Council - Get consensus from multiple AI backends on complex questions. Claude explicitly selects topic and confidence level, backends provide diverse perspectives, Claude synthesizes the final answer. Use for architectural decisions, controversial topics, or when you need validation from multiple viewpoints.',
+    handler: 'handleCouncil',
+    schema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'The question or topic for the council to deliberate on'
+        },
+        topic: {
+          type: 'string',
+          enum: ['coding', 'reasoning', 'architecture', 'general', 'creative', 'security', 'performance'],
+          description: 'Topic category - determines which backends are consulted: coding (nvidia_qwen, local), reasoning (nvidia_deepseek, nvidia_minimax), architecture (nvidia_deepseek, nvidia_qwen), general (gemini, groq_llama), creative (gemini, nvidia_qwen), security (nvidia_deepseek, nvidia_qwen), performance (nvidia_deepseek, local)'
+        },
+        confidence_needed: {
+          type: 'string',
+          enum: ['high', 'medium', 'low'],
+          default: 'medium',
+          description: 'Required confidence level - determines number of backends: high (4 backends), medium (3 backends), low (2 backends)'
+        },
+        num_backends: {
+          type: 'integer',
+          minimum: 2,
+          maximum: 6,
+          description: 'Override number of backends to query (optional - auto-calculated from confidence_needed)'
+        },
+        max_tokens: {
+          type: 'integer',
+          default: 4000,
+          description: 'Maximum tokens per backend response'
+        }
+      },
+      required: ['prompt', 'topic']
+    }
   }
 ];
 

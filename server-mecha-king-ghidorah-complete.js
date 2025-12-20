@@ -414,6 +414,161 @@ class SmartAliasResolver {
           },
           required: ['action']
         }
+      },
+      {
+        name: 'get_analytics',
+        description: '📊 Get usage analytics, performance metrics, cost analysis, and optimization recommendations. View current session stats, historical data, backend performance, and detailed reports.',
+        handler: 'handleGetAnalytics',
+        schema: {
+          type: 'object',
+          properties: {
+            report_type: {
+              type: 'string',
+              enum: ['current', 'historical', 'cost', 'recommendations', 'full_report'],
+              description: 'Type of analytics to retrieve: current (session stats), historical (time-series data), cost (cost analysis), recommendations (optimization tips), full_report (comprehensive report)'
+            },
+            time_range: {
+              type: 'string',
+              enum: ['1h', '24h', '7d', '30d'],
+              description: 'Time range for historical data (default: 7d)'
+            },
+            format: {
+              type: 'string',
+              enum: ['json', 'markdown'],
+              description: 'Output format for reports (default: json)'
+            }
+          }
+        }
+      },
+      {
+        name: 'check_backend_health',
+        description: '🩺 Manual backend health check - On-demand health diagnostics for specific backend with 5-minute result caching. Only runs when explicitly requested.',
+        handler: 'handleCheckBackendHealth',
+        schema: {
+          type: 'object',
+          properties: {
+            backend: {
+              type: 'string',
+              description: 'Backend name to check (local, gemini, deepseek, qwen3, chatgpt, groq_llama)'
+            },
+            force: {
+              type: 'boolean',
+              default: false,
+              description: 'Bypass cache and force fresh check'
+            }
+          },
+          required: ['backend']
+        }
+      },
+      {
+        name: 'spawn_subagent',
+        description: '🤖 Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+        handler: 'handleSpawnSubagent',
+        schema: {
+          type: 'object',
+          properties: {
+            role: {
+              type: 'string',
+              enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer', 'tdd-decomposer', 'tdd-test-writer', 'tdd-implementer', 'tdd-quality-reviewer'],
+              description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation), tdd-decomposer (break task into TDD subtasks), tdd-test-writer (RED phase), tdd-implementer (GREEN phase), tdd-quality-reviewer (quality gate)'
+            },
+            task: {
+              type: 'string',
+              description: 'Task description for the subagent to perform'
+            },
+            file_patterns: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional glob patterns for files to analyze (e.g., ["src/**/*.js", "*.test.ts"])'
+            },
+            context: {
+              type: 'object',
+              description: 'Additional context object for the subagent'
+            },
+            verdict_mode: {
+              type: 'string',
+              enum: ['summary', 'full'],
+              default: 'summary',
+              description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+            }
+          },
+          required: ['role', 'task']
+        }
+      },
+      {
+        name: 'parallel_agents',
+        description: '🚀 Execute multiple TDD agents in parallel with quality gate iteration. Decomposes high-level tasks into atomic subtasks, executes them in parallel groups (RED before GREEN), and iterates based on quality review.',
+        handler: 'handleParallelAgents',
+        schema: {
+          type: 'object',
+          properties: {
+            task: {
+              type: 'string',
+              description: 'High-level task to decompose and execute via TDD workflow'
+            },
+            max_parallel: {
+              type: 'integer',
+              default: 2,
+              minimum: 1,
+              maximum: 6,
+              description: 'Maximum parallel agents (matches GPU slots, default: 2)'
+            },
+            iterate_until_quality: {
+              type: 'boolean',
+              default: true,
+              description: 'Whether to iterate on failed quality checks'
+            },
+            max_iterations: {
+              type: 'integer',
+              default: 3,
+              minimum: 1,
+              maximum: 5,
+              description: 'Maximum quality gate iterations (prevents infinite loops)'
+            },
+            work_directory: {
+              type: 'string',
+              description: 'Optional directory for generated files (default: /tmp/parallel-agents-{timestamp})'
+            }
+          },
+          required: ['task']
+        }
+      },
+      {
+        name: 'council',
+        description: '🏛️ Multi-AI Council - Get consensus from multiple AI backends on complex questions. Claude explicitly selects topic and confidence level, backends provide diverse perspectives, Claude synthesizes the final answer. Use for architectural decisions, controversial topics, or when you need validation from multiple viewpoints.',
+        handler: 'handleCouncil',
+        schema: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              description: 'The question or topic for the council to deliberate on'
+            },
+            topic: {
+              type: 'string',
+              enum: ['coding', 'reasoning', 'architecture', 'general', 'creative', 'security', 'performance'],
+              description: 'Topic category - determines which backends are consulted: coding (nvidia_qwen, local), reasoning (nvidia_deepseek, nvidia_minimax), architecture (nvidia_deepseek, nvidia_qwen), general (gemini, groq_llama), creative (gemini, nvidia_qwen), security (nvidia_deepseek, nvidia_qwen), performance (nvidia_deepseek, local)'
+            },
+            confidence_needed: {
+              type: 'string',
+              enum: ['high', 'medium', 'low'],
+              default: 'medium',
+              description: 'Required confidence level - determines number of backends: high (4 backends), medium (3 backends), low (2 backends)'
+            },
+            num_backends: {
+              type: 'integer',
+              minimum: 2,
+              maximum: 6,
+              description: 'Override number of backends to query (optional - auto-calculated from confidence_needed)'
+            },
+            max_tokens: {
+              type: 'integer',
+              default: 4000,
+              description: 'Maximum tokens per backend response'
+            }
+          },
+          required: ['prompt', 'topic']
+        }
       }
     ];
 
@@ -2568,6 +2723,174 @@ Provide specific, actionable feedback.`;
       return {
         success: false,
         action,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async handleGetAnalytics(args) {
+    const { report_type = 'current', time_range = '7d', format = 'json' } = args;
+
+    console.error(`📊 Get Analytics: ${report_type} (${time_range})`);
+
+    try {
+      const analytics = {
+        report_type,
+        time_range,
+        format,
+        router_stats: this.router.requestStats,
+        cache_stats: {
+          size: this.router.cache.size,
+          timeout: this.router.cacheTimeout
+        },
+        file_ops: this.fileModManager?.operationHistory?.length || 0,
+        timestamp: new Date().toISOString()
+      };
+
+      return {
+        success: true,
+        analytics,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async handleCheckBackendHealth(args) {
+    const { backend, force = false } = args;
+
+    console.error(`🩺 Check Backend Health: ${backend} (force: ${force})`);
+
+    try {
+      const endpoint = this.router.endpoints[backend];
+      if (!endpoint) {
+        throw new Error(`Unknown backend: ${backend}`);
+      }
+
+      // For local endpoint, test connection
+      if (backend === 'local') {
+        const healthy = await this.router.testConnection(
+          this.router.cachedIP || '127.0.0.1'
+        );
+        return {
+          success: true,
+          backend,
+          healthy,
+          endpoint: endpoint.url,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // For cloud endpoints, ping
+      return {
+        success: true,
+        backend,
+        healthy: true,
+        endpoint: endpoint.url,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        backend,
+        healthy: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async handleSpawnSubagent(args) {
+    const { role, task, file_patterns, context, verdict_mode = 'summary' } = args;
+
+    console.error(`🤖 Spawn Subagent: ${role}`);
+
+    try {
+      // Import handler dynamically
+      const { SubagentHandler } = await import('./src/handlers/subagent-handler.js');
+      const handler = new SubagentHandler({ router: this.router, server: this });
+      const result = await handler.execute(args);
+
+      return {
+        success: true,
+        role,
+        task,
+        result,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`❌ Spawn Subagent (${role}) failed:`, error.message);
+      return {
+        success: false,
+        role,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async handleParallelAgents(args) {
+    const {
+      task,
+      max_parallel = 2,
+      iterate_until_quality = true,
+      max_iterations = 3,
+      work_directory
+    } = args;
+
+    console.error(`🚀 Parallel Agents: ${task.substring(0, 50)}...`);
+
+    try {
+      // Import handler dynamically
+      const { ParallelAgentsHandler } = await import('./src/handlers/parallel-agents-handler.js');
+      const handler = new ParallelAgentsHandler({ router: this.router, server: this });
+      const result = await handler.execute(args);
+
+      return {
+        success: true,
+        task,
+        result,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`❌ Parallel Agents failed:`, error.message);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async handleCouncil(args) {
+    const {
+      prompt,
+      topic,
+      confidence_needed = 'medium',
+      num_backends,
+      max_tokens = 4000
+    } = args;
+
+    console.error(`🏛️ Council: ${topic} (${confidence_needed} confidence)`);
+
+    try {
+      // Import handler dynamically
+      const { CouncilHandler } = await import('./src/handlers/council-handler.js');
+      const handler = new CouncilHandler({ router: this.router, server: this });
+      const result = await handler.execute(args);
+
+      return result;
+    } catch (error) {
+      console.error(`❌ Council failed:`, error.message);
+      return {
+        success: false,
+        topic,
         error: error.message,
         timestamp: new Date().toISOString()
       };

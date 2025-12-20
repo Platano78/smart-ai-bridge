@@ -23,6 +23,7 @@ import {
 } from './system-handlers.js';
 import { SubagentHandler } from './subagent-handler.js';
 import { ParallelAgentsHandler } from './parallel-agents-handler.js';
+import { CouncilHandler } from './council-handler.js';
 
 /**
  * Handler class registry mapping handler names to classes
@@ -40,7 +41,8 @@ const HANDLER_REGISTRY = {
   'handleManageConversation': ManageConversationHandler,
   'handleGetAnalytics': GetAnalyticsHandler,
   'handleSpawnSubagent': SubagentHandler,
-  'handleParallelAgents': ParallelAgentsHandler
+  'handleParallelAgents': ParallelAgentsHandler,
+  'handleCouncil': CouncilHandler
 };
 
 /**
