@@ -342,15 +342,15 @@ class SmartAliasResolver {
       },
       {
         name: 'ask',
-        description: '🤖 Direct AI Query - Ask specific AI models directly (deepseek, qwen3, local)',
+        description: '🤖 MULTI-AI Direct Query - Ask any backend with BLAZING FAST smart fallback chains! Features automatic Unity detection, dynamic token scaling, and response headers with backend tracking.',
         handler: 'handleAsk',
         schema: {
           type: 'object',
           properties: {
             model: {
               type: 'string',
-              enum: ['deepseek', 'qwen3', 'local'],
-              description: 'AI model to query: deepseek (NVIDIA DeepSeek V3.2), qwen3 (NVIDIA Qwen3 Coder 480B), local (Qwen2.5-Coder-7B)'
+              enum: ['auto', 'local', 'gemini', 'deepseek', 'qwen3', 'minimax', 'chatgpt', 'groq'],
+              description: 'AI backend to query: auto (smart routing), local (local model), gemini (Gemini 2.5 Flash), deepseek (NVIDIA DeepSeek V3.2), qwen3 (NVIDIA Qwen3 480B), minimax (NVIDIA MiniMax M2), chatgpt (OpenAI GPT-4.1), groq (Llama 3.3 70B)'
             },
             prompt: {
               type: 'string',
@@ -365,6 +365,10 @@ class SmartAliasResolver {
               type: 'number',
               default: 4096,
               description: 'Maximum response length'
+            },
+            force_backend: {
+              type: 'string',
+              description: 'Force specific backend (bypasses smart routing)'
             }
           },
           required: ['model', 'prompt']
@@ -1054,14 +1058,56 @@ class EnhancedAIRouter {
         url: 'https://integrate.api.nvidia.com/v1',
         priority: 2,
         maxTokens: 128000,
-        specialization: 'analysis'
+        specialization: 'analysis',
+        model: 'deepseek-ai/deepseek-v3.1'
       },
       nvidia_qwen: {
         name: 'NVIDIA-Qwen-3-Coder-480B',
         url: 'https://integrate.api.nvidia.com/v1',
         priority: 3,
         maxTokens: 32768,
-        specialization: 'coding'
+        specialization: 'coding',
+        model: 'qwen/qwen3-coder-480b-a35b-instruct'
+      },
+      gemini: {
+        name: 'Gemini-2.5-Flash',
+        url: 'https://generativelanguage.googleapis.com/v1beta',
+        priority: 4,
+        maxTokens: 32768,
+        specialization: 'fast',
+        model: 'gemini-2.5-flash-preview-05-20'
+      },
+      openai_chatgpt: {
+        name: 'OpenAI-GPT-4.1',
+        url: 'https://api.openai.com/v1',
+        priority: 5,
+        maxTokens: 128000,
+        specialization: 'reasoning',
+        model: 'gpt-4.1-2025-04-14'
+      },
+      groq_llama: {
+        name: 'Groq-Llama-3.3-70B',
+        url: 'https://api.groq.com/openai/v1',
+        priority: 6,
+        maxTokens: 32768,
+        specialization: 'fast',
+        model: 'llama-3.3-70b-versatile'
+      },
+      nvidia_minimax: {
+        name: 'NVIDIA-MiniMax-M2',
+        url: 'https://integrate.api.nvidia.com/v1',
+        priority: 7,
+        maxTokens: 8192,
+        specialization: 'reasoning',
+        model: 'nvidia/llama-3.1-nemotron-ultra-253b-v1'
+      },
+      nvidia_nemotron: {
+        name: 'NVIDIA-Nemotron-3-Nano',
+        url: 'https://integrate.api.nvidia.com/v1',
+        priority: 8,
+        maxTokens: 32768,
+        specialization: 'general',
+        model: 'nvidia/llama-3.3-nemotron-super-49b-v1'
       }
     };
 
@@ -2589,7 +2635,7 @@ Provide specific, actionable feedback.`;
   }
 
   async handleAsk(args) {
-    const { model, prompt, thinking = true, max_tokens = 4096 } = args;
+    const { model, prompt, thinking = true, max_tokens = 4096, force_backend } = args;
 
     console.error(`🤖 Direct AI Query: ${model} - "${prompt.substring(0, 50)}..."`);
 
@@ -2597,25 +2643,49 @@ Provide specific, actionable feedback.`;
       let endpoint;
       let response;
 
-      // Map model names to endpoints
-      switch (model.toLowerCase()) {
-        case 'deepseek':
-          endpoint = 'nvidia_deepseek';
-          break;
-        case 'qwen3':
-          endpoint = 'nvidia_qwen';
-          break;
-        case 'local':
-          endpoint = 'local';
-          break;
-        default:
-          throw new Error(`Unknown model: ${model}. Available: deepseek, qwen3, local`);
+      // Dynamic model to endpoint mapping
+      const MODEL_TO_ENDPOINT = {
+        'auto': null, // Use router's smart selection
+        'local': 'local',
+        'deepseek': 'nvidia_deepseek',
+        'qwen3': 'nvidia_qwen',
+        'gemini': 'gemini',
+        'minimax': 'nvidia_minimax',
+        'chatgpt': 'openai_chatgpt',
+        'groq': 'groq_llama',
+        'nemotron': 'nvidia_nemotron'
+      };
+
+      // Get available backends from router
+      const availableBackends = Object.keys(this.router.endpoints);
+
+      // If force_backend is specified, use it directly
+      if (force_backend) {
+        if (!availableBackends.includes(force_backend)) {
+          throw new Error(`Unknown backend: ${force_backend}. Available: ${availableBackends.join(', ')}`);
+        }
+        endpoint = force_backend;
+      } else if (model.toLowerCase() === 'auto') {
+        // Use smart routing
+        endpoint = await this.router.routeRequest(prompt, { maxTokens: max_tokens });
+      } else {
+        // Map model name to endpoint
+        endpoint = MODEL_TO_ENDPOINT[model.toLowerCase()];
+        if (!endpoint) {
+          // Try direct backend name match
+          if (availableBackends.includes(model)) {
+            endpoint = model;
+          } else {
+            const availableModels = Object.keys(MODEL_TO_ENDPOINT).filter(k => k !== 'auto');
+            throw new Error(`Unknown model: ${model}. Available: ${availableModels.join(', ')} (or use backend names: ${availableBackends.join(', ')})`);
+          }
+        }
       }
 
       // Use the router to make the request
       const requestOptions = {
         maxTokens: max_tokens,
-        thinking: thinking && endpoint === 'nvidia_deepseek'
+        thinking: thinking && (endpoint === 'nvidia_deepseek' || endpoint === 'nvidia_minimax')
       };
 
       response = await this.router.callEndpoint(endpoint, prompt, requestOptions);
@@ -2626,7 +2696,8 @@ Provide specific, actionable feedback.`;
         endpoint: endpoint,
         prompt: prompt,
         response: response,
-        thinking_enabled: thinking && endpoint === 'nvidia_deepseek',
+        thinking_enabled: thinking && (endpoint === 'nvidia_deepseek' || endpoint === 'nvidia_minimax'),
+        available_backends: availableBackends,
         timestamp: new Date().toISOString()
       };
 
@@ -2637,6 +2708,7 @@ Provide specific, actionable feedback.`;
         model: model,
         prompt: prompt,
         error: error.message,
+        available_backends: Object.keys(this.router.endpoints),
         timestamp: new Date().toISOString()
       };
     }
