@@ -10,10 +10,15 @@
  */
 
 import { LocalAdapter } from './local-adapter.js';
-import { NvidiaDeepSeekAdapter, NvidiaQwenAdapter, NvidiaMiniMaxAdapter } from './nvidia-adapter.js';
+import { NvidiaDeepSeekAdapter, NvidiaQwenAdapter, NvidiaMiniMaxAdapter, NvidiaNemotronAdapter } from './nvidia-adapter.js';
 import { GeminiAdapter } from './gemini-adapter.js';
 import { OpenAIAdapter } from './openai-adapter.js';
 import { GroqAdapter } from './groq-adapter.js';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
+
+// Custom backends config file path
+const CUSTOM_BACKENDS_PATH = './data/backends-custom.json';
 
 /**
  * Adapter class mapping by type
@@ -23,6 +28,7 @@ const ADAPTER_CLASSES = {
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
   'nvidia_qwen': NvidiaQwenAdapter,
   'nvidia_minimax': NvidiaMiniMaxAdapter,
+  'nvidia_nemotron': NvidiaNemotronAdapter,
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter
@@ -80,6 +86,18 @@ const DEFAULT_BACKENDS = {
     priority: 7,
     description: 'NVIDIA MiniMax M2 (reasoning with think blocks)',
     config: {}
+  },
+  nvidia_nemotron: {
+    type: 'nvidia_nemotron',
+    enabled: true,
+    priority: 8,
+    description: 'NVIDIA Nemotron 3 Nano (1M context, Hybrid MoE)',
+    capabilities: ['large_context', 'deep_reasoning', 'code_specialized'],
+    context_limit: 1000000,
+    config: {
+      maxTokens: 32768,
+      timeout: 180000
+    }
   }
 };
 
@@ -114,11 +132,83 @@ class BackendRegistry {
    * @private
    */
   initializeDefaults() {
+    // Load hardcoded defaults first
     for (const [name, backendConfig] of Object.entries(DEFAULT_BACKENDS)) {
       this.register(name, backendConfig);
     }
 
+    // Then load custom backends from disk (these override/extend defaults)
+    this.loadCustomBackends();
+
     console.error(`[BackendRegistry] Initialized ${this.backends.size} backends`);
+  }
+
+  /**
+   * Load custom backends from disk
+   */
+  loadCustomBackends() {
+    try {
+      if (existsSync(CUSTOM_BACKENDS_PATH)) {
+        const data = readFileSync(CUSTOM_BACKENDS_PATH, 'utf-8');
+        const custom = JSON.parse(data);
+        
+        for (const [name, backendConfig] of Object.entries(custom.backends || {})) {
+          // If backend exists, update it; otherwise add it
+          if (this.backends.has(name)) {
+            // Update existing backend with custom config
+            const existing = this.backends.get(name);
+            Object.assign(existing, backendConfig);
+            console.error(`[BackendRegistry] Updated backend from custom config: ${name}`);
+          } else {
+            this.register(name, backendConfig);
+            console.error(`[BackendRegistry] Loaded custom backend: ${name}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[BackendRegistry] Error loading custom backends: ${error.message}`);
+    }
+  }
+
+  /**
+   * Save current backends to custom config file
+   * Only saves backends that differ from defaults or are new
+   */
+  saveConfig() {
+    try {
+      const customBackends = {};
+      
+      for (const [name, backend] of this.backends) {
+        // Always save non-default backends
+        if (!DEFAULT_BACKENDS[name]) {
+          customBackends[name] = {
+            type: backend.type,
+            enabled: backend.enabled,
+            priority: backend.priority,
+            description: backend.description,
+            config: backend.config
+          };
+        }
+      }
+
+      // Ensure directory exists
+      const dir = dirname(CUSTOM_BACKENDS_PATH);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      writeFileSync(
+        CUSTOM_BACKENDS_PATH,
+        JSON.stringify({ backends: customBackends }, null, 2),
+        'utf-8'
+      );
+
+      console.error(`[BackendRegistry] Saved ${Object.keys(customBackends).length} custom backends to disk`);
+      return true;
+    } catch (error) {
+      console.error(`[BackendRegistry] Error saving config: ${error.message}`);
+      return false;
+    }
   }
 
   /**
@@ -406,6 +496,131 @@ class BackendRegistry {
     }
 
     return { backends };
+  }
+
+
+  /**
+   * Add a new backend dynamically
+   * @param {Object} config - Backend configuration
+   * @returns {Object} Result with success status
+   */
+  addBackend(config) {
+    const { name, type, url, apiKey, model, maxTokens, timeout, priority, description } = config;
+
+    // Validate required fields
+    if (!name || !type) {
+      return { success: false, error: 'Name and type are required' };
+    }
+
+    // Check if backend already exists
+    if (this.backends.has(name)) {
+      return { success: false, error: `Backend '${name}' already exists` };
+    }
+
+    // Validate type exists in ADAPTER_CLASSES
+    if (!ADAPTER_CLASSES[type]) {
+      // Allow custom type for OpenAI-compatible endpoints
+      console.error(`[BackendRegistry] Using openai adapter for custom type: ${type}`);
+    }
+
+    const backendConfig = {
+      type: ADAPTER_CLASSES[type] ? type : 'openai', // Default to openai for custom
+      enabled: true,
+      priority: priority || this.backends.size + 1,
+      description: description || `Custom backend: ${name}`,
+      config: {
+        url: url || undefined,
+        apiKey: apiKey || undefined,
+        model: model || undefined,
+        maxTokens: maxTokens || 4096,
+        timeout: timeout || 30000
+      }
+    };
+
+    // Register the backend
+    this.register(name, backendConfig);
+
+    // Persist to disk
+    this.saveConfig();
+
+    return {
+      success: true,
+      message: `Backend '${name}' added successfully`,
+      backend: this.backends.get(name)
+    };
+  }
+
+  /**
+   * Remove a backend
+   * @param {string} name - Backend name
+   * @returns {Object} Result with success status
+   */
+  removeBackend(name) {
+    if (!this.backends.has(name)) {
+      return { success: false, error: `Backend '${name}' not found` };
+    }
+
+    // Remove adapter and backend
+    this.adapters.delete(name);
+    this.backends.delete(name);
+    this.updateFallbackChain();
+
+    // Persist to disk
+    this.saveConfig();
+
+    return {
+      success: true,
+      message: `Backend '${name}' removed successfully`
+    };
+  }
+
+  /**
+   * Update a backend configuration
+   * @param {string} name - Backend name
+   * @param {Object} updates - Configuration updates
+   * @returns {Object} Result with success status
+   */
+  updateBackend(name, updates) {
+    const backend = this.backends.get(name);
+    if (!backend) {
+      return { success: false, error: `Backend '${name}' not found` };
+    }
+
+    // Apply updates
+    if (updates.enabled !== undefined) {
+      this.setEnabled(name, updates.enabled);
+    }
+    if (updates.priority !== undefined) {
+      this.setPriority(name, updates.priority);
+    }
+    if (updates.description !== undefined) {
+      backend.description = updates.description;
+    }
+    if (updates.config) {
+      backend.config = { ...backend.config, ...updates.config };
+      // Recreate adapter with new config if enabled
+      if (backend.enabled) {
+        this.adapters.delete(name);
+        this.createAdapter(name);
+      }
+    }
+
+    // Persist to disk
+    this.saveConfig();
+
+    return {
+      success: true,
+      message: `Backend '${name}' updated successfully`,
+      backend: this.backends.get(name)
+    };
+  }
+
+  /**
+   * Get list of available adapter types
+   * @returns {string[]}
+   */
+  getAvailableTypes() {
+    return Object.keys(ADAPTER_CLASSES);
   }
 }
 

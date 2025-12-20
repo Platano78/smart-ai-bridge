@@ -5,7 +5,7 @@
  * REFACTOR PHASE: Optimized unified handler system with <10ms performance
  * 
  * ✅ UNIFIED CAPABILITIES IMPLEMENTED:
- * • Triple Bridge Integration - Local DeepSeek, NVIDIA DeepSeek V3.1, NVIDIA Qwen 3 Coder 480B
+ * • Triple Bridge Integration - Local DeepSeek, NVIDIA DeepSeek V3.2, NVIDIA Qwen 3 Coder 480B
  * • Consolidated Server Integration - Multi-provider orchestration with Wilson Score routing
  * • Lightning-Fast Routing - <10ms routing decisions with Map-based O(1) lookups
  * • Standardized Error Handling - Consistent error formats across all architectures
@@ -229,7 +229,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 **Triple Bridge Integration:**
 ✅ Local DeepSeek: Unlimited tokens, technical implementation
-✅ NVIDIA DeepSeek V3.1: Mathematical analysis, reasoning chains
+✅ NVIDIA DeepSeek V3.2: Mathematical analysis, reasoning chains
 ✅ NVIDIA Qwen 3 Coder 480B: Advanced coding, optimization
 ✅ Smart Routing: Task-based endpoint selection
 

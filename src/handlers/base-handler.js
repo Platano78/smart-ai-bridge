@@ -33,6 +33,9 @@ class BaseHandler {
     }
 
     /** @type {Object} */
+    this.context = context;
+
+    /** @type {Object} */
     this.router = context.router;
 
     /** @type {Object} */
@@ -40,6 +43,9 @@ class BaseHandler {
 
     /** @type {PlaybookSystem} */
     this.playbook = context.playbook || new PlaybookSystem();
+
+    /** @type {ConversationThreading} */
+    this.conversationThreading = context.conversationThreading;
 
     /** @type {string} */
     this.handlerName = this.constructor.name;

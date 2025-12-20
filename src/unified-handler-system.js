@@ -243,7 +243,7 @@ Based on unified system analysis, this query is optimally handled by ${this.dete
 - Provider Strategy: ${args.provider_strategy || 'auto_optimal'}
 
 **Unified Multi-Provider Intelligence:**
-✅ Triple Bridge Endpoints: Local, NVIDIA DeepSeek V3.1, NVIDIA Qwen 3 Coder
+✅ Triple Bridge Endpoints: Local, NVIDIA DeepSeek V3.2, NVIDIA Qwen 3 Coder
 ✅ Consolidated Providers: DeepSeek, Claude, Gemini orchestration
 ✅ Wilson Score Optimization: Statistical provider selection
 ✅ Unified Routing: Best of both architectures combined
@@ -283,7 +283,7 @@ Based on project structure and goals, recommending ${this.determineProjectProvid
 
 **Triple Bridge Integration:**
 ✅ Local DeepSeek: Unlimited tokens, technical implementation
-✅ NVIDIA DeepSeek V3.1: Math analysis, reasoning with thinking
+✅ NVIDIA DeepSeek V3.2: Math analysis, reasoning with thinking
 ✅ NVIDIA Qwen 3 Coder 480B: Coding expertise, optimization
 ✅ Smart Routing: Task-based endpoint selection
 
@@ -349,7 +349,7 @@ ${args.detailed_metrics ? `
 
 **🚀 Triple Bridge Capabilities:**
 - Local DeepSeek: Unlimited tokens, technical deep-dives
-- NVIDIA DeepSeek V3.1: Mathematical analysis, reasoning chains
+- NVIDIA DeepSeek V3.2: Mathematical analysis, reasoning chains
 - NVIDIA Qwen 3 Coder 480B: Advanced coding, optimization
 - Direct Endpoint Routing: Specialized provider selection
 
@@ -394,7 +394,7 @@ All unified handlers configured with:
       'coding': 'NVIDIA Qwen 3 Coder 480B (via Triple Bridge)',
       'debugging': 'NVIDIA Qwen 3 Coder 480B (via Triple Bridge)', 
       'architecture': 'Claude (via Consolidated Server)',
-      'analysis': 'NVIDIA DeepSeek V3.1 (via Triple Bridge)',
+      'analysis': 'NVIDIA DeepSeek V3.2 (via Triple Bridge)',
       'creative': 'Gemini (via Consolidated Server)',
       'optimization': 'NVIDIA Qwen 3 Coder 480B (via Triple Bridge)'
     };

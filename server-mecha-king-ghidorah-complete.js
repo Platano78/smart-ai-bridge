@@ -45,6 +45,9 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// Conversation Threading for multi-session AI conversation tracking
+import ConversationThreading from './src/threading/index.js';
+
 /**
  * 🎯 SMART ALIAS RESOLVER
  * Dynamic tool registration and alias resolution system
@@ -339,15 +342,15 @@ class SmartAliasResolver {
       },
       {
         name: 'ask',
-        description: '🤖 Direct AI Query - Ask specific AI models directly (deepseek3.1, qwen3, local)',
+        description: '🤖 Direct AI Query - Ask specific AI models directly (deepseek, qwen3, local)',
         handler: 'handleAsk',
         schema: {
           type: 'object',
           properties: {
             model: {
               type: 'string',
-              enum: ['deepseek3.1', 'qwen3', 'local'],
-              description: 'AI model to query: deepseek3.1 (NVIDIA DeepSeek V3.1), qwen3 (NVIDIA Qwen3 Coder 480B), local (Qwen2.5-Coder-7B)'
+              enum: ['deepseek', 'qwen3', 'local'],
+              description: 'AI model to query: deepseek (NVIDIA DeepSeek V3.2), qwen3 (NVIDIA Qwen3 Coder 480B), local (Qwen2.5-Coder-7B)'
             },
             prompt: {
               type: 'string',
@@ -365,6 +368,51 @@ class SmartAliasResolver {
             }
           },
           required: ['model', 'prompt']
+        }
+      },
+      {
+        name: 'manage_conversation',
+        description: '💬 Manage conversation threading across sessions. Start new conversations, continue existing ones, search conversation history, or get analytics.',
+        handler: 'handleManageConversation',
+        schema: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['start', 'continue', 'resume', 'history', 'search', 'analytics'],
+              description: 'Action to perform: start (new thread), continue (with continuation_id), resume (with thread_id), history (get thread history), search (search conversations), analytics (get analytics)'
+            },
+            thread_id: {
+              type: 'string',
+              description: 'Thread ID to resume or get history (optional)'
+            },
+            continuation_id: {
+              type: 'string',
+              description: 'Continuation ID from previous response (optional)'
+            },
+            topic: {
+              type: 'string',
+              description: 'Topic for new conversation (optional)'
+            },
+            query: {
+              type: 'string',
+              description: 'Search query for conversations (optional)'
+            },
+            user_id: {
+              type: 'string',
+              description: 'User identifier (optional, defaults to "default")'
+            },
+            platform: {
+              type: 'string',
+              enum: ['claude_desktop', 'claude_code'],
+              description: 'Platform identifier (optional)'
+            },
+            limit: {
+              type: 'number',
+              description: 'Limit for history results (optional, default 10)'
+            }
+          },
+          required: ['action']
         }
       }
     ];
@@ -819,7 +867,7 @@ class FileModificationManager {
 /**
  * 🧠 ENHANCED AI ROUTER WITH NVIDIA CLOUD INTEGRATION
  * Primary: Qwen2.5-Coder-7B-Instruct-FP8-Dynamic (Local Port 8001)
- * Escalation: NVIDIA DeepSeek V3.1 → NVIDIA Qwen3-Coder-480B
+ * Escalation: NVIDIA DeepSeek V3.2 → NVIDIA Qwen3-Coder-480B
  */
 class EnhancedAIRouter {
   constructor() {
@@ -847,7 +895,7 @@ class EnhancedAIRouter {
         specialization: 'general'
       },
       nvidia_deepseek: {
-        name: 'NVIDIA-DeepSeek-V3.1',
+        name: 'NVIDIA-DeepSeek-V3.2',
         url: 'https://integrate.api.nvidia.com/v1',
         priority: 2,
         maxTokens: 128000,
@@ -1863,6 +1911,7 @@ class MechaKingGhidorahServer {
     this.router = new EnhancedAIRouter();
     this.fileManager = new FileModificationManager(this.router);
     this.aliasResolver = new SmartAliasResolver();
+    this.conversationThreading = new ConversationThreading('./data/conversations');
     this.server = new Server(
       {
         name: "Mecha King Ghidorah",
@@ -2395,7 +2444,7 @@ Provide specific, actionable feedback.`;
 
       // Map model names to endpoints
       switch (model.toLowerCase()) {
-        case 'deepseek3.1':
+        case 'deepseek':
           endpoint = 'nvidia_deepseek';
           break;
         case 'qwen3':
@@ -2405,7 +2454,7 @@ Provide specific, actionable feedback.`;
           endpoint = 'local';
           break;
         default:
-          throw new Error(`Unknown model: ${model}. Available: deepseek3.1, qwen3, local`);
+          throw new Error(`Unknown model: ${model}. Available: deepseek, qwen3, local`);
       }
 
       // Use the router to make the request
@@ -2432,6 +2481,93 @@ Provide specific, actionable feedback.`;
         success: false,
         model: model,
         prompt: prompt,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+
+  async handleManageConversation(args) {
+    const {
+      action,
+      thread_id,
+      continuation_id,
+      topic = 'general',
+      query,
+      user_id = 'default',
+      platform = 'claude_code',
+      limit = 10
+    } = args;
+
+    console.error(`💬 Manage Conversation: ${action}`);
+
+    try {
+      // Initialize threading if not already done
+      if (!this.conversationThreading._initialized) {
+        await this.conversationThreading.init();
+        this.conversationThreading._initialized = true;
+      }
+
+      let result;
+
+      switch (action) {
+        case 'start':
+          result = await this.conversationThreading.startOrContinueThread({
+            topic,
+            user_id,
+            platform
+          });
+          break;
+
+        case 'continue':
+          if (!continuation_id) {
+            throw new Error('continuation_id is required for continue action');
+          }
+          result = await this.conversationThreading.continueThread(continuation_id);
+          break;
+
+        case 'resume':
+          if (!thread_id) {
+            throw new Error('thread_id is required for resume action');
+          }
+          result = await this.conversationThreading.resumeThread(thread_id);
+          break;
+
+        case 'history':
+          if (!thread_id) {
+            throw new Error('thread_id is required for history action');
+          }
+          result = await this.conversationThreading.getThreadHistory(thread_id, limit);
+          break;
+
+        case 'search':
+          if (!query) {
+            throw new Error('query is required for search action');
+          }
+          result = await this.conversationThreading.searchConversations(query);
+          break;
+
+        case 'analytics':
+          result = await this.conversationThreading.getConversationAnalytics();
+          break;
+
+        default:
+          throw new Error(`Unknown action: ${action}. Available: start, continue, resume, history, search, analytics`);
+      }
+
+      return {
+        success: true,
+        action,
+        data: result,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error(`❌ Manage Conversation (${action}) failed:`, error.message);
+      return {
+        success: false,
+        action,
         error: error.message,
         timestamp: new Date().toISOString()
       };

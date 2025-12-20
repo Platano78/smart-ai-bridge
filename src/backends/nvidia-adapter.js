@@ -302,8 +302,100 @@ class NvidiaMiniMaxAdapter extends BackendAdapter {
   }
 }
 
+/**
+ * NVIDIA Nemotron 3 Nano Adapter - 1M context window
+ * Model: nemotron-3-nano-30b-a3b (Hybrid Mamba-Transformer MoE)
+ */
+class NvidiaNemotronAdapter extends BackendAdapter {
+  constructor(config = {}) {
+    super({
+      name: 'nvidia_nemotron',
+      type: 'nvidia',
+      url: NVIDIA_BASE_URL,
+      apiKey: config.apiKey || process.env.NVIDIA_API_KEY,
+      maxTokens: config.maxTokens || 32768, // Can go much higher with 1M context
+      timeout: config.timeout || 180000, // 3 min for large context
+      streaming: true,
+      ...config
+    });
+
+    this.model = 'nvidia/nemotron-3-nano-30b-a3b';
+  }
+
+  async makeRequest(prompt, options = {}) {
+    if (!this.config.apiKey) {
+      throw new Error('NVIDIA_API_KEY not configured for Nemotron');
+    }
+
+    const body = {
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: options.maxTokens || this.config.maxTokens,
+      temperature: options.temperature ?? 0.7,
+      top_p: 0.95,
+      stream: false
+    };
+
+    // Dynamic timeout for large context
+    const requestedTokens = options.maxTokens || this.config.maxTokens;
+    const timeout = options.timeout
+      || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
+      || calculateDynamicTimeout(requestedTokens, true);
+
+    const response = await fetch(this.config.url, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeout)
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`NVIDIA Nemotron error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return this.parseResponse(data);
+  }
+
+  async checkHealth() {
+    const startTime = Date.now();
+
+    try {
+      const response = await fetch(this.config.url, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 5
+        }),
+        signal: AbortSignal.timeout(5000)
+      });
+
+      this.lastHealth = {
+        healthy: response.ok,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: response.ok ? null : `Status ${response.status}`
+      };
+
+      return this.lastHealth;
+    } catch (error) {
+      this.lastHealth = {
+        healthy: false,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: error.message
+      };
+      return this.lastHealth;
+    }
+  }
+}
+
 export {
   NvidiaDeepSeekAdapter,
   NvidiaQwenAdapter,
-  NvidiaMiniMaxAdapter
+  NvidiaMiniMaxAdapter,
+  NvidiaNemotronAdapter
 };

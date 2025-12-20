@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MKG Dashboard - Mecha King Ghidorah</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        .header p { color: #888; margin-top: 10px; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .status-item {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .status-item .label { color: #888; font-size: 0.85em; }
+        .status-item .value { font-size: 1.4em; font-weight: bold; margin-top: 5px; }
+        .status-item.online .value { color: #4ade80; }
+        .status-item.offline .value { color: #f87171; }
+        .status-item.warning .value { color: #fbbf24; }
+        .backend-list { list-style: none; }
+        .backend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .backend-name { font-weight: 500; }
+        .backend-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .backend-status.healthy { background: #22c55e; color: #000; }
+        .backend-status.unhealthy { background: #ef4444; color: #fff; }
+        .backend-status.unknown { background: #6b7280; color: #fff; }
+        .backend-controls { display: flex; align-items: center; gap: 10px; }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: #374151;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch.active { background: #22c55e; }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-switch.active::after { transform: translateX(24px); }
+        .priority-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .priority-btn:hover { background: rgba(255,255,255,0.2); }
+        .priority-num { font-size: 0.9em; color: #ffd700; min-width: 20px; text-align: center; }
+        .fallback-chain {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+        .fallback-chain strong { color: #ffd700; }
+        .chain-item { display: inline-block; padding: 2px 8px; background: rgba(255,215,0,0.2); border-radius: 4px; margin: 2px; }
+        .alias-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        .alias-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        .alias-name { color: #ffd700; font-family: monospace; font-weight: bold; }
+        .alias-arrow { color: #888; margin: 0 8px; }
+        .alias-backend { color: #4ade80; font-family: monospace; }
+        .alias-desc { color: #888; font-size: 0.8em; margin-left: 8px; }
+        .thread-list { max-height: 300px; overflow-y: auto; }
+        .thread-item {
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .thread-topic { font-weight: 500; color: #ffd700; }
+        .thread-meta { font-size: 0.85em; color: #888; margin-top: 5px; }
+        .btn {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            width: auto;
+            margin: 0;
+        }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: #888; }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+        }
+        .input-group input::placeholder { color: #666; }
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .log-output {
+            background: #000;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry { margin-bottom: 5px; }
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #60a5fa; }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 { color: #ffd700; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .modal-close:hover { color: #fff; }
+        
+        /* Delete button for backends */
+        .delete-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            color: #f87171;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn:hover { background: rgba(239, 68, 68, 0.4); }
+        .delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mecha King Ghidorah</h1>
+        <p>AI Backend Dashboard & Conversation Manager</p>
+    </div>
+
+    <div class="container">
+        <!-- System Status -->
+        <div class="card">
+            <h2>System Status</h2>
+            <div class="status-grid">
+                <div class="status-item" id="status-backends">
+                    <div class="label">Backends</div>
+                    <div class="value">--</div>
+                </div>
+                <div class="status-item" id="status-threads">
+                    <div class="label">Threads</div>
+                    <div class="value">--</div>
+                </div>
+                <div class="status-item" id="status-tokens">
+                    <div class="label">Total Tokens</div>
+                    <div class="value">--</div>
+                </div>
+                <div class="status-item" id="status-uptime">
+                    <div class="label">Uptime</div>
+                    <div class="value">--</div>
+                </div>
+            </div>
+            <button class="btn" onclick="refreshStatus()">Refresh Status</button>
+        </div>
+
+        <!-- AI Backends -->
+        <div class="card">
+            <h2>AI Backends</h2>
+            <ul class="backend-list" id="backend-list">
+                <li class="backend-item">
+                    <span class="backend-name">Loading...</span>
+                    <span class="backend-status unknown">Unknown</span>
+                </li>
+            </ul>
+            <div class="fallback-chain" id="fallback-chain">
+                <strong>Fallback Chain:</strong> <span id="chain-display">Loading...</span>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn" style="flex:1" onclick="loadBackends()">Refresh</button>
+                <button class="btn" style="flex:1" onclick="checkBackendHealth()">Health Check</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-secondary" style="flex:1" onclick="showAddBackendModal()">+ Add Backend</button>
+                <button class="btn btn-secondary" style="flex:1" onclick="toggleShowDisabled()" id="toggle-disabled-btn">Show All</button>
+            </div>
+        </div>
+
+        <!-- Model Aliases Quick Reference -->
+        <div class="card">
+            <h2>Quick Aliases (for ask command)</h2>
+            <p style="color: #888; font-size: 0.85em; margin-bottom: 10px;">Use: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">model="alias"</code></p>
+            <div class="alias-grid" id="alias-grid">
+                <div class="alias-item">
+                    <span><span class="alias-name">deepseek</span><span class="alias-arrow">-></span><span class="alias-backend">nvidia_deepseek</span></span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn" style="flex:1" onclick="loadAliases()">Refresh Aliases</button>
+                <button class="btn btn-secondary" style="flex:1" onclick="showAddAliasModal()">+ Add Alias</button>
+            </div>
+        </div>
+
+        <!-- Conversation Threading -->
+        <div class="card">
+            <h2>Conversation Threading</h2>
+            <div class="input-group">
+                <label>Topic</label>
+                <input type="text" id="thread-topic" placeholder="Enter conversation topic...">
+            </div>
+            <div class="input-group">
+                <label>Action</label>
+                <select id="thread-action">
+                    <option value="start">Start New Thread</option>
+                    <option value="analytics">View Analytics</option>
+                    <option value="search">Search Threads</option>
+                </select>
+            </div>
+            <button class="btn" onclick="manageConversation()">Execute</button>
+            <div class="thread-list" id="thread-list" style="margin-top: 15px;">
+                <!-- Threads will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card">
+            <h2>Activity Log</h2>
+            <div class="log-output" id="activity-log">
+                <div class="log-entry log-info">[System] Dashboard initialized</div>
+            </div>
+            <button class="btn" onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <!-- Add Backend Modal -->
+    <div class="modal" id="add-backend-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Backend</h3>
+                <button class="modal-close" onclick="hideAddBackendModal()">&times;</button>
+            </div>
+            <form id="add-backend-form" onsubmit="submitAddBackend(event)">
+                <div class="input-group">
+                    <label>Name *</label>
+                    <input type="text" id="backend-name" placeholder="my_ollama" required>
+                </div>
+                <div class="input-group">
+                    <label>Type *</label>
+                    <select id="backend-type" required>
+                        <option value="">Select type...</option>
+                        <option value="local">Local LLM (OpenAI-compatible)</option>
+                        <option value="openai">OpenAI / Custom API</option>
+                        <option value="nvidia_deepseek">NVIDIA DeepSeek</option>
+                        <option value="nvidia_qwen">NVIDIA Qwen</option>
+                        <option value="nvidia_minimax">NVIDIA MiniMax</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="groq">Groq</option>
+                    </select>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>URL</label>
+                        <input type="text" id="backend-url" placeholder="http://localhost:11434/v1/chat/completions">
+                    </div>
+                    <div class="input-group">
+                        <label>Port (optional override)</label>
+                        <input type="number" id="backend-port" placeholder="11434" min="1" max="65535">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>API Key (optional)</label>
+                    <input type="password" id="backend-apikey" placeholder="sk-...">
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Model</label>
+                        <input type="text" id="backend-model" placeholder="llama3.2">
+                    </div>
+                    <div class="input-group">
+                        <label>Priority</label>
+                        <input type="number" id="backend-priority" placeholder="10" min="1" max="99">
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Max Tokens</label>
+                        <input type="number" id="backend-maxtokens" placeholder="4096">
+                    </div>
+                    <div class="input-group">
+                        <label>Timeout (ms)</label>
+                        <input type="number" id="backend-timeout" placeholder="30000">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Description</label>
+                    <input type="text" id="backend-description" placeholder="Local Ollama server">
+                </div>
+                <button type="submit" class="btn">Add Backend</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Alias Modal -->
+    <div class="modal" id="add-alias-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Custom Alias</h3>
+                <button class="modal-close" onclick="hideAddAliasModal()">&times;</button>
+            </div>
+            <form id="add-alias-form" onsubmit="submitAddAlias(event)">
+                <div class="input-group">
+                    <label>Alias Name *</label>
+                    <input type="text" id="alias-name" placeholder="ollama" required>
+                </div>
+                <div class="input-group">
+                    <label>Target Backend *</label>
+                    <select id="alias-backend" required>
+                        <option value="">Select backend...</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Description</label>
+                    <input type="text" id="alias-description" placeholder="Local Ollama server">
+                </div>
+                <button type="submit" class="btn">Add Alias</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const startTime = Date.now();
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('activity-log');
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML += `<div class="log-entry log-${type}">[${time}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('activity-log').innerHTML = '';
+            log('Log cleared', 'info');
+        }
+
+        async function refreshStatus() {
+            log('Refreshing system status...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+                
+                document.querySelector('#status-backends .value').textContent = data.backends || '6';
+                document.querySelector('#status-threads .value').textContent = data.threads || '0';
+                document.querySelector('#status-tokens .value').textContent = formatNumber(data.tokens || 0);
+                
+                const uptime = Math.floor((Date.now() - startTime) / 1000);
+                document.querySelector('#status-uptime .value').textContent = formatUptime(uptime);
+                
+                log('Status refreshed successfully', 'success');
+            } catch (err) {
+                log(`Status refresh failed: ${err.message}`, 'error');
+                document.querySelector('#status-backends .value').textContent = '6';
+                document.querySelector('#status-threads .value').textContent = '0';
+            }
+        }
+
+        let currentBackends = [];
+        let showDisabledBackends = false; // Toggle to show/hide disabled backends
+
+        async function loadBackends() {
+            log('Loading backends...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentBackends = data.backends || [];
+                    renderBackends(currentBackends);
+                    updateFallbackChain(data.fallbackChain);
+                    updateAliasBackendDropdown();
+                    log(`Loaded ${currentBackends.length} backends`, 'success');
+                } else {
+                    log(`Failed to load backends: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Backend load error: ${err.message}`, 'error');
+                renderDemoBackends();
+            }
+        }
+
+        function renderBackends(backends) {
+            const listEl = document.getElementById('backend-list');
+            listEl.innerHTML = '';
+            
+            backends.forEach((backend, index) => {
+                const isEnabled = backend.enabled !== false;
+                const healthClass = backend.healthy ? 'healthy' : (backend.healthy === false ? 'unhealthy' : 'unknown');
+                const healthText = backend.healthy ? 'Healthy' : (backend.healthy === false ? 'Unhealthy' : 'Unknown');
+                // Skip disabled backends unless toggle is on
+                if (!isEnabled && !showDisabledBackends) return;
+                
+                listEl.innerHTML += `
+                    <li class="backend-item">
+                        <div style="flex:1">
+                            <span class="backend-name">${backend.name || backend.id}</span>
+                            <span class="backend-status ${healthClass}" style="margin-left:10px">${healthText}</span>
+                        </div>
+                        <div class="backend-controls">
+                            <button class="priority-btn" onclick="changePriority('${backend.name}', -1)" title="Increase priority">&#9650;</button>
+                            <span class="priority-num">${backend.priority || index + 1}</span>
+                            <button class="priority-btn" onclick="changePriority('${backend.name}', 1)" title="Decrease priority">&#9660;</button>
+                            <div class="toggle-switch ${isEnabled ? 'active' : ''}" 
+                                 onclick="toggleBackend('${backend.name}', ${!isEnabled})"
+                                 title="${isEnabled ? 'Click to disable' : 'Click to enable'}"></div>
+                            <button class="delete-btn" onclick="deleteBackend('${backend.name}')" title="Delete backend">&#10005;</button>
+                        </div>
+                    </li>
+                `;
+            });
+        }
+
+        function renderDemoBackends() {
+            const demoBackends = [
+                { name: 'local', priority: 1, enabled: true, healthy: true },
+                { name: 'nvidia_deepseek', priority: 2, enabled: true, healthy: true },
+                { name: 'nvidia_qwen', priority: 3, enabled: true, healthy: true },
+                { name: 'gemini', priority: 4, enabled: true, healthy: true },
+                { name: 'openai_chatgpt', priority: 5, enabled: true, healthy: false },
+                { name: 'groq_llama', priority: 6, enabled: true, healthy: false }
+            ];
+            currentBackends = demoBackends;
+            renderBackends(demoBackends);
+            updateFallbackChain(['local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini']);
+            log('Demo mode: using sample backend data', 'info');
+        }
+
+        function updateFallbackChain(chain) {
+            const chainEl = document.getElementById('chain-display');
+            if (chain && chain.length > 0) {
+                chainEl.innerHTML = chain.map(b => `<span class="chain-item">${b}</span>`).join(' -> ');
+            } else {
+                chainEl.textContent = 'No healthy backends';
+            }
+        }
+
+        async function toggleBackend(name, enable) {
+            log(`${enable ? 'Enabling' : 'Disabling'} backend: ${name}`, 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/enable`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, enabled: enable })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    updateFallbackChain(data.fallbackChain);
+                    loadBackends();
+                } else {
+                    log(`Toggle failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Toggle error: ${err.message}`, 'error');
+            }
+        }
+
+        async function changePriority(name, delta) {
+            const backend = currentBackends.find(b => b.name === name);
+            if (!backend) return;
+            
+            const newPriority = Math.max(1, (backend.priority || 1) + delta);
+            log(`Changing ${name} priority to ${newPriority}`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/priority`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, priority: newPriority })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    updateFallbackChain(data.fallbackChain);
+                    loadBackends();
+                } else {
+                    log(`Priority change failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Priority error: ${err.message}`, 'error');
+            }
+        }
+
+        async function deleteBackend(name) {
+            if (!confirm(`Are you sure you want to delete backend '${name}'?`)) {
+                return;
+            }
+            
+            log(`Deleting backend: ${name}`, 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    updateFallbackChain(data.fallbackChain);
+                    loadBackends();
+                } else {
+                    log(`Delete failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Delete error: ${err.message}`, 'error');
+            }
+        }
+
+        async function checkBackendHealth() {
+            log('Checking backend health...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/health`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('Health check complete', 'success');
+                    loadBackends();
+                } else {
+                    log(`Health check failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Health check error: ${err.message}`, 'error');
+            }
+        }
+
+        // Modal functions
+        function showAddBackendModal() {
+            document.getElementById('add-backend-modal').classList.add('active');
+        }
+
+        function hideAddBackendModal() {
+            document.getElementById('add-backend-modal').classList.remove('active');
+            document.getElementById('add-backend-form').reset();
+        }
+
+        function showAddAliasModal() {
+            updateAliasBackendDropdown();
+            document.getElementById('add-alias-modal').classList.add('active');
+        }
+
+        function hideAddAliasModal() {
+            document.getElementById('add-alias-modal').classList.remove('active');
+            document.getElementById('add-alias-form').reset();
+        }
+
+        function buildUrlWithPort() {
+            let url = document.getElementById('backend-url').value.trim();
+            const port = document.getElementById('backend-port').value.trim();
+            
+            if (port && url) {
+                // Replace port in URL if provided
+                try {
+                    const urlObj = new URL(url);
+                    urlObj.port = port;
+                    return urlObj.toString();
+                } catch (e) {
+                    // If URL parsing fails, just return original
+                    return url || undefined;
+                }
+            }
+            return url || undefined;
+        }
+
+        function toggleShowDisabled() {
+            showDisabledBackends = !showDisabledBackends;
+            document.getElementById('toggle-disabled-btn').textContent = showDisabledBackends ? 'Show Active Only' : 'Show All';
+            renderBackends(currentBackends);
+            log(`${showDisabledBackends ? 'Showing all backends' : 'Showing active backends only'}`, 'info');
+        }
+
+        function updateAliasBackendDropdown() {
+            const select = document.getElementById('alias-backend');
+            select.innerHTML = '<option value="">Select backend...</option>';
+            currentBackends.forEach(b => {
+                select.innerHTML += `<option value="${b.name}">${b.name}</option>`;
+            });
+        }
+
+        async function submitAddBackend(event) {
+            event.preventDefault();
+            
+            const payload = {
+                name: document.getElementById('backend-name').value.trim(),
+                type: document.getElementById('backend-type').value,
+                url: buildUrlWithPort(),
+                apiKey: document.getElementById('backend-apikey').value.trim() || undefined,
+                model: document.getElementById('backend-model').value.trim() || undefined,
+                priority: document.getElementById('backend-priority').value || undefined,
+                maxTokens: document.getElementById('backend-maxtokens').value || undefined,
+                timeout: document.getElementById('backend-timeout').value || undefined,
+                description: document.getElementById('backend-description').value.trim() || undefined
+            };
+            
+            // Remove undefined values
+            Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+            
+            log(`Adding backend: ${payload.name}`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    hideAddBackendModal();
+                    loadBackends();
+                } else {
+                    log(`Add backend failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Add backend error: ${err.message}`, 'error');
+            }
+        }
+
+        async function submitAddAlias(event) {
+            event.preventDefault();
+            
+            const payload = {
+                alias: document.getElementById('alias-name').value.trim(),
+                backend: document.getElementById('alias-backend').value,
+                description: document.getElementById('alias-description').value.trim() || undefined
+            };
+            
+            log(`Adding alias: ${payload.alias} -> ${payload.backend}`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/aliases/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    hideAddAliasModal();
+                    loadAliases();
+                } else {
+                    log(`Add alias failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Add alias error: ${err.message}`, 'error');
+            }
+        }
+
+        let currentAliases = {};
+
+        async function loadAliases() {
+            log('Loading model aliases...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/aliases`);
+                const data = await response.json();
+                
+                if (data.success && data.aliases) {
+                    currentAliases = data.aliases;
+                    renderAliases(data.aliases);
+                    log('Aliases loaded', 'success');
+                }
+            } catch (err) {
+                log(`Alias load error: ${err.message}`, 'error');
+            }
+        }
+
+        function renderAliases(aliases) {
+            const gridEl = document.getElementById('alias-grid');
+            gridEl.innerHTML = '';
+            
+            Object.entries(aliases).forEach(([alias, info]) => {
+                const backendDisplay = info.backend || 'smart routing';
+                
+                gridEl.innerHTML += `
+                    <div class="alias-item">
+                        <span>
+                            <span class="alias-name">${alias}</span>
+                            <span class="alias-arrow">-></span>
+                            <span class="alias-backend">${backendDisplay}</span>
+                        </span>
+                        <button class="delete-btn btn-small" onclick="deleteAlias('${alias}')" title="Delete alias">&#10005;</button>
+                    </div>
+                `;
+            });
+        }
+
+        async function deleteAlias(name) {
+            if (!confirm(`Are you sure you want to delete alias '${name}'?`)) {
+                return;
+            }
+            
+            log(`Deleting alias: ${name}`, 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/aliases/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(data.message, 'success');
+                    loadAliases();
+                } else {
+                    log(`Delete alias failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Delete alias error: ${err.message}`, 'error');
+            }
+        }
+
+        async function manageConversation() {
+            const action = document.getElementById('thread-action').value;
+            const topic = document.getElementById('thread-topic').value || 'General';
+            
+            log(`Conversation action: ${action} (topic: ${topic})`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/conversation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, topic })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(`Thread action successful: ${JSON.stringify(data.data)}`, 'success');
+                    displayThreadResult(data);
+                } else {
+                    log(`Thread action failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Conversation management error: ${err.message}`, 'error');
+                displayMockThreadResult(action, topic);
+            }
+        }
+
+        function displayThreadResult(data) {
+            const listEl = document.getElementById('thread-list');
+            if (data.data?.thread_id) {
+                listEl.innerHTML = `
+                    <div class="thread-item">
+                        <div class="thread-topic">Thread: ${data.data.thread_id}</div>
+                        <div class="thread-meta">Continuation ID: ${data.data.continuation_id || 'N/A'}</div>
+                    </div>
+                ` + listEl.innerHTML;
+            }
+        }
+
+        function displayMockThreadResult(action, topic) {
+            const listEl = document.getElementById('thread-list');
+            const threadId = `thread_${Math.random().toString(36).substr(2, 8)}_${Date.now()}`;
+            listEl.innerHTML = `
+                <div class="thread-item">
+                    <div class="thread-topic">${topic}</div>
+                    <div class="thread-meta">ID: ${threadId} | Action: ${action} | Status: Demo Mode</div>
+                </div>
+            ` + listEl.innerHTML;
+            log('Demo mode: MKG server not connected', 'info');
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function formatUptime(seconds) {
+            if (seconds < 60) return seconds + 's';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+            return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+        }
+
+        // Close modal when clicking outside
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // Initialize
+        refreshStatus();
+        loadBackends();
+        loadAliases();
+        setInterval(() => {
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            document.querySelector('#status-uptime .value').textContent = formatUptime(uptime);
+        }, 1000);
+    </script>
+</body>
+</html>
