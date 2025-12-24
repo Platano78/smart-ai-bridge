@@ -159,6 +159,33 @@ class BaseHandler {
   }
 
   /**
+   * Record routing outcome for compound learning
+   * Feeds into the CompoundLearningEngine for continuous improvement
+   * @protected
+   * @param {boolean} success - Whether the operation succeeded
+   * @param {number} outputLength - Response length in characters
+   * @param {string} backend - Backend used for the operation
+   * @param {Object} [taskContext] - Additional context (taskType, source, etc.)
+   */
+  async recordLearningOutcome(success, outputLength, backend, taskContext = {}) {
+    if (!this.router?.recordRoutingOutcome) return;
+
+    setImmediate(async () => {
+      try {
+        await this.router.recordRoutingOutcome({
+          success,
+          outputLength,
+          backend,
+          timestamp: Date.now(),
+          ...taskContext
+        });
+      } catch (error) {
+        console.error(`[${this.handlerName}] Learning outcome recording failed:`, error.message);
+      }
+    });
+  }
+
+  /**
    * Route request through AI router
    * @protected
    * @param {string} prompt - Prompt to route

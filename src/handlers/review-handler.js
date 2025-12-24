@@ -58,6 +58,15 @@ class ReviewHandler extends BaseHandler {
       }
     );
 
+    // Record for compound learning
+    const reviewContent = typeof review === 'string' ? review : JSON.stringify(review);
+    await this.recordLearningOutcome(
+      true,
+      reviewContent?.length || 0,
+      endpoint,
+      { taskType: 'review', reviewType: review_type, source: 'review' }
+    );
+
     return this.buildSuccessResponse({
       file_path,
       language: detectedLanguage,

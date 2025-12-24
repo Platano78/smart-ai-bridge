@@ -136,6 +136,14 @@ class SubagentHandler extends BaseHandler {
         task_type: template.category
       });
 
+      // Record for compound learning
+      await this.recordLearningOutcome(
+        verdict?.passed ?? true,
+        responseContent.length,
+        backend,
+        { taskType: 'subagent', role: role, source: 'subagent' }
+      );
+
       return result;
 
     } catch (error) {

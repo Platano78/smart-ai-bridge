@@ -169,6 +169,16 @@ class CouncilHandler extends BaseHandler {
       const processingTime = Date.now() - startTime;
       this.metrics.recordCouncil(topic, availableBackends.length, processingTime, true);
 
+      // Record routing outcomes for compound learning
+      for (const response of responses) {
+        await this.recordLearningOutcome(
+          response.success,
+          response.content?.length || 0,
+          response.backend,
+          { taskType: 'council', topic: topic, source: 'council' }
+        );
+      }
+
       // Return responses for Claude to synthesize (Claude is chairman)
       return this.buildSuccessResponse({
         topic,

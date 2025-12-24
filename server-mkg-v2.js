@@ -237,21 +237,31 @@ class MKGServerV2 {
     router.applyRuleBasedRouting = server.applyRuleBasedRouting.bind(server);
 
     // Record outcome for learning - ALL SOURCES FEED UNIFIED LEARNING
+    // Supports both ask-handler flow (uses _lastRoutingContext) and 
+    // other handlers (council/subagent/review) that pass context in outcome
     router.recordRoutingOutcome = async (outcome) => {
-        const context = server.router._lastRoutingContext;
-        if (!context) return;
+        const routingContext = server.router._lastRoutingContext;
+        
+        // Build context from either passed outcome OR _lastRoutingContext
+        // Handler-provided context (source, taskType) takes priority over routing context
+        // This ensures council/subagent/review handlers get proper attribution
+        const task = routingContext?.prompt || outcome.task || `${outcome.taskType || 'unknown'} operation`;
+        const source = outcome.source || routingContext?.source || 'handler';
+        const taskType = outcome.taskType || routingContext?.taskType || 'unknown';
+        const complexity = routingContext?.complexity || outcome.complexity || 'medium';
+        const fileCount = routingContext?.fileCount || outcome.fileCount || 0;
 
         try {
           await server.learningEngine.recordOutcome({
-            task: context.prompt,
+            task: task,
             context: {
-              complexity: context.complexity,
-              taskType: context.taskType,
-              fileCount: context.fileCount
+              complexity: complexity,
+              taskType: taskType,
+              fileCount: fileCount
             },
             routing: {
               tool: outcome.backend,
-              source: context.source  // 'orchestrator'|'rules'|'health'|'compound_learning'|'forced'
+              source: source  // 'orchestrator'|'rules'|'health'|'compound_learning'|'forced'|'council'|'subagent'|'review'
             },
             execution: {
               completed: outcome.success,
@@ -261,7 +271,7 @@ class MKGServerV2 {
 
           console.error(
             `📊 Learning: Recorded ${outcome.success ? 'success' : 'failure'} ` +
-            `from ${context.source} → ${outcome.backend}`
+            `from ${source} → ${outcome.backend}`
           );
         } catch (error) {
           // Non-blocking - never fail request if learning fails
