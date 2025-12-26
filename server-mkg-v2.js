@@ -250,6 +250,11 @@ class MKGServerV2 {
         const taskType = outcome.taskType || routingContext?.taskType || 'unknown';
         const complexity = routingContext?.complexity || outcome.complexity || 'medium';
         const fileCount = routingContext?.fileCount || outcome.fileCount || 0;
+        
+        // NEW: Extract modelId from outcome or local adapter
+        const modelId = outcome.modelId || 
+                        routingContext?.modelId ||
+                        (outcome.backend === 'local' ? server.backendRegistry?.getAdapter?.('local')?.modelId : null);
 
         try {
           await server.learningEngine.recordOutcome({
@@ -261,7 +266,8 @@ class MKGServerV2 {
             },
             routing: {
               tool: outcome.backend,
-              source: source  // 'orchestrator'|'rules'|'health'|'compound_learning'|'forced'|'council'|'subagent'|'review'
+              source: source,  // 'orchestrator'|'rules'|'health'|'compound_learning'|'forced'|'council'|'subagent'|'review'
+              modelId: modelId  // NEW: Pass modelId for model-aware learning
             },
             execution: {
               completed: outcome.success,
@@ -269,9 +275,10 @@ class MKGServerV2 {
             }
           });
 
+          const modelInfo = modelId ? ` (${modelId})` : '';
           console.error(
             `📊 Learning: Recorded ${outcome.success ? 'success' : 'failure'} ` +
-            `from ${source} → ${outcome.backend}`
+            `from ${source} → ${outcome.backend}${modelInfo}`
           );
         } catch (error) {
           // Non-blocking - never fail request if learning fails

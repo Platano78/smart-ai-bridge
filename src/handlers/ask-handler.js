@@ -169,8 +169,11 @@ class AskHandler extends BaseHandler {
         }
       );
 
-      // Record routing outcome for learning
-      this.recordRoutingOutcome(true, responseContent.length, selectedBackend);
+      // Record routing outcome for learning (with modelId)
+      this.recordRoutingOutcome(true, responseContent.length, selectedBackend, {
+        modelId: response?.metadata?.model || response?.metadata?.detectedModel,
+        taskType: this.router?._lastRoutingContext?.taskType || 'general'
+      });
 
       // Build full routing metadata from enhanced routing context
       const routingContext = this.router?._lastRoutingContext || {};
@@ -298,13 +301,19 @@ class AskHandler extends BaseHandler {
   /**
    * Record routing outcome for learning
    * @private
+   * @param {boolean} success - Whether the request succeeded
+   * @param {number} outputLength - Response length
+   * @param {string} selectedBackend - Backend that handled the request
+   * @param {Object} [taskContext={}] - Additional context (modelId, taskType, etc.)
    */
-  async recordRoutingOutcome(success, outputLength, selectedBackend) {
+  async recordRoutingOutcome(success, outputLength, selectedBackend, taskContext = {}) {
     try {
       await this.router?.recordRoutingOutcome?.({
         success,
         outputLength: outputLength || 0,
         backend: selectedBackend,
+        modelId: taskContext.modelId || null,  // NEW: Pass modelId to learning
+        taskType: taskContext.taskType || 'general',
         timestamp: Date.now()
       });
     } catch (error) {
