@@ -96,9 +96,8 @@ export class GenerateFileHandler extends BaseHandler {
       console.error(`[GenerateFile] 🎯 Backend: ${selectedBackend}, Language: ${detectedLanguage}`);
       console.error(`[GenerateFile] 📋 Spec: ${spec.substring(0, 100)}...`);
 
-      // 8. Route to LLM for generation
-      const response = await this.routeRequest(prompt, {
-        forceBackend: selectedBackend,
+      // 8. Make request to LLM for generation
+      const response = await this.makeRequest(prompt, selectedBackend, {
         maxTokens: 8000  // Allow large generation
       });
 

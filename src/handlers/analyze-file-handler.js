@@ -83,9 +83,8 @@ export class AnalyzeFileHandler extends BaseHandler {
       console.error(`[AnalyzeFile] 📖 Analyzing ${filePath} (${content.length} chars)`);
       console.error(`[AnalyzeFile] 🎯 Backend: ${selectedBackend}, Type: ${analysisType}`);
 
-      // 6. Route to local LLM via router
-      const response = await this.routeRequest(prompt, {
-        forceBackend: selectedBackend,
+      // 6. Make request to local LLM via router
+      const response = await this.makeRequest(prompt, selectedBackend, {
         maxTokens: maxResponseTokens
       });
 

@@ -88,9 +88,8 @@ export class ModifyFileHandler extends BaseHandler {
       console.error(`[ModifyFile] 🎯 Backend: ${selectedBackend}, Complexity: ${complexity}`);
       console.error(`[ModifyFile] 📋 Instructions: ${instructions.substring(0, 100)}...`);
 
-      // 7. Route to LLM for modification
-      const response = await this.routeRequest(prompt, {
-        forceBackend: selectedBackend,
+      // 7. Make request to LLM for modification
+      const response = await this.makeRequest(prompt, selectedBackend, {
         maxTokens: 8000
       });
 
