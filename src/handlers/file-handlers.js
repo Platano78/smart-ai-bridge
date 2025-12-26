@@ -3,6 +3,14 @@
  * @module handlers/file-handlers
  *
  * Handlers for write_files_atomic, edit_file, multi_edit, backup_restore
+ *
+ * @deprecated (Partial) Since v9.0:
+ * - edit_file: Use modify_file instead (natural language instructions, local LLM processing)
+ * - multi_edit: Use batch_modify instead (same instructions across files, atomic rollback)
+ *
+ * NOT deprecated:
+ * - write_files_atomic: Still the best for direct file writes with backup
+ * - backup_restore: Still needed for backup management
  */
 
 import { BaseHandler } from './base-handler.js';
@@ -97,9 +105,15 @@ class WriteFilesAtomicHandler extends BaseHandler {
 
 /**
  * EditFileHandler - Intelligent file editing with fuzzy matching
+ * @deprecated Since v9.0. Use modify_file instead for natural language edits via local LLM.
  */
 class EditFileHandler extends BaseHandler {
   async execute(args) {
+    // Deprecation warning
+    console.error('\x1b[33m⚠️  DEPRECATED: edit_file() is deprecated since MKG v9.0\x1b[0m');
+    console.error('\x1b[33m   Use modify_file() with natural language instructions.\x1b[0m');
+    console.error('');
+
     const {
       file_path,
       edits,
@@ -254,9 +268,15 @@ class EditFileHandler extends BaseHandler {
 
 /**
  * MultiEditHandler - Atomic batch operations across multiple files
+ * @deprecated Since v9.0. Use batch_modify instead for natural language edits via local LLM.
  */
 class MultiEditHandler extends BaseHandler {
   async execute(args) {
+    // Deprecation warning
+    console.error('\x1b[33m⚠️  DEPRECATED: multi_edit() is deprecated since MKG v9.0\x1b[0m');
+    console.error('\x1b[33m   Use batch_modify() with natural language instructions.\x1b[0m');
+    console.error('');
+
     const {
       file_operations,
       transaction_mode = 'all_or_nothing',

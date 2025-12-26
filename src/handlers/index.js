@@ -25,16 +25,25 @@ import { SubagentHandler } from './subagent-handler.js';
 import { ParallelAgentsHandler } from './parallel-agents-handler.js';
 import { CouncilHandler } from './council-handler.js';
 
+// MKG v9.0: New Local LLM File Operations
+import { AnalyzeFileHandler } from './analyze-file-handler.js';
+import { GenerateFileHandler } from './generate-file-handler.js';
+import { ModifyFileHandler } from './modify-file-handler.js';
+import { BatchAnalyzeHandler } from './batch-analyze-handler.js';
+import { BatchModifyHandler } from './batch-modify-handler.js';
+import { RefactorHandler } from './refactor-handler.js';
+
 /**
  * Handler class registry mapping handler names to classes
  */
 const HANDLER_REGISTRY = {
+  // Original handlers
   'handleReview': ReviewHandler,
-  'handleRead': ReadHandler,
+  'handleRead': ReadHandler,  // DEPRECATED: Use handleAnalyzeFile
   'handleAsk': AskHandler,
   'handleWriteFilesAtomic': WriteFilesAtomicHandler,
-  'handleEditFile': EditFileHandler,
-  'handleMultiEdit': MultiEditHandler,
+  'handleEditFile': EditFileHandler,  // DEPRECATED: Use handleModifyFile
+  'handleMultiEdit': MultiEditHandler,  // DEPRECATED: Use handleBatchModify
   'handleBackupRestore': BackupRestoreHandler,
   'handleHealth': HealthHandler,
   'handleValidateChanges': ValidateChangesHandler,
@@ -42,7 +51,15 @@ const HANDLER_REGISTRY = {
   'handleGetAnalytics': GetAnalyticsHandler,
   'handleSpawnSubagent': SubagentHandler,
   'handleParallelAgents': ParallelAgentsHandler,
-  'handleCouncil': CouncilHandler
+  'handleCouncil': CouncilHandler,
+
+  // MKG v9.0: New Local LLM File Operations
+  'handleAnalyzeFile': AnalyzeFileHandler,
+  'handleGenerateFile': GenerateFileHandler,
+  'handleModifyFile': ModifyFileHandler,
+  'handleBatchAnalyze': BatchAnalyzeHandler,
+  'handleBatchModify': BatchModifyHandler,
+  'handleRefactor': RefactorHandler
 };
 
 /**
@@ -136,7 +153,7 @@ export {
   // Base class
   BaseHandler,
 
-  // Handler classes
+  // Original handler classes
   ReviewHandler,
   ReadHandler,
   AskHandler,
@@ -150,6 +167,15 @@ export {
   GetAnalyticsHandler,
   SubagentHandler,
   ParallelAgentsHandler,
+  CouncilHandler,
+
+  // MKG v9.0: New Local LLM File Operations
+  AnalyzeFileHandler,
+  GenerateFileHandler,
+  ModifyFileHandler,
+  BatchAnalyzeHandler,
+  BatchModifyHandler,
+  RefactorHandler,
 
   // Registry and factory
   HANDLER_REGISTRY,

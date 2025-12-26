@@ -522,6 +522,313 @@ const CORE_TOOL_DEFINITIONS = [
       },
       required: ['prompt', 'topic']
     }
+  },
+
+  // =============================================================================
+  // MKG v9.0: New Local LLM File Operations
+  // These tools route file comprehension/generation to local LLMs,
+  // reducing Claude's token consumption by ~90%
+  // =============================================================================
+
+  {
+    name: 'analyze_file',
+    description: '📊 Local LLM File Analysis - Reads and analyzes files using local LLM. Claude never sees full file content, only structured findings. Token savings: 2000+ → ~150 tokens per file.',
+    handler: 'handleAnalyzeFile',
+    schema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the file to analyze'
+        },
+        question: {
+          type: 'string',
+          description: 'Question about the file (e.g., "What are the security vulnerabilities?")'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto',
+              description: 'AI backend to use for analysis'
+            },
+            analysisType: {
+              type: 'string',
+              enum: ['general', 'bug', 'security', 'performance', 'architecture'],
+              default: 'general',
+              description: 'Type of analysis to perform'
+            },
+            includeContext: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Related files to include for better analysis'
+            },
+            maxResponseTokens: {
+              type: 'number',
+              default: 2000,
+              description: 'Maximum tokens for the analysis response'
+            }
+          }
+        }
+      },
+      required: ['filePath', 'question']
+    }
+  },
+  {
+    name: 'generate_file',
+    description: '📝 Local LLM Code Generation - Generates code from natural language spec using local LLM. Claude reviews or auto-approves. Token savings: 500+ → ~50 tokens.',
+    handler: 'handleGenerateFile',
+    schema: {
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'string',
+          description: 'Natural language specification for the code to generate'
+        },
+        outputPath: {
+          type: 'string',
+          description: 'Where to write the generated file'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto',
+              description: 'AI backend to use for generation'
+            },
+            review: {
+              type: 'boolean',
+              default: true,
+              description: 'Return content for Claude approval (true) or write directly (false)'
+            },
+            contextFiles: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Related files for style/pattern matching'
+            },
+            language: {
+              type: 'string',
+              description: 'Programming language (auto-detected if not specified)'
+            },
+            includeTests: {
+              type: 'boolean',
+              default: false,
+              description: 'Also generate unit tests'
+            }
+          }
+        }
+      },
+      required: ['spec', 'outputPath']
+    }
+  },
+  {
+    name: 'modify_file',
+    description: '✏️ Local LLM File Modification - Applies edits using natural language instructions. Local LLM understands code and applies changes. Token savings: 1500+ → ~100 tokens.',
+    handler: 'handleModifyFile',
+    schema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the file to modify'
+        },
+        instructions: {
+          type: 'string',
+          description: 'Natural language edit instructions (e.g., "Add rate limiting to the login function")'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto',
+              description: 'AI backend to use for modification'
+            },
+            review: {
+              type: 'boolean',
+              default: true,
+              description: 'Return diff for Claude approval (true) or write directly (false)'
+            },
+            contextFiles: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Related files for understanding dependencies'
+            },
+            backup: {
+              type: 'boolean',
+              default: true,
+              description: 'Create backup before writing'
+            },
+            dryRun: {
+              type: 'boolean',
+              default: false,
+              description: 'Show changes without writing'
+            }
+          }
+        }
+      },
+      required: ['filePath', 'instructions']
+    }
+  },
+  {
+    name: 'batch_analyze',
+    description: '📂 Batch File Analysis - Analyze multiple files using glob patterns. Aggregates findings across files. Massive token savings for multi-file analysis.',
+    handler: 'handleBatchAnalyze',
+    schema: {
+      type: 'object',
+      properties: {
+        filePatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Glob patterns or file paths (e.g., ["src/**/*.ts", "lib/*.js"])'
+        },
+        question: {
+          type: 'string',
+          description: 'Question to ask about each file'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            maxFiles: {
+              type: 'number',
+              default: 20,
+              description: 'Maximum files to analyze'
+            },
+            aggregateResults: {
+              type: 'boolean',
+              default: true,
+              description: 'Combine findings into summary'
+            },
+            parallel: {
+              type: 'boolean',
+              default: true,
+              description: 'Process files in parallel'
+            },
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto'
+            },
+            analysisType: {
+              type: 'string',
+              enum: ['general', 'bug', 'security', 'performance'],
+              default: 'general'
+            }
+          }
+        }
+      },
+      required: ['filePatterns', 'question']
+    }
+  },
+  {
+    name: 'batch_modify',
+    description: '📝 Batch File Modification - Apply same instructions to multiple files with atomic rollback. Supports transaction mode (all or nothing).',
+    handler: 'handleBatchModify',
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'File paths or glob patterns to modify'
+        },
+        instructions: {
+          type: 'string',
+          description: 'Instructions to apply to each file'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            parallel: {
+              type: 'boolean',
+              default: false,
+              description: 'Process files in parallel (false is safer)'
+            },
+            stopOnError: {
+              type: 'boolean',
+              default: true,
+              description: 'Stop on first error'
+            },
+            review: {
+              type: 'boolean',
+              default: true,
+              description: 'Return all diffs for approval'
+            },
+            transactionMode: {
+              type: 'string',
+              enum: ['all_or_nothing', 'best_effort'],
+              default: 'all_or_nothing',
+              description: 'Transaction mode for atomic operations'
+            },
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto'
+            }
+          }
+        }
+      },
+      required: ['files', 'instructions']
+    }
+  },
+  {
+    name: 'refactor',
+    description: '🔧 Cross-File Refactoring - Apply refactoring across files with intelligent scope detection. Supports function, class, module, and project-level refactoring.',
+    handler: 'handleRefactor',
+    schema: {
+      type: 'object',
+      properties: {
+        scope: {
+          type: 'string',
+          enum: ['function', 'class', 'module', 'project'],
+          description: 'Refactoring scope: function (single function), class (class and members), module (module-level), project (project-wide)'
+        },
+        target: {
+          type: 'string',
+          description: 'Symbol or pattern to refactor (e.g., "UserService", "handleLogin")'
+        },
+        instructions: {
+          type: 'string',
+          description: 'Refactoring instructions (e.g., "Rename to AuthService and update all references")'
+        },
+        options: {
+          type: 'object',
+          properties: {
+            files: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Limit to specific files (optional)'
+            },
+            dryRun: {
+              type: 'boolean',
+              default: false,
+              description: 'Preview changes without writing'
+            },
+            review: {
+              type: 'boolean',
+              default: true,
+              description: 'Return plan for approval'
+            },
+            backend: {
+              type: 'string',
+              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              default: 'auto'
+            },
+            findReferences: {
+              type: 'boolean',
+              default: true,
+              description: 'Find and update all references'
+            }
+          }
+        }
+      },
+      required: ['scope', 'target', 'instructions']
+    }
   }
 ];
 

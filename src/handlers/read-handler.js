@@ -4,6 +4,10 @@
  *
  * Smart context management with automatic chunking, multi-file reading,
  * and fuzzy matching verification for pre-flight edit validation.
+ *
+ * @deprecated Since v9.0. Use analyze_file for AI-powered analysis that saves ~90% tokens.
+ * This handler still works but sends full file content to Claude, consuming tokens.
+ * The new analyze_file tool routes analysis to local LLMs instead.
  */
 
 import { BaseHandler } from './base-handler.js';
@@ -14,10 +18,12 @@ class ReadHandler extends BaseHandler {
   constructor(context) {
     super(context);
     this.TOKEN_LIMIT = 24000; // Safety buffer from 25K MCP limit
+    this.DEPRECATED = true;
   }
 
   /**
    * Execute file read operation
+   * @deprecated Use analyze_file instead for ~90% token savings
    * @param {Object} args - Read arguments
    * @param {string[]} args.file_paths - Array of file paths to read
    * @param {number} [args.max_files=10] - Maximum files to read
@@ -28,6 +34,12 @@ class ReadHandler extends BaseHandler {
    * @returns {Promise<Object>}
    */
   async execute(args) {
+    // Deprecation warning
+    console.error('\x1b[33m⚠️  DEPRECATED: read() is deprecated since MKG v9.0\x1b[0m');
+    console.error('\x1b[33m   Use analyze_file() for ~90% token savings.\x1b[0m');
+    console.error('\x1b[33m   The new tool routes analysis to local LLMs instead of Claude.\x1b[0m');
+    console.error('');
+
     const {
       file_paths,
       max_files = 10,
