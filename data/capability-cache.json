@@ -27,7 +27,7 @@
       "ttl": 3600000
     },
     {
-      "modelName": "NVIDIA-DeepSeek-V3.1",
+      "modelName": "NVIDIA-DeepSeek-V3.2",
       "capabilities": {
         "max_context": 4096,
         "max_output": 2048,

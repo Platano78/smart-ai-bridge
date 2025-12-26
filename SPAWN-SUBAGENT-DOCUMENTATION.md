@@ -41,7 +41,7 @@ Reviews code for:
 **Suggested Tools**: read, review, validate_changes, ask
 **Verdict**: Required
 **Max Tokens**: 16,384
-**Backend**: nvidia_deepseek (DeepSeek V3.1 Terminus)
+**Backend**: nvidia_deepseek (DeepSeek V3.2 Terminus)
 
 Identifies:
 - SQL injection vulnerabilities

@@ -2,9 +2,9 @@
 """
 Direct AI Query Tool - Simple command-line interface
 Usage:
-  ./ask deepseek3.1 "What is the meaning of life?"
+  ./ask deepseek "What is the meaning of life?"
   ./ask qwen3 "Write a Python function to sort a list"
-  ./ask deepseek "Fix this bug in my code: ..."
+  ./ask deepseek-direct "Fix this bug in my code: ..."
 """
 
 import sys
@@ -26,17 +26,17 @@ class Colors:
 def print_usage():
     print(f"{Colors.CYAN}🤖 Direct AI Query Tool{Colors.ENDC}")
     print(f"{Colors.YELLOW}Usage:{Colors.ENDC}")
-    print(f"  ./ask deepseek3.1 \"Your question here\"")
+    print(f"  ./ask deepseek \"Your question here\"")
     print(f"  ./ask qwen3 \"Your coding question\"")
-    print(f"  ./ask deepseek \"Your question\" (direct DeepSeek API)")
+    print(f"  ./ask deepseek-direct \"Your question\" (direct DeepSeek API)")
     print(f"\n{Colors.YELLOW}Available Models:{Colors.ENDC}")
-    print(f"  • deepseek3.1  - NVIDIA DeepSeek V3.1 (with thinking mode)")
+    print(f"  • deepseek     - NVIDIA DeepSeek V3.2 (with thinking mode)")
     print(f"  • qwen3        - NVIDIA Qwen3 Coder 480B")
-    print(f"  • deepseek     - DeepSeek Direct API")
+    print(f"  • deepseek-direct - DeepSeek Direct API")
     print(f"\n{Colors.YELLOW}Examples:{Colors.ENDC}")
-    print(f"  ./ask deepseek3.1 \"Explain quantum computing\"")
+    print(f"  ./ask deepseek \"Explain quantum computing\"")
     print(f"  ./ask qwen3 \"Write a sorting algorithm in Python\"")
-    print(f"  ./ask deepseek \"What's the weather like?\"")
+    print(f"  ./ask deepseek-direct \"What's the weather like?\"")
 
 def setup_nvidia_client():
     """Setup NVIDIA API client"""
@@ -51,14 +51,14 @@ def setup_nvidia_client():
     )
 
 def query_deepseek_nvidia(client, prompt, thinking=True):
-    """Query NVIDIA DeepSeek V3.1"""
+    """Query NVIDIA DeepSeek V3.2"""
     try:
-        print(f"{Colors.BLUE}🧠 Querying NVIDIA DeepSeek V3.1 (thinking={thinking})...{Colors.ENDC}")
+        print(f"{Colors.BLUE}🧠 Querying NVIDIA DeepSeek V3.2 (thinking={thinking})...{Colors.ENDC}")
 
         extra_body = {"chat_template_kwargs": {"thinking": thinking}} if thinking else {}
 
         completion = client.chat.completions.create(
-            model="deepseek-ai/deepseek-v3.1",
+            model="deepseek-ai/deepseek-v3.2",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
             top_p=0.7,
@@ -192,7 +192,7 @@ def main():
     print(f"{Colors.YELLOW}Prompt: {prompt}{Colors.ENDC}")
     print()
 
-    if model in ['deepseek3.1', 'deepseek-v3.1', 'nvidia-deepseek']:
+    if model in ['deepseek', 'deepseek-v3.2', 'nvidia-deepseek']:
         client = setup_nvidia_client()
         if client:
             query_deepseek_nvidia(client, prompt)
@@ -202,12 +202,12 @@ def main():
         if client:
             query_qwen_nvidia(client, prompt)
 
-    elif model in ['deepseek', 'deepseek-direct']:
+    elif model in ['deepseek-direct']:
         query_deepseek_direct(prompt)
 
     else:
         print(f"{Colors.RED}❌ Unknown model: {model}{Colors.ENDC}")
-        print(f"{Colors.YELLOW}Available models: deepseek3.1, qwen3, deepseek{Colors.ENDC}")
+        print(f"{Colors.YELLOW}Available models: deepseek, qwen3, deepseek-direct{Colors.ENDC}")
         sys.exit(1)
 
 if __name__ == "__main__":

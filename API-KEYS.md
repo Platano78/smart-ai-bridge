@@ -13,7 +13,7 @@ NVIDIA_API_KEY="nvapi-hEmgbLiPSL-40s5BwYv1IX5zWf3japhFW87m2oYgpCI6J-TZEXDxLRVM8G
 
 **Status**: ✅ Active and validated
 **Endpoints**:
-- NVIDIA DeepSeek V3.1: `https://integrate.api.nvidia.com/v1/chat/completions`
+- NVIDIA DeepSeek V3.2: `https://integrate.api.nvidia.com/v1/chat/completions`
 - NVIDIA Qwen 3 Coder 480B: `https://integrate.api.nvidia.com/v1/chat/completions`
 
 **Usage Limits**:

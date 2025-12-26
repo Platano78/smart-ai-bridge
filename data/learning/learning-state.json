@@ -41,8 +41,8 @@
       "lastUpdated": 1764643631630
     },
     "local": {
-      "confidence": 0.52,
-      "totalCalls": 2,
+      "confidence": 0.39220483426920605,
+      "totalCalls": 47,
       "successfulCalls": 0,
       "avgLatency": 0,
       "byComplexity": {
@@ -61,16 +61,286 @@
       },
       "byTaskType": {
         "general": {
-          "calls": 1,
+          "calls": 24,
           "success": 0
         },
         "coding": {
+          "calls": 22,
+          "success": 0
+        },
+        "review": {
           "calls": 1,
           "success": 0
         }
       },
+      "trend": "degrading",
+      "lastUpdated": 1766733944602
+    },
+    "groq_llama": {
+      "confidence": 0.536,
+      "totalCalls": 12,
+      "successfulCalls": 0,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 10,
+          "success": 0
+        },
+        "medium": {
+          "calls": 0,
+          "success": 0
+        },
+        "high": {
+          "calls": 0,
+          "success": 0
+        }
+      },
+      "byTaskType": {
+        "test": {
+          "calls": 10,
+          "success": 0
+        },
+        "general": {
+          "calls": 2,
+          "success": 0
+        }
+      },
       "trend": "stable",
-      "lastUpdated": 1765054617835
+      "lastUpdated": 1766731196163
+    },
+    "gemini": {
+      "confidence": 0.5995277633517132,
+      "totalCalls": 40,
+      "successfulCalls": 0,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 0,
+          "success": 0
+        },
+        "medium": {
+          "calls": 20,
+          "success": 0
+        },
+        "high": {
+          "calls": 0,
+          "success": 0
+        }
+      },
+      "byTaskType": {
+        "council": {
+          "calls": 28,
+          "success": 0
+        },
+        "coding": {
+          "calls": 7,
+          "success": 0
+        },
+        "subagent": {
+          "calls": 5,
+          "success": 0
+        }
+      },
+      "trend": "stable",
+      "lastUpdated": 1766733042195
+    },
+    "nvidia_qwen": {
+      "confidence": 0.5488000000000001,
+      "totalCalls": 3,
+      "successfulCalls": 0,
+      "avgLatency": 0,
+      "byComplexity": {
+        "low": {
+          "calls": 0,
+          "success": 0
+        },
+        "medium": {
+          "calls": 0,
+          "success": 0
+        },
+        "high": {
+          "calls": 0,
+          "success": 0
+        }
+      },
+      "byTaskType": {
+        "coding": {
+          "calls": 3,
+          "success": 0
+        }
+      },
+      "trend": "stable",
+      "lastUpdated": 1766731280633
+    }
+  },
+  "modelMetrics": {
+    "agents-nemotron": {
+      "confidence": 0.2036006912000001,
+      "totalCalls": 10,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 7,
+          "successSum": 0
+        },
+        "coding": {
+          "calls": 3,
+          "successSum": 1.8000000000000003
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 10,
+          "successSum": 1.8000000000000003
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766733533739
+    },
+    "llama-3.3-70b-versatile": {
+      "confidence": 0.536,
+      "totalCalls": 2,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 2,
+          "successSum": 1.2000000000000002
+        }
+      },
+      "byTool": {
+        "groq_llama": {
+          "calls": 2,
+          "successSum": 1.2000000000000002
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766731196163
+    },
+    "coding-seed-coder": {
+      "confidence": 0.5853702676480002,
+      "totalCalls": 12,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 7,
+          "successSum": 3.9000000000000004
+        },
+        "coding": {
+          "calls": 5,
+          "successSum": 3.0000000000000004
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 12,
+          "successSum": 6.899999999999999
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766732873678
+    },
+    "coding-qwen-7b": {
+      "confidence": 0.5488000000000001,
+      "totalCalls": 6,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 4,
+          "successSum": 2.1
+        },
+        "coding": {
+          "calls": 2,
+          "successSum": 1.2000000000000002
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 6,
+          "successSum": 3.3000000000000003
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766732264401
+    },
+    "qwen/qwen3-235b-a22b": {
+      "confidence": 0.52,
+      "totalCalls": 1,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "coding": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "byTool": {
+        "nvidia_qwen": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766731280633
+    },
+    "coding-reap25b": {
+      "confidence": 0.5488000000000001,
+      "totalCalls": 3,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "coding": {
+          "calls": 2,
+          "successSum": 1.2000000000000002
+        },
+        "general": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 3,
+          "successSum": 1.8000000000000003
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766731855305
+    },
+    "fast-qwen14b": {
+      "confidence": 0.52,
+      "totalCalls": 1,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766733828698
+    },
+    "fast-deepseek-lite": {
+      "confidence": 0.52,
+      "totalCalls": 1,
+      "successfulCalls": 0,
+      "byTaskType": {
+        "general": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "byTool": {
+        "local": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "trend": "stable",
+      "lastUsed": 1766733944602
     }
   },
   "taskPatterns": {
@@ -229,6 +499,173 @@
         }
       },
       "totalSamples": 1
+    },
+    "low:test:single": {
+      "toolPerformance": {
+        "groq_llama": {
+          "calls": 10,
+          "successSum": 5
+        }
+      },
+      "totalSamples": 10
+    },
+    "medium:council:single": {
+      "toolPerformance": {
+        "gemini": {
+          "calls": 20,
+          "successSum": 10.999999999999996
+        }
+      },
+      "totalSamples": 20
+    },
+    "0.5:coding:single": {
+      "toolPerformance": {
+        "gemini": {
+          "calls": 7,
+          "successSum": 3.6
+        },
+        "nvidia_qwen": {
+          "calls": 3,
+          "successSum": 1.8000000000000003
+        },
+        "local": {
+          "calls": 21,
+          "successSum": 10.599999999999996
+        }
+      },
+      "totalSamples": 31
+    },
+    "0.3:subagent:single": {
+      "toolPerformance": {
+        "gemini": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "totalSamples": 1
+    },
+    "0.3:council:single": {
+      "toolPerformance": {
+        "gemini": {
+          "calls": 8,
+          "successSum": 4.800000000000001
+        }
+      },
+      "totalSamples": 8
+    },
+    "0.3:review:single": {
+      "toolPerformance": {
+        "local": {
+          "calls": 1,
+          "successSum": 0.6000000000000001
+        }
+      },
+      "totalSamples": 1
+    },
+    "0.3:general:single": {
+      "toolPerformance": {
+        "local": {
+          "calls": 17,
+          "successSum": 8.799999999999997
+        },
+        "groq_llama": {
+          "calls": 2,
+          "successSum": 1.2000000000000002
+        }
+      },
+      "totalSamples": 19
+    },
+    "0.5:general:single": {
+      "toolPerformance": {
+        "local": {
+          "calls": 6,
+          "successSum": 0
+        }
+      },
+      "totalSamples": 6
+    },
+    "0.5:subagent:single": {
+      "toolPerformance": {
+        "gemini": {
+          "calls": 4,
+          "successSum": 2.4000000000000004
+        }
+      },
+      "totalSamples": 4
+    }
+  },
+  "modelPatterns": {
+    "general:agents-nemotron": {
+      "calls": 7,
+      "successSum": 0,
+      "avgTime": 0,
+      "lastUsed": 1766733533739
+    },
+    "general:llama-3.3-70b-versatile": {
+      "calls": 2,
+      "successSum": 1.2000000000000002,
+      "avgTime": 0,
+      "lastUsed": 1766731196163
+    },
+    "general:coding-seed-coder": {
+      "calls": 7,
+      "successSum": 3.9000000000000004,
+      "avgTime": 0,
+      "lastUsed": 1766732155525
+    },
+    "coding:coding-seed-coder": {
+      "calls": 5,
+      "successSum": 3.0000000000000004,
+      "avgTime": 0,
+      "lastUsed": 1766732873678
+    },
+    "general:coding-qwen-7b": {
+      "calls": 4,
+      "successSum": 2.1,
+      "avgTime": 0,
+      "lastUsed": 1766732264401
+    },
+    "coding:qwen/qwen3-235b-a22b": {
+      "calls": 1,
+      "successSum": 0.6000000000000001,
+      "avgTime": 0,
+      "lastUsed": 1766731280633
+    },
+    "coding:coding-reap25b": {
+      "calls": 2,
+      "successSum": 1.2000000000000002,
+      "avgTime": 0,
+      "lastUsed": 1766731778976
+    },
+    "general:coding-reap25b": {
+      "calls": 1,
+      "successSum": 0.6000000000000001,
+      "avgTime": 0,
+      "lastUsed": 1766731855305
+    },
+    "coding:coding-qwen-7b": {
+      "calls": 2,
+      "successSum": 1.2000000000000002,
+      "avgTime": 0,
+      "lastUsed": 1766732251232
+    },
+    "coding:agents-nemotron": {
+      "calls": 3,
+      "successSum": 1.8000000000000003,
+      "avgTime": 0,
+      "lastUsed": 1766732848023
+    },
+    "general:fast-qwen14b": {
+      "calls": 1,
+      "successSum": 0.6000000000000001,
+      "avgTime": 0,
+      "lastUsed": 1766733828698
+    },
+    "general:fast-deepseek-lite": {
+      "calls": 1,
+      "successSum": 0.6000000000000001,
+      "avgTime": 0,
+      "lastUsed": 1766733944602
     }
   },
   "sourceMetrics": {
@@ -248,14 +685,39 @@
       "confidence": 0.75
     },
     "forced": {
-      "calls": 2,
-      "successSum": 1.1,
-      "confidence": 0.55
+      "calls": 47,
+      "successSum": 21.200000000000006,
+      "confidence": 0.4510638297872342
+    },
+    "test": {
+      "calls": 10,
+      "successSum": 5,
+      "confidence": 0.5
+    },
+    "council": {
+      "calls": 28,
+      "successSum": 15.799999999999994,
+      "confidence": 0.5642857142857141
+    },
+    "rules": {
+      "calls": 11,
+      "successSum": 5.9,
+      "confidence": 0.5363636363636364
+    },
+    "subagent": {
+      "calls": 5,
+      "successSum": 3.0000000000000004,
+      "confidence": 0.6000000000000001
+    },
+    "review": {
+      "calls": 1,
+      "successSum": 0.6000000000000001,
+      "confidence": 0.6000000000000001
     }
   },
   "perceptionHits": {
     "triggered": 15,
-    "skipped": 7,
+    "skipped": 107,
     "beneficial": 12
   },
   "routingHistory": [
@@ -1216,7 +1678,1237 @@
         "complexity": "low",
         "taskType": "coding"
       }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 0",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 1",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 2",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 3",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 4",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 5",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 6",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 7",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 8",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560396551,
+      "task": "Test learning 9",
+      "tool": "groq_llama",
+      "source": "test",
+      "success": 0.5,
+      "context": {
+        "complexity": "low",
+        "taskType": "test"
+      }
+    },
+    {
+      "timestamp": 1766560932589,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932641,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932705,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932724,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932726,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932727,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932728,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932746,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932771,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766560932788,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.5,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603701877,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603701897,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603701922,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603701954,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603701996,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603702020,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603703878,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "gemini",
+      "source": "rules",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603712789,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "nvidia_qwen",
+      "source": "rules",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603712789,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "local",
+      "source": "rules",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603723444,
+      "task": "Perform a SECURITY-focused code review of this unknown code:\n\nconst x = 1;\n\nFocus on:\n1. Input valid",
+      "tool": "nvidia_qwen",
+      "source": "rules",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794139,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794248,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794257,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794547,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794557,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794605,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794758,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603794976,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603795065,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603795316,
+      "task": "council operation",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": "medium",
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603955962,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "subagent",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "subagent",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603956181,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603956915,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603957219,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603957228,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603957543,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603957864,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603958191,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603958271,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "gemini",
+      "source": "council",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "council",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766603961626,
+      "task": "Perform a CODE QUALITY review of this unknown code:\n\nx=1\n\nFocus on:\n1. Code readability and maintain",
+      "tool": "local",
+      "source": "review",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "review",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724379111,
+      "task": "Return a one-line JavaScript function that adds two numbers. Just the code, no explanation.",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724455663,
+      "task": "Analyze this code and list the exported functions:\n\nexport function formatDuration(ms) { return ms +",
+      "tool": "local",
+      "source": "forced",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724487844,
+      "task": "List the two exported functions: formatDuration and parseDuration. Just confirm them.",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724762468,
+      "task": "Analyze this JavaScript code and explain what it does:\n\nexport function formatDuration(ms) {\n  const",
+      "tool": "local",
+      "source": "forced",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724794588,
+      "task": "Analyze this JavaScript code and explain what it does:\n\nexport function formatDuration(ms) {\n  const",
+      "tool": "local",
+      "source": "forced",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766724939402,
+      "task": "Analyze this JavaScript code and explain what it does:\n\nexport function formatDuration(ms) {\n  const",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766726025519,
+      "task": "Write a JavaScript function called `debounce` that delays function execution until after a specified",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766726052342,
+      "task": "Write a JavaScript function called `debounce` that delays function execution until after a specified",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766730701830,
+      "task": "What is 2+2? (This is a test for model tracking)",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766730881725,
+      "task": "Write a simple JavaScript function that adds two numbers. (Model tracking test)",
+      "tool": "local",
+      "source": "forced",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731054108,
+      "task": "What is 2+2? (Model-aware learning test with agents-nemotron)",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731060911,
+      "task": "What is 2+2? (Model-aware learning test)",
+      "tool": "groq_llama",
+      "source": "forced",
+      "modelId": "llama-3.3-70b-versatile",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731068474,
+      "task": "What is 2+2? (Model-aware learning test with coding-seed-coder)",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731146779,
+      "task": "Write a one-line JavaScript function that returns the sum of two numbers. (Model-aware learning vali",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731185224,
+      "task": "What is 5+5? (test 2)",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731185561,
+      "task": "What is 6+6? (test 3 with different model)",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731195508,
+      "task": "test 4",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731195828,
+      "task": "test 5",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731196163,
+      "task": "test 6",
+      "tool": "groq_llama",
+      "source": "forced",
+      "modelId": "llama-3.3-70b-versatile",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731196814,
+      "task": "test 7",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731204981,
+      "task": "test 8",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731205516,
+      "task": "test 9",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.5,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731207002,
+      "task": "test 10 - this should trigger a save",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731280633,
+      "task": "Write a simple JavaScript function that calculates factorial",
+      "tool": "nvidia_qwen",
+      "source": "rules",
+      "modelId": "qwen/qwen3-235b-a22b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731494249,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731743864,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-reap25b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731778976,
+      "task": "Find all bugs and issues in this code:\n\n```javascript\nasync function fetchUserData(userId) {\n  const",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-reap25b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731855305,
+      "task": "Explain when to use callbacks vs Promises vs async/await in JavaScript. Give a concrete example of w",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-reap25b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766731902484,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732015535,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732076145,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732127976,
+      "task": "Find all bugs and issues in this code:\n\n```javascript\nasync function fetchUserData(userId) {\n  const",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732155525,
+      "task": "Explain when to use callbacks vs Promises vs async/await in JavaScript. Give a concrete example of w",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732229084,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732251232,
+      "task": "Find all bugs in this code:\n```javascript\nasync function fetchUserData(userId) {\n  const response = ",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732264401,
+      "task": "Explain when to use callbacks vs Promises vs async/await in JavaScript. Give one example for each.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-qwen-7b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732302171,
+      "task": "Write a TypeScript debounce function with proper generic types. The function should accept any funct",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732806083,
+      "task": "Write a TypeScript function called `debounce` that:\n1. Takes a function and a delay in milliseconds\n",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732828664,
+      "task": "Write a TypeScript debounce function with generics. Just the code, no explanation:\n\n```typescript\n//",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732848023,
+      "task": "OUTPUT ONLY CODE. NO EXPLANATION. NO THINKING.\n\n```typescript\nfunction debounce<T extends (...args: ",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766732873678,
+      "task": "Complete this TypeScript debounce function:\n\n```typescript\nfunction debounce<T extends (...args: any",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "coding-seed-coder",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "coding",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733026474,
+      "task": "Complete this TypeScript debounce function:\n\n```typescript\nfunction debounce<T extends (...args: any",
+      "tool": "gemini",
+      "source": "subagent",
+      "modelId": null,
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "subagent",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733038189,
+      "task": "Complete this TypeScript debounce function:\n\n```typescript\nfunction debounce<T extends (...args: any",
+      "tool": "gemini",
+      "source": "subagent",
+      "modelId": null,
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "subagent",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733040909,
+      "task": "Complete this TypeScript debounce function:\n\n```typescript\nfunction debounce<T extends (...args: any",
+      "tool": "gemini",
+      "source": "subagent",
+      "modelId": null,
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "subagent",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733042195,
+      "task": "Complete this TypeScript debounce function:\n\n```typescript\nfunction debounce<T extends (...args: any",
+      "tool": "gemini",
+      "source": "subagent",
+      "modelId": null,
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "subagent",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733496515,
+      "task": "Write a TypeScript function to deep clone an object. Just the code.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733517598,
+      "task": "Write a TypeScript function to deep clone an object. Just the code.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733533739,
+      "task": "Write a TypeScript function to deep clone an object. Just the code.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "agents-nemotron",
+      "success": 0,
+      "context": {
+        "complexity": 0.5,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733828698,
+      "task": "Write a TypeScript deep clone function. Just code, no explanation.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "fast-qwen14b",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
+    },
+    {
+      "timestamp": 1766733944602,
+      "task": "Write a TypeScript deep clone function. Just code, no explanation.",
+      "tool": "local",
+      "source": "forced",
+      "modelId": "fast-deepseek-lite",
+      "success": 0.6000000000000001,
+      "context": {
+        "complexity": 0.3,
+        "taskType": "general",
+        "fileCount": 0
+      }
     }
   ],
-  "savedAt": 1765054617835
+  "savedAt": 1766733944602
 }

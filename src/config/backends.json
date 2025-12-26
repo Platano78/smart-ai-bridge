@@ -36,7 +36,7 @@
       "type": "nvidia_deepseek",
       "enabled": true,
       "priority": 2,
-      "description": "NVIDIA DeepSeek V3.1 Terminus (reasoning, 8K tokens)",
+      "description": "NVIDIA DeepSeek V3.2 (reasoning, 8K tokens)",
       "capabilities": ["deep_reasoning", "security_focus"],
       "context_limit": 8192,
       "strengths": "Complex reasoning, security analysis",

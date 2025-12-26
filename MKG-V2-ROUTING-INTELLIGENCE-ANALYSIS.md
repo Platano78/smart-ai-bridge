@@ -112,7 +112,7 @@ MKG V2 has separate handlers for different operations:
    - Priority 3: Orchestrator-8B (if healthy)
    - Priority 4: Rule-based fallback
    - Priority 5: Health-based last resort
-4. Backend selected (local/gemini/deepseek3.1/qwen3/chatgpt/groq)
+4. Backend selected (local/gemini/deepseek/qwen3/chatgpt/groq)
 5. Cloud API called
 
 **Key Issue**: spawn_subagent, edit_file, and ask all use the SAME backend pool (cloud APIs)

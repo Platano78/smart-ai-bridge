@@ -28,14 +28,23 @@ const MODEL_MAP = {
  * Router mode model profiles with estimated load times (seconds)
  */
 const ROUTER_PROFILES = {
-  'coding-reap25b': { loadTime: 25, vram: '~15GB', slots: 2, desc: 'Complex refactoring, architecture' },
-  'coding-seed-coder': { loadTime: 8, vram: '~5GB', slots: 2, desc: 'Standard coding, bug fixes' },
-  'coding-qwen-7b': { loadTime: 10, vram: '~5GB', slots: 2, desc: 'Fast coding tasks' },
-  'agents-qwen3-14b': { loadTime: 10, vram: '~12GB', slots: 8, desc: 'Multi-agent orchestration' },
-  'agents-nemotron': { loadTime: 12, vram: '~8GB', slots: 10, desc: 'Fast parallel inference' },
-  'agents-seed-coder': { loadTime: 8, vram: '~5GB', slots: 10, desc: 'High throughput agents' },
-  'fast-deepseek-lite': { loadTime: 8, vram: '~6GB', slots: 8, desc: 'Quick analysis' },
-  'fast-qwen14b': { loadTime: 12, vram: '~8GB', slots: 8, desc: 'Fast coding, more capable' }
+  'coding-reap25b': { loadTime: 25, vram: '~15GB', slots: 2, type: 'coding', desc: 'Complex refactoring, architecture' },
+  'coding-seed-coder': { loadTime: 8, vram: '~5GB', slots: 2, type: 'coding', desc: 'Standard coding, bug fixes' },
+  'coding-qwen-7b': { loadTime: 10, vram: '~5GB', slots: 2, type: 'coding', desc: 'Fast coding tasks' },
+  'agents-qwen3-14b': { loadTime: 10, vram: '~12GB', slots: 8, type: 'reasoning', desc: 'Multi-agent orchestration' },
+  'agents-nemotron': { loadTime: 12, vram: '~8GB', slots: 10, type: 'reasoning', desc: 'Fast parallel inference' },
+  'agents-seed-coder': { loadTime: 8, vram: '~5GB', slots: 10, type: 'coding', desc: 'High throughput agents' },
+  'fast-deepseek-lite': { loadTime: 8, vram: '~6GB', slots: 8, type: 'coding', desc: 'Quick analysis' },
+  'fast-qwen14b': { loadTime: 12, vram: '~8GB', slots: 8, type: 'coding', desc: 'Fast coding, more capable' }
+};;
+
+
+// Default model profiles by task type for intelligent auto-selection
+const DEFAULT_PROFILES = {
+  'coding': 'coding-seed-coder',      // Best balance of speed/quality for code
+  'analysis': 'coding-qwen-7b',       // Fast analysis tasks
+  'reasoning': null,                   // Reasoning models require explicit selection
+  'general': null                      // No default, use whatever is loaded
 };
 
 class AskHandler extends BaseHandler {
@@ -88,6 +97,20 @@ class AskHandler extends BaseHandler {
 
       // Check router status and load model if needed
       await this.ensureRouterModel(model_profile, profileInfo);
+    }
+
+    // Auto-select default profile based on detected task type (if no explicit profile and using local)
+    if (!routerModelProfile && (model === 'local' || requestedBackend === 'local')) {
+      const detectedTaskType = this.detectTaskType(prompt);
+      const defaultProfile = DEFAULT_PROFILES[detectedTaskType];
+      
+      if (defaultProfile && ROUTER_PROFILES[defaultProfile]) {
+        routerModelProfile = defaultProfile;
+        const profileInfo = ROUTER_PROFILES[defaultProfile];
+        console.error(`\n[MKG] 🎯 Auto-selected: ${defaultProfile} (detected: ${detectedTaskType} task)`);
+        console.error(`[MKG]    ${profileInfo.desc} | ${profileInfo.vram} | ${profileInfo.slots} slots`);
+        await this.ensureRouterModel(defaultProfile, profileInfo);
+      }
     }
 
     // Smart routing or forced backend
@@ -320,6 +343,21 @@ class AskHandler extends BaseHandler {
       // Non-blocking - don't fail request if learning fails
       console.error(`Learning recording failed: ${error.message}`);
     }
+  }
+
+
+  /**
+   * Detect task type from prompt for auto-profile selection
+   * @param {string} prompt - The prompt to analyze
+   * @returns {string} Task type: 'coding', 'analysis', or 'general'
+   */
+  detectTaskType(prompt) {
+    const hasCode = /```|function\s|class\s|import\s|def\s|const\s|let\s|var\s|write.*code|implement|create.*function/i.test(prompt);
+    if (hasCode) return 'coding';
+    
+    if (/analyze|research|explain|understand|review/i.test(prompt)) return 'analysis';
+    
+    return 'general';
   }
 
   /**

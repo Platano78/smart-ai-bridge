@@ -38,7 +38,7 @@
 |---------|-------------|---------|--------------|
 | **local** | `local-adapter.js` | Local Qwen2.5-Coder-7B via vLLM | Auto-discovery, 128K+ context |
 | **gemini** | `gemini-adapter.js` | Google Gemini via gemini-enhanced MCP | Free tier, multi-modal |
-| **nvidia_deepseek** | `nvidia-adapter.js` | NVIDIA DeepSeek V3.1 Terminus | Streaming, thinking mode, 8K tokens |
+| **nvidia_deepseek** | `nvidia-adapter.js` | NVIDIA DeepSeek V3.2 Terminus | Streaming, thinking mode, 8K tokens |
 | **nvidia_qwen** | `nvidia-adapter.js` | NVIDIA Qwen3 Coder 480B | 32K context, code-specialized |
 | **openai** | `openai-adapter.js` | OpenAI GPT-4.1 | 128K context, premium quality |
 | **groq** | `groq-adapter.js` | Groq Llama 3.3 70B | Ultra-fast (500+ t/s) |

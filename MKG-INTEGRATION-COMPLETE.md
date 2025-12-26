@@ -85,7 +85,7 @@ Smart AI Routing System
 ┌─────────────────┬─────────────────┬─────────────────┐
 │  Local (8001)   │ NVIDIA DeepSeek │  NVIDIA Qwen    │
 │  [PRIMARY]      │   [FALLBACK]    │   [FALLBACK]    │
-│  Qwen2.5-Coder  │     V3.1        │   3-Coder-480B  │
+│  Qwen2.5-Coder  │     V3.2        │   3-Coder-480B  │
 │  131k context   │   65k context   │   32k context   │
 └─────────────────┴─────────────────┴─────────────────┘
 ```

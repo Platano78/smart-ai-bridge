@@ -65,7 +65,7 @@ mcp__mecha-king-ghidorah-global__health check_type="comprehensive"
 # Test each backend explicitly:
 mcp__mecha-king-ghidorah-global__ask model="local" prompt="Say hi"
 mcp__mecha-king-ghidorah-global__ask model="gemini" prompt="Say hi"
-mcp__mecha-king-ghidorah-global__ask model="deepseek3.1" prompt="Say hi"
+mcp__mecha-king-ghidorah-global__ask model="deepseek" prompt="Say hi"
 mcp__mecha-king-ghidorah-global__ask model="qwen3" prompt="Say hi"
 mcp__mecha-king-ghidorah-global__ask model="groq" prompt="Say hi"
 # Note: chatgpt requires valid OPENAI_API_KEY in environment

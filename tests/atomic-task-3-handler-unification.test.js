@@ -99,7 +99,7 @@ describe('ATOMIC TASK 3: Handler Method Unification', () => {
       mockTripleBridge.handleEndpointComparison.mockResolvedValue({
         content: [{
           type: 'text',
-          text: 'Endpoint Comparison Results\n\n**Local DeepSeek**: Result 1\n\n---\n**NVIDIA DeepSeek V3.1**: Result 2\n\n---\n**NVIDIA Qwen 3 Coder 480B**: Result 3'
+          text: 'Endpoint Comparison Results\n\n**Local DeepSeek**: Result 1\n\n---\n**NVIDIA DeepSeek V3.2**: Result 2\n\n---\n**NVIDIA Qwen 3 Coder 480B**: Result 3'
         }]
       });
 
@@ -108,7 +108,7 @@ describe('ATOMIC TASK 3: Handler Method Unification', () => {
       expect(mockTripleBridge.handleEndpointComparison).toHaveBeenCalledWith(testArgs);
       expect(result.content[0].text).toContain('Endpoint Comparison Results');
       expect(result.content[0].text).toContain('Local DeepSeek');
-      expect(result.content[0].text).toContain('NVIDIA DeepSeek V3.1');
+      expect(result.content[0].text).toContain('NVIDIA DeepSeek V3.2');
       expect(result.content[0].text).toContain('NVIDIA Qwen 3 Coder 480B');
     });
 

@@ -74,7 +74,7 @@ export class EnhancedMCPServer {
                 enable_reasoning: {
                   type: 'boolean',
                   default: false,
-                  description: 'Enable NVIDIA DeepSeek V3.1 reasoning capabilities'
+                  description: 'Enable NVIDIA DeepSeek V3.2 reasoning capabilities'
                 }
               },
               required: ['prompt']

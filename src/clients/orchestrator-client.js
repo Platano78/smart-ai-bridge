@@ -139,7 +139,7 @@ Task Type: ${taskType || 'general'}
 
 Available backends:
 - local: Qwen2.5-Coder-7B (128K context, fast, general purpose)
-- nvidia_deepseek: DeepSeek V3.1 (reasoning, analysis, 8K)
+- nvidia_deepseek: DeepSeek V3.2 (reasoning, analysis, 8K)
 - nvidia_qwen: Qwen3 Coder 480B (complex code, 32K)
 `;
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Direct Cloud API Query Utility
-Allows direct queries to NVIDIA DeepSeek V3.1 and other cloud APIs
+Allows direct queries to NVIDIA DeepSeek V3.2 and other cloud APIs
 """
 
 import os
@@ -25,12 +25,12 @@ class CloudAPIClient:
         print(f"🔑 DeepSeek API Key: {'✅ SET' if self.deepseek_api_key else '❌ NOT SET'}")
 
     def query_nvidia_deepseek(self, prompt, thinking=True, max_tokens=1024):
-        """Query NVIDIA DeepSeek V3.1 with thinking mode"""
+        """Query NVIDIA DeepSeek V3.2 with thinking mode"""
         if not self.nvidia_api_key:
             return {"error": "NVIDIA API key not set"}
 
         try:
-            print(f"🚀 Querying NVIDIA DeepSeek V3.1 (thinking={thinking})...")
+            print(f"🚀 Querying NVIDIA DeepSeek V3.2 (thinking={thinking})...")
 
             extra_body = {"chat_template_kwargs": {"thinking": thinking}} if thinking else {}
 
@@ -60,13 +60,13 @@ class CloudAPIClient:
             return {"error": f"NVIDIA DeepSeek query failed: {str(e)}"}
 
     def query_nvidia_deepseek_streaming(self, prompt, thinking=True, max_tokens=1024):
-        """Query NVIDIA DeepSeek V3.1 with streaming"""
+        """Query NVIDIA DeepSeek V3.2 with streaming"""
         if not self.nvidia_api_key:
             print("❌ NVIDIA API key not set")
             return
 
         try:
-            print(f"🚀 Streaming NVIDIA DeepSeek V3.1 (thinking={thinking})...")
+            print(f"🚀 Streaming NVIDIA DeepSeek V3.2 (thinking={thinking})...")
             print("💭 Response:")
             print("-" * 50)
 
@@ -208,7 +208,7 @@ class CloudAPIClient:
         print("=" * 60)
 
         # Test NVIDIA DeepSeek
-        print("\n1. NVIDIA DeepSeek V3.1:")
+        print("\n1. NVIDIA DeepSeek V3.2:")
         nvidia_result = self.query_nvidia_deepseek(test_prompt, thinking=False, max_tokens=50)
         if "error" in nvidia_result:
             print(f"❌ {nvidia_result['error']}")
@@ -241,8 +241,8 @@ def main():
     print("\n🌩️ Direct Cloud API Query Utility")
     print("=" * 50)
     print("1. test - Test all endpoints")
-    print("2. nvidia <prompt> - Query NVIDIA DeepSeek V3.1")
-    print("3. nvidia-stream <prompt> - Stream NVIDIA DeepSeek V3.1")
+    print("2. nvidia <prompt> - Query NVIDIA DeepSeek V3.2")
+    print("3. nvidia-stream <prompt> - Stream NVIDIA DeepSeek V3.2")
     print("4. qwen <prompt> - Query NVIDIA Qwen3 Coder 480B")
     print("5. qwen-stream <prompt> - Stream NVIDIA Qwen3 Coder")
     print("6. deepseek <prompt> - Query DeepSeek Direct")

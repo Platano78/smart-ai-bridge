@@ -94,7 +94,7 @@ tokenConfig = {
   // Backend maximums
   local_max: 65536,              // Qwen 2.5 Coder 7B YARN
   gemini_max: 32768,             // Gemini Pro
-  nvidia_deepseek_max: 8192,     // DeepSeek V3.1 Terminus
+  nvidia_deepseek_max: 8192,     // DeepSeek V3.2 Terminus
   nvidia_qwen_max: 32768,        // Qwen3 480B
   
   // Dynamic thresholds

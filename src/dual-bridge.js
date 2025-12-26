@@ -11,7 +11,7 @@ export class DualDeepSeekBridge {
       apiKey: 'not-needed'
     });
     
-    // NVIDIA DeepSeek V3.1 client (official format)
+    // NVIDIA DeepSeek V3.2 client (official format)
     this.cloudClient = new OpenAI({
       baseURL: 'https://integrate.api.nvidia.com/v1',
       apiKey: process.env.NVIDIA_API_KEY || 'nvapi-test-key'

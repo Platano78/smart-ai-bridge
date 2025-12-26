@@ -10,7 +10,7 @@ The comprehensive MKG server enhancements have been successfully implemented acc
 
 ### 1. ⚡ **Smart AI Routing System** - COMPLETED ✅
 - **NVIDIA Cloud API Integration**:
-  - NVIDIA DeepSeek V3.1 (via `NVIDIA_DEEPSEEK_API_KEY`)
+  - NVIDIA DeepSeek V3.2 (via `NVIDIA_DEEPSEEK_API_KEY`)
   - NVIDIA Qwen 3 Coder 480B (via `NVIDIA_QWEN_API_KEY`)
 - **Local-First Routing**: 95% local processing, 5% cloud escalation
 - **Intelligent Endpoint Selection**: Complexity-based routing decisions in <100ms

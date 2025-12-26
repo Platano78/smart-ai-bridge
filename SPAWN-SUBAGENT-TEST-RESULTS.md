@@ -49,7 +49,7 @@ Sources:
 
 #### Role 2: security-auditor (Test #1)
 **Task**: Audit JWT middleware code for vulnerabilities  
-**Backend**: nvidia_deepseek (DeepSeek V3.1 Terminus with reasoning)  
+**Backend**: nvidia_deepseek (DeepSeek V3.2 Terminus with reasoning)  
 **Processing Time**: 31.8s  
 **Verdict**: **CRITICAL_ISSUES** (Status: CRITICAL_ISSUES, Risk: CRITICAL, Score: 4/10)  
 

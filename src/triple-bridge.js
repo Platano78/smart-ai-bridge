@@ -17,7 +17,7 @@ export class TripleDeepSeekBridge {
         apiKey: 'not-needed'
       },
       nvidia_deepseek: {
-        name: 'NVIDIA DeepSeek V3.1',
+        name: 'NVIDIA DeepSeek V3.2',
         baseURL: 'https://integrate.api.nvidia.com/v1',
         model: 'deepseek-ai/deepseek-v3.1',
         specialization: 'math_analysis',

@@ -149,9 +149,21 @@ class BaseHandler {
   async recordExecution(result, context) {
     if (!this.playbook) return;
 
+    // NEW: Extract modelId from result metadata if available
+    const modelId = result?.metadata?.model || 
+                    result?.metadata?.detectedModel ||
+                    result?.modelId ||
+                    (context?.backend === 'local' ? this.router?.backends?.getAdapter?.('local')?.modelId : null);
+
+    const enrichedContext = {
+      ...context,
+      modelId,  // NEW: Include modelId
+      timestamp: Date.now()
+    };
+
     setImmediate(async () => {
       try {
-        await this.playbook.postExecutionReflection(result, context, this.server);
+        await this.playbook.postExecutionReflection(result, enrichedContext, this.server);
       } catch (error) {
         console.error(`[${this.handlerName}] Playbook reflection failed:`, error.message);
       }
@@ -170,12 +182,18 @@ class BaseHandler {
   async recordLearningOutcome(success, outputLength, backend, taskContext = {}) {
     if (!this.router?.recordRoutingOutcome) return;
 
+    // NEW: Extract modelId from router context or taskContext
+    const modelId = taskContext.modelId || 
+                    this.router?._lastRoutingContext?.modelId ||
+                    (backend === 'local' ? this.router?.backends?.getAdapter?.('local')?.modelId : null);
+
     setImmediate(async () => {
       try {
         await this.router.recordRoutingOutcome({
           success,
           outputLength,
           backend,
+          modelId,  // NEW: Include modelId in outcome
           timestamp: Date.now(),
           ...taskContext
         });

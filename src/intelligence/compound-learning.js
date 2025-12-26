@@ -41,7 +41,9 @@ class CompoundLearningEngine {
 
     // In-memory state
     this.toolMetrics = {};       // Per-tool performance metrics
+    this.modelMetrics = {};      // Per-model performance metrics (NEW)
     this.taskPatterns = {};      // Task pattern → outcome mapping
+    this.modelPatterns = {};     // Model-specific task patterns (NEW)
     this.routingHistory = [];    // Recent routing decisions
     this.perceptionHits = { triggered: 0, skipped: 0, beneficial: 0 };
 
@@ -68,6 +70,7 @@ class CompoundLearningEngine {
     const timestamp = Date.now();
     const tool = routing.tool;
     const source = routing.source;
+    const modelId = routing.modelId || null;  // NEW: Extract modelId from routing
 
     // Determine success level
     const success = this._calculateSuccess(execution, verification, userFeedback);
@@ -78,8 +81,13 @@ class CompoundLearningEngine {
     // Update routing source metrics
     this._updateSourceMetrics(source, success);
 
-    // Learn task patterns
-    this._learnTaskPattern(context, tool, success);
+    // Learn task patterns (now includes modelId)
+    this._learnTaskPattern(context, tool, success, modelId);
+
+    // NEW: Update model-specific metrics if modelId is available
+    if (modelId) {
+      this._updateModelMetrics(modelId, tool, success, context);
+    }
 
     // Track perception effectiveness
     if (routing.perception) {
@@ -91,12 +99,13 @@ class CompoundLearningEngine {
       this.perceptionHits.skipped++;
     }
 
-    // Add to history
+    // Add to history (now includes modelId)
     this.routingHistory.push({
       timestamp,
       task: task.substring(0, 100),
       tool,
       source,
+      modelId,  // NEW
       success: success.score,
       context: {
         complexity: context.complexity,
@@ -118,6 +127,7 @@ class CompoundLearningEngine {
     return {
       recorded: true,
       toolConfidence: this.toolMetrics[tool]?.confidence || 0.5,
+      modelConfidence: modelId ? (this.modelMetrics[modelId]?.confidence || 0.5) : null,  // NEW
       successScore: success.score
     };
   }
@@ -246,11 +256,87 @@ class CompoundLearningEngine {
     metrics.confidence = metrics.successSum / metrics.calls;
   }
 
+
+  /**
+   * Update model-specific metrics using EMA
+   * Tracks performance per model for model-aware recommendations
+   * @private
+   */
+  _updateModelMetrics(modelId, tool, success, context) {
+    if (!this.modelMetrics[modelId]) {
+      this.modelMetrics[modelId] = {
+        confidence: 0.5,
+        totalCalls: 0,
+        successfulCalls: 0,
+        byTaskType: {},
+        byTool: {},
+        trend: 'stable',
+        lastUsed: Date.now()
+      };
+    }
+
+    const metrics = this.modelMetrics[modelId];
+    metrics.totalCalls++;
+    metrics.lastUsed = Date.now();
+
+    if (success.score >= 0.7) {
+      metrics.successfulCalls++;
+    }
+
+    // EMA confidence update
+    metrics.confidence = this.config.emaAlpha * success.score +
+                         (1 - this.config.emaAlpha) * metrics.confidence;
+
+    // Track by task type
+    const taskType = context.taskType || 'unknown';
+    if (!metrics.byTaskType[taskType]) {
+      metrics.byTaskType[taskType] = { calls: 0, successSum: 0 };
+    }
+    metrics.byTaskType[taskType].calls++;
+    metrics.byTaskType[taskType].successSum += success.score;
+
+    // Track by tool
+    if (!metrics.byTool[tool]) {
+      metrics.byTool[tool] = { calls: 0, successSum: 0 };
+    }
+    metrics.byTool[tool].calls++;
+    metrics.byTool[tool].successSum += success.score;
+
+    // Calculate trend from recent history
+    metrics.trend = this._calculateModelTrend(modelId);
+  }
+
+  /**
+   * Calculate trend for a specific model from recent history
+   * @private
+   */
+  _calculateModelTrend(modelId) {
+    const modelHistory = this.routingHistory
+      .filter(h => h.modelId === modelId)
+      .slice(-20);
+
+    if (modelHistory.length < 10) {
+      return 'stable';
+    }
+
+    const recentHalf = modelHistory.slice(-5);
+    const olderHalf = modelHistory.slice(0, 5);
+
+    const recentAvg = recentHalf.reduce((sum, h) => sum + h.success, 0) / recentHalf.length;
+    const olderAvg = olderHalf.reduce((sum, h) => sum + h.success, 0) / olderHalf.length;
+
+    const diff = recentAvg - olderAvg;
+
+    if (diff > 0.15) return 'improving';
+    if (diff < -0.15) return 'degrading';
+    return 'stable';
+  }
+
   /**
    * Learn task patterns for future routing
    */
-  _learnTaskPattern(context, tool, success) {
-    // Create pattern key from context
+  _learnTaskPattern(context, tool, success, modelId = null) {
+    // Create pattern key from context (original behavior)
     const patternKey = `${context.complexity || 'unknown'}:${context.taskType || 'unknown'}:${context.fileCount > 3 ? 'multi' : 'single'}`;
 
     if (!this.taskPatterns[patternKey]) {
@@ -269,6 +355,25 @@ class CompoundLearningEngine {
 
     pattern.toolPerformance[tool].calls++;
     pattern.toolPerformance[tool].successSum += success.score;
+
+    // NEW: Learn model-specific patterns when modelId is available
+    if (modelId) {
+      const modelPatternKey = `${context.taskType || 'unknown'}:${modelId}`;
+      
+      if (!this.modelPatterns[modelPatternKey]) {
+        this.modelPatterns[modelPatternKey] = {
+          calls: 0,
+          successSum: 0,
+          avgTime: 0,
+          lastUsed: null
+        };
+      }
+
+      const modelPattern = this.modelPatterns[modelPatternKey];
+      modelPattern.calls++;
+      modelPattern.successSum += success.score;
+      modelPattern.lastUsed = Date.now();
+    }
   }
 
   /**
@@ -327,11 +432,59 @@ class CompoundLearningEngine {
     }
 
     if (bestTool && bestScore > 0.6) {
+      // NEW: Find best model for this task type (if local backend)
+      const modelRecommendation = this._getModelRecommendation(context.taskType);
+      
       return {
         tool: bestTool,
         confidence: bestScore,
         reason: `Learned: ${patternKey} → ${bestTool} (${(bestScore * 100).toFixed(0)}% confidence)`,
-        source: 'compound_learning'
+        source: 'compound_learning',
+        // NEW: Include model recommendation
+        modelRecommendation: modelRecommendation
+      };
+    }
+
+    return null;
+  }
+
+
+  /**
+   * Get model recommendation for a specific task type
+   * Returns the best performing model for the given task type
+   * @private
+   * @param {string} taskType - Task type to get recommendation for
+   * @returns {Object|null} Model recommendation with confidence
+   */
+  _getModelRecommendation(taskType) {
+    if (!taskType) return null;
+
+    let bestModel = null;
+    let bestScore = 0;
+    let bestCalls = 0;
+
+    for (const [modelId, metrics] of Object.entries(this.modelMetrics)) {
+      const taskMetrics = metrics.byTaskType[taskType];
+      if (taskMetrics && taskMetrics.calls >= 3) {
+        const avgSuccess = taskMetrics.successSum / taskMetrics.calls;
+        // Weight by success rate, model confidence, and recency
+        const recencyBonus = metrics.lastUsed > Date.now() - 86400000 ? 0.1 : 0; // 24h recency bonus
+        const weightedScore = avgSuccess * 0.6 + metrics.confidence * 0.3 + recencyBonus;
+
+        if (weightedScore > bestScore) {
+          bestScore = weightedScore;
+          bestModel = modelId;
+          bestCalls = taskMetrics.calls;
+        }
+      }
+    }
+
+    if (bestModel && bestScore > 0.5) {
+      return {
+        modelId: bestModel,
+        confidence: bestScore,
+        calls: bestCalls,
+        reason: `Best for ${taskType}: ${bestModel} (${(bestScore * 100).toFixed(0)}% score, ${bestCalls} samples)`
       };
     }
 
@@ -417,15 +570,52 @@ class CompoundLearningEngine {
       };
     }
 
+    // NEW: Model performance summaries
+    const modelSummaries = {};
+    for (const [modelId, metrics] of Object.entries(this.modelMetrics)) {
+      modelSummaries[modelId] = {
+        confidence: metrics.confidence,
+        totalCalls: metrics.totalCalls,
+        successRate: metrics.totalCalls > 0 ? metrics.successfulCalls / metrics.totalCalls : 0,
+        trend: metrics.trend,
+        lastUsed: metrics.lastUsed,
+        bestTaskTypes: this._getBestTaskTypesForModel(modelId)
+      };
+    }
+
     return {
       totalDecisions: this.routingHistory.length,
       toolPerformance: toolSummaries,
+      modelPerformance: modelSummaries,  // NEW
       sourcePerformance: this.sourceMetrics || {},
       perceptionStats: this.perceptionHits,
       patternCount: Object.keys(this.taskPatterns).length,
+      modelPatternCount: Object.keys(this.modelPatterns).length,  // NEW
       adaptiveThresholds: this.getAdaptiveThresholds(),
       recommendations: this._generateRecommendations()
     };
+  }
+
+
+  /**
+   * Get the best task types for a specific model
+   * @private
+   * @param {string} modelId - Model to get best tasks for
+   * @returns {Array} Top 3 task types by success rate
+   */
+  _getBestTaskTypesForModel(modelId) {
+    const metrics = this.modelMetrics[modelId];
+    if (!metrics || !metrics.byTaskType) return [];
+
+    return Object.entries(metrics.byTaskType)
+      .filter(([_, data]) => data.calls >= 3)
+      .map(([taskType, data]) => ({
+        taskType,
+        successRate: data.successSum / data.calls,
+        calls: data.calls
+      }))
+      .sort((a, b) => b.successRate - a.successRate)
+      .slice(0, 3);
   }
 
   /**
@@ -456,7 +646,9 @@ class CompoundLearningEngine {
     try {
       const state = {
         toolMetrics: this.toolMetrics,
+        modelMetrics: this.modelMetrics,           // NEW
         taskPatterns: this.taskPatterns,
+        modelPatterns: this.modelPatterns,         // NEW
         sourceMetrics: this.sourceMetrics,
         perceptionHits: this.perceptionHits,
         routingHistory: this.routingHistory.slice(-200), // Keep last 200
@@ -479,11 +671,13 @@ class CompoundLearningEngine {
       if (fs.existsSync(filePath)) {
         const state = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
         this.toolMetrics = state.toolMetrics || {};
+        this.modelMetrics = state.modelMetrics || {};           // NEW
         this.taskPatterns = state.taskPatterns || {};
+        this.modelPatterns = state.modelPatterns || {};         // NEW
         this.sourceMetrics = state.sourceMetrics || {};
         this.perceptionHits = state.perceptionHits || { triggered: 0, skipped: 0, beneficial: 0 };
         this.routingHistory = state.routingHistory || [];
-        console.log(`[CompoundLearning] Loaded state: ${Object.keys(this.toolMetrics).length} tools, ${Object.keys(this.taskPatterns).length} patterns`);
+        console.log(`[CompoundLearning] Loaded state: ${Object.keys(this.toolMetrics).length} tools, ${Object.keys(this.taskPatterns).length} patterns, ${Object.keys(this.modelMetrics).length} models`);
       }
     } catch (error) {
       console.error('Failed to load learning state:', error.message);
@@ -495,7 +689,9 @@ class CompoundLearningEngine {
    */
   reset() {
     this.toolMetrics = {};
+    this.modelMetrics = {};      // NEW
     this.taskPatterns = {};
+    this.modelPatterns = {};     // NEW
     this.sourceMetrics = {};
     this.perceptionHits = { triggered: 0, skipped: 0, beneficial: 0 };
     this.routingHistory = [];
