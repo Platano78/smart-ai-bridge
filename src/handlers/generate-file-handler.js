@@ -32,6 +32,7 @@ export class GenerateFileHandler extends BaseHandler {
    * @param {string} args.outputPath - Where to write the file
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend
+   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
    * @param {boolean} [args.options.review] - Return for approval (default: true)
    * @param {string[]} [args.options.contextFiles] - Related files for style/patterns
    * @param {string} [args.options.language] - Language (auto-detect if not specified)
@@ -50,6 +51,7 @@ export class GenerateFileHandler extends BaseHandler {
 
     const {
       backend = 'auto',
+      modelProfile = null,  // For local router model selection
       review = true,
       contextFiles = [],
       language = null,
@@ -93,12 +95,13 @@ export class GenerateFileHandler extends BaseHandler {
       const selectedBackend = this.selectBackend(backend, complexity);
 
       console.error(`[GenerateFile] 📝 Generating ${outputPath}`);
-      console.error(`[GenerateFile] 🎯 Backend: ${selectedBackend}, Language: ${detectedLanguage}`);
+      console.error(`[GenerateFile] 🎯 Backend: ${selectedBackend}, Language: ${detectedLanguage}${modelProfile ? `, Model: ${modelProfile}` : ''}`);
       console.error(`[GenerateFile] 📋 Spec: ${spec.substring(0, 100)}...`);
 
       // 8. Make request to LLM for generation
       const response = await this.makeRequest(prompt, selectedBackend, {
-        maxTokens: 8000  // Allow large generation
+        maxTokens: 8000,  // Allow large generation
+        routerModel: modelProfile  // Pass model profile for llama-swap router
       });
 
       const processingTime = Date.now() - startTime;

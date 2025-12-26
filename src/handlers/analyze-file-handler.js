@@ -33,6 +33,7 @@ export class AnalyzeFileHandler extends BaseHandler {
    * @param {string} args.question - Question about the file
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend (auto|local|deepseek|qwen3|gemini|groq)
+   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
    * @param {string} [args.options.analysisType] - Type of analysis (general|bug|security|performance|architecture)
    * @param {string[]} [args.options.includeContext] - Related files for better analysis
    * @param {number} [args.options.maxResponseTokens] - Maximum tokens for response
@@ -50,6 +51,7 @@ export class AnalyzeFileHandler extends BaseHandler {
 
     const {
       backend = 'auto',
+      modelProfile = null,  // For local router model selection
       analysisType = 'general',
       includeContext = [],
       maxResponseTokens = 2000
@@ -81,11 +83,12 @@ export class AnalyzeFileHandler extends BaseHandler {
       const selectedBackend = this.selectBackend(backend, analysisType);
 
       console.error(`[AnalyzeFile] 📖 Analyzing ${filePath} (${content.length} chars)`);
-      console.error(`[AnalyzeFile] 🎯 Backend: ${selectedBackend}, Type: ${analysisType}`);
+      console.error(`[AnalyzeFile] 🎯 Backend: ${selectedBackend}, Type: ${analysisType}${modelProfile ? `, Model: ${modelProfile}` : ''}`);
 
       // 6. Make request to local LLM via router
       const response = await this.makeRequest(prompt, selectedBackend, {
-        maxTokens: maxResponseTokens
+        maxTokens: maxResponseTokens,
+        routerModel: modelProfile  // Pass model profile for llama-swap router
       });
 
       const processingTime = Date.now() - startTime;

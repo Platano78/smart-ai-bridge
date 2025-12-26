@@ -33,6 +33,7 @@ export class ModifyFileHandler extends BaseHandler {
    * @param {string} args.instructions - Natural language edit instructions
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend
+   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
    * @param {boolean} [args.options.review] - Return for approval (default: true)
    * @param {string[]} [args.options.contextFiles] - For understanding dependencies
    * @param {boolean} [args.options.backup] - Create backup (default: true)
@@ -51,6 +52,7 @@ export class ModifyFileHandler extends BaseHandler {
 
     const {
       backend = 'auto',
+      modelProfile = null,  // For local router model selection
       review = true,
       contextFiles = [],
       backup = true,
@@ -85,12 +87,13 @@ export class ModifyFileHandler extends BaseHandler {
       const selectedBackend = this.selectBackend(backend, complexity);
 
       console.error(`[ModifyFile] ✏️ Modifying ${filePath} (${originalContent.length} chars)`);
-      console.error(`[ModifyFile] 🎯 Backend: ${selectedBackend}, Complexity: ${complexity}`);
+      console.error(`[ModifyFile] 🎯 Backend: ${selectedBackend}, Complexity: ${complexity}${modelProfile ? `, Model: ${modelProfile}` : ''}`);
       console.error(`[ModifyFile] 📋 Instructions: ${instructions.substring(0, 100)}...`);
 
       // 7. Make request to LLM for modification
       const response = await this.makeRequest(prompt, selectedBackend, {
-        maxTokens: 8000
+        maxTokens: 8000,
+        routerModel: modelProfile  // Pass model profile for llama-swap router
       });
 
       const processingTime = Date.now() - startTime;
