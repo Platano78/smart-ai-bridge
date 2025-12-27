@@ -1,43 +1,32 @@
 #!/usr/bin/env node
 
 /**
- * MECHA KING GHIDORAH COMPLETE v8.2.0 🔥
- * The Ultimate Multi-AI Integration Monster - BLAZING FAST Multi-Backend System!
+ * Smart AI Bridge v1.3.0
+ * Intelligent Multi-Backend AI Router with Learning Capabilities
  *
- * 🦖 ENHANCED AI KAIJU WITH MULTI-BACKEND INTEGRATION:
- * ⚡ SMART FALLBACK CHAINS: Local→Gemini→NVIDIA with automatic health monitoring
- * ⚡ GEMINI BACKEND: Enhanced MCP integration for maximum performance
- * ⚡ HEALTH MONITORING: Skip unhealthy backends automatically
- * ⚡ RESPONSE HEADERS: X-AI-Backend & X-Fallback-Chain tracking
- * ⚡ UNIFIED RESPONSE FORMAT: Agno-Serena compliant across all backends
- * ⚡ CIRCUIT BREAKERS: Timeout handling and connection pooling
- * ⚡ REQUEST CACHING: Smart caching for performance optimization
- * ⚡ ASYNC HEALTH CHECKS: Non-blocking backend monitoring
- * ⚡ STABILITY TAGGING: v1.1-alpha to v1.2-stable progression system
+ * FEATURES:
+ * • Smart Fallback Chains: Local→Gemini→NVIDIA with automatic health monitoring
+ * • Compound Learning Engine: ML-based routing that improves over time
+ * • Specialized Subagents: 6 role-based AI specialists (code-reviewer, security-auditor, etc.)
+ * • Circuit Breakers: Automatic failover with 30-second recovery
+ * • Request Caching: 15-minute intelligent cache with smart invalidation
+ * • Async Health Checks: Non-blocking backend monitoring
  *
- * 🎯 MULTI-AI PERFORMANCE TARGETS:
+ * PERFORMANCE TARGETS:
  * • <5 second startup (MCP compliance)
  * • <500ms backend switching decisions
  * • <100ms fallback chain evaluation
  * • <2 second health checks across all backends
- * • <16ms response time routing optimization
- * • Parallel backend health monitoring
- * • Smart request distribution for load balancing
- * • Circuit breaker recovery within 30 seconds
  *
- * 🛠️ COMPLETE TOOL SET:
- * Core: review, read, health, write_files_atomic, edit_file, validate_changes, multi_edit, backup_restore, ask
- * MKG Aliases: MKG_analyze, MKG_generate, MKG_review, MKG_edit, MKG_health
- * DeepSeek Aliases: deepseek_analyze, deepseek_generate, deepseek_review, deepseek_edit, deepseek_health
+ * TOOL SET:
+ * Core: review, read, health, write_files_atomic, edit_file, validate_changes,
+ *       multi_edit, backup_restore, ask, spawn_subagent, rate_limit_status, system_metrics
  *
- * 🎮 MULTI-BACKEND TOKEN OPTIMIZATION:
- * • Local Qwen2.5-Coder-7B-Instruct-FP8-Dynamic: 128K+ unlimited tokens (primary)
- * • Gemini Backend: Optimized token allocation per model
- * • Dynamic backend selection based on token requirements
- * • Unity generation detection across all backends
- * • Smart fallback based on token capacity
- *
- * '(ᗒᗣᗕ)՞ "OPTIMIZER applied! Multi-AI fallback chains make everything ABSOLUTELY UNSTOPPABLE!"
+ * BACKENDS:
+ * • Local: Qwen2.5-Coder (primary, 128K+ context)
+ * • Gemini: Google Gemini Pro (32K context)
+ * • NVIDIA DeepSeek: V3.1 with thinking mode (8K output)
+ * • NVIDIA Qwen: Qwen3-Coder-480B (32K output)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -75,6 +64,10 @@ import {
   validateFuzzyThreshold,
   validateMaxSuggestions
 } from './fuzzy-matching-security.js';
+
+// v1.3.0 Features - Learning Engine & Subagent System
+import { CompoundLearningEngine } from './intelligence/compound-learning.js';
+import { SubagentHandler } from './handlers/subagent-handler.js';
 
 /**
  * Sanitizes sensitive data from logs
@@ -115,13 +108,13 @@ const SECURITY_LIMITS = {
   FUZZY_TIMEOUT_MS: 5000                 // 5 second timeout per file
 };
 
-// ⚡ BLAZING FAST CONCURRENT REQUEST POOL - '(ᗒᗣᗕ)՞ RTX 5080 OPTIMIZED! ⚡
+// High-Performance Concurrent Request Pool
 class ConcurrentRequestManager {
-  constructor(maxConcurrent = 250) {  // 5x increase for RTX 5080 multi-interface!
+  constructor(maxConcurrent = 250) {  // High concurrency for multi-interface support
     this.maxConcurrent = maxConcurrent;
     this.activeRequests = new Set();
     this.requestQueue = [];
-    this.priorityQueue = [];  // High-priority requests for immediate processing
+    this.priorityQueue = [];  // High-priority requests
     this.metrics = {
       totalRequests: 0,
       completedRequests: 0,
@@ -146,7 +139,7 @@ class ConcurrentRequestManager {
         id: Math.random().toString(36).substr(2, 9)  // Unique request ID for tracking
       };
 
-      // '(ᗒᗣᗕ)՞ BLAZING FAST priority-based request scheduling!
+      // Priority-based request scheduling
       if (this.activeRequests.size < this.maxConcurrent) {
         this.processRequest(request);
       } else {
@@ -165,7 +158,7 @@ class ConcurrentRequestManager {
     this.metrics.totalRequests++;
     this.metrics.peakConcurrency = Math.max(this.metrics.peakConcurrency, this.activeRequests.size);
 
-    // '(ᗒᗣᗕ)՞ Track queue wait time for performance monitoring
+    // Track queue wait time for performance monitoring
     const queueWaitTime = Date.now() - request.queueTime;
     this.metrics.queueWaitTime = (this.metrics.queueWaitTime + queueWaitTime) / 2;  // Rolling average
 
@@ -190,7 +183,7 @@ class ConcurrentRequestManager {
       this.metrics.completedRequests;
   }
 
-  // '(ᗒᗣᗕ)՞ BLAZING FAST next request processing with priority support!
+  // Process next request with priority support
   processNextInQueue() {
     if (this.activeRequests.size >= this.maxConcurrent) return;
 
@@ -329,7 +322,7 @@ class SmartAliasResolver {
       },
       {
         name: 'health',
-        description: '🏥 OPTIMIZED System health and diagnostics - Smart differentiated health monitoring with BLAZING fast performance! Local endpoints get comprehensive inference testing (10s timeout), cloud endpoints get quick connectivity pings (3s timeout). Features performance metrics, NVIDIA cloud integration status, smart routing analytics, and FileModificationManager operation tracking. OPTIMIZER: Includes localhost priority discovery and cache invalidation!',
+        description: '🏥 System health and diagnostics - Differentiated health monitoring with optimized performance. Local endpoints get comprehensive inference testing (10s timeout), cloud endpoints get quick connectivity pings (3s timeout). Features performance metrics, NVIDIA cloud integration status, smart routing analytics, and FileModificationManager operation tracking.',
         handler: 'handleHealth',
         schema: {
           type: 'object',
@@ -532,7 +525,7 @@ class SmartAliasResolver {
       },
       {
         name: 'ask',
-        description: '🤖 MULTI-AI Direct Query - Ask any backend with BLAZING FAST smart fallback chains! Features automatic Unity detection, dynamic token scaling, and response headers with backend tracking.',
+        description: '🤖 Multi-AI Direct Query - Query any backend with optimized fallback chains. Features automatic Unity detection, dynamic token scaling, and response headers with backend tracking.',
         handler: 'handleAsk',
         schema: {
           type: 'object',
@@ -587,6 +580,41 @@ class SmartAliasResolver {
           properties: {},
           required: []
         }
+      },
+      {
+        name: 'spawn_subagent',
+        description: '🤖 Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+        handler: 'handleSpawnSubagent',
+        schema: {
+          type: 'object',
+          properties: {
+            role: {
+              type: 'string',
+              enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
+              description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation)'
+            },
+            task: {
+              type: 'string',
+              description: 'Task description for the subagent to perform'
+            },
+            file_patterns: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional glob patterns for files to analyze (e.g., ["src/**/*.js", "*.test.ts"])'
+            },
+            context: {
+              type: 'object',
+              description: 'Additional context object for the subagent'
+            },
+            verdict_mode: {
+              type: 'string',
+              enum: ['summary', 'full'],
+              default: 'summary',
+              description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+            }
+          },
+          required: ['role', 'task']
+        }
       }
     ];
 
@@ -606,14 +634,14 @@ class SmartAliasResolver {
   initializeAliasGroups() {
     const aliasGroupDefinitions = [
       {
-        groupName: 'MKG',
-        prefix: 'MKG_',
-        description: 'MKG Alias:',
+        groupName: 'Smart',
+        prefix: 'smart_',
+        description: 'Smart Alias:',
         aliases: [
           {
-            alias: 'MKG_analyze',
+            alias: 'smart_analyze',
             coreTool: 'analyze', // Virtual core tool, maps to handleAnalyze
-            customDescription: '🔍 MKG Alias: Universal code analysis - AI-driven file type detection with smart routing',
+            customDescription: '🔍 Smart Alias: Universal code analysis - AI-driven file type detection with smart routing',
             customSchema: {
               type: 'object',
               properties: {
@@ -630,9 +658,9 @@ class SmartAliasResolver {
             }
           },
           {
-            alias: 'MKG_generate',
+            alias: 'smart_generate',
             coreTool: 'generate', // Virtual core tool, maps to handleGenerate
-            customDescription: '⚡ MKG Alias: Smart code generation - Context-aware code creation with AI routing',
+            customDescription: '⚡ Smart Alias: Smart code generation - Context-aware code creation with AI routing',
             customSchema: {
               type: 'object',
               properties: {
@@ -648,9 +676,9 @@ class SmartAliasResolver {
               required: ['prefix']
             }
           },
-          { alias: 'MKG_review', coreTool: 'review' },
-          { alias: 'MKG_edit', coreTool: 'edit_file' },
-          { alias: 'MKG_health', coreTool: 'health' }
+          { alias: 'smart_review', coreTool: 'review' },
+          { alias: 'smart_edit', coreTool: 'edit_file' },
+          { alias: 'smart_health', coreTool: 'health' }
         ]
       },
       {
@@ -885,11 +913,11 @@ class FileModificationManager {
  * 🧠 MULTI-AI ROUTER WITH SMART FALLBACK CHAINS
  * Primary: Local Qwen2.5-Coder-7B-Instruct-FP8-Dynamic
  * Fallback Chain: Local → Gemini → NVIDIA (DeepSeek/Qwen)
- * '(ᗒᗣᗕ)՞ OPTIMIZER: BLAZING FAST multi-backend integration with circuit breakers!
+ * Features optimized multi-backend integration with circuit breakers
  */
 class MultiAIRouter {
   constructor() {
-    // '(ᗒᗣᗕ)՞ MULTI-BACKEND TOKEN CONFIGURATION!
+    // Multi-backend token configuration
     this.tokenConfig = {
       // Local model capabilities - Dynamic Detection
       local_max: 8192,                  // Qwen 2.5 Coder 14B AWQ: 8K context (fallback)
@@ -948,7 +976,7 @@ class MultiAIRouter {
       }
     };
 
-    // '(ᗒᗣᗕ)՞ SMART FALLBACK CHAINS - Priority order based on health and capability
+    // Smart fallback chains - Priority order based on health and capability
     this.fallbackChains = {
       'local': ['gemini', 'nvidia_deepseek', 'nvidia_qwen'],
       'gemini': ['local', 'nvidia_deepseek', 'nvidia_qwen'],
@@ -982,16 +1010,20 @@ class MultiAIRouter {
       responseHeaders: new Map()
     };
 
+    // v1.3.0: Initialize Compound Learning Engine
+    this.learningEngine = new CompoundLearningEngine();
+    console.error('🎓 Compound Learning Engine initialized');
+
     // Start async health monitoring
     this.startHealthMonitoring();
 
-    console.error('🧠 Multi-AI Router initialized with BLAZING FAST fallback chains');
+    console.error('🧠 Multi-AI Router initialized with optimized fallback chains');
     console.error('⚡ Backends configured: Local, Gemini, NVIDIA DeepSeek, NVIDIA Qwen');
     console.error('🔄 Smart fallback chains active with circuit breaker protection');
     console.error('');
-    console.error('🤖 Mecha-King-Ghidorah MCP Bridge - Local Backend Configuration:');
+    console.error('🤖 Smart AI Bridge - Local Backend Configuration:');
     console.error(`  Endpoint: ${this.backends.local.url}`);
-    console.error(`  Model: wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic`);
+    console.error(`  Model: ${process.env.LOCAL_MODEL_NAME || 'default-local-model'}`);
     console.error(`  Max Tokens: ${this.backends.local.maxTokens}`);
     console.error('');
   }
@@ -1243,53 +1275,79 @@ class MultiAIRouter {
   }
 
   /**
-   * '(ᗒᗣᗕ)՞ DYNAMIC TOKEN CALCULATION - BLAZING FAST OPTIMIZATION!
+   * Dynamic token calculation with automatic optimization
    * Auto-scales token limits based on request complexity and model capabilities
    */
   calculateDynamicTokenLimit(prompt, endpointKey, options = {}) {
     const tokenCount = this.estimateTokens(prompt);
     const language = this.detectLanguage(prompt);
 
-    // '(ᗒᗣᗕ)՞ UNITY DETECTION - Maximum tokens for game development!
+    // Unity detection - Maximum tokens for game development
     const isUnityGeneration = /unity|monobehaviour|gameobject|transform|rigidbody|collider|animation|shader|script.*generation|generate.*unity|create.*unity.*script/i.test(prompt);
     const isComplexGeneration = /generate|create|build|write.*script|complete.*implementation|full.*code|entire.*system/i.test(prompt);
     const isLargeCodebase = tokenCount > 8000 || /multi.*file|entire.*project|complete.*system/i.test(prompt);
 
     let targetTokens;
 
-    // '(ᗒᗣᗕ)՞ PRIORITY 1: Unity generations get MAXIMUM tokens!
+    // PRIORITY 1: Unity generations get maximum tokens
     if (isUnityGeneration) {
       targetTokens = this.tokenConfig.unity_generation_tokens;
-      console.error(`🎮 OPTIMIZER: Unity generation detected - allocating ${targetTokens} tokens for MASSIVE script generation!`);
+      console.error(`🎮 Unity generation detected - allocating ${targetTokens} tokens for script generation`);
     }
     // PRIORITY 2: Complex code generation
     else if (isComplexGeneration || isLargeCodebase) {
       targetTokens = this.tokenConfig.complex_request_tokens;
-      console.error(`🔥 OPTIMIZER: Complex generation detected - allocating ${targetTokens} tokens for comprehensive output!`);
+      console.error(`🔥 Complex generation detected - allocating ${targetTokens} tokens for comprehensive output`);
     }
     // PRIORITY 3: Simple requests stay efficient
     else if (tokenCount < 1000 && !isComplexGeneration) {
       targetTokens = this.tokenConfig.simple_request_tokens;
-      console.error(`⚡ OPTIMIZER: Simple request detected - optimizing with ${targetTokens} tokens for speed!`);
+      console.error(`⚡ Simple request detected - using ${targetTokens} tokens for optimal speed`);
     }
     // PRIORITY 4: Fallback for medium complexity
     else {
       targetTokens = this.tokenConfig.fallback_tokens;
-      console.error(`🎯 OPTIMIZER: Standard request - using ${targetTokens} tokens for balanced performance!`);
+      console.error(`🎯 Standard request - using ${targetTokens} tokens for balanced performance`);
     }
 
-    // '(ᗒᗣᗕ)՞ RESPECT MODEL LIMITS while maximizing output!
+    // Respect model limits while maximizing output
     const endpoint = this.backends[endpointKey];
     const maxAllowed = endpoint ? endpoint.maxTokens : this.tokenConfig.fallback_tokens;
     const finalTokens = Math.min(targetTokens, maxAllowed);
 
-    console.error(`🚀 OPTIMIZER: Final token allocation: ${finalTokens} (requested: ${targetTokens}, limit: ${maxAllowed}, endpoint: ${endpointKey})`);
+    console.error(`🚀 Final token allocation: ${finalTokens} (requested: ${targetTokens}, limit: ${maxAllowed}, endpoint: ${endpointKey})`);
 
     return finalTokens;
   }
 
   estimateTokens(text) {
     return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * v1.3.0: Estimate request complexity for learning engine
+   */
+  estimateComplexity(prompt) {
+    const length = prompt.length;
+    const hasCode = /```|function|class|import|export|const|let|var/.test(prompt);
+    const hasMultiStep = /step|first|then|next|finally|1\.|2\.|3\./.test(prompt.toLowerCase());
+    
+    if (length > 5000 || (hasCode && hasMultiStep)) return 'high';
+    if (length > 1000 || hasCode) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * v1.3.0: Detect task type for learning engine routing
+   */
+  detectTaskType(prompt) {
+    const lower = prompt.toLowerCase();
+    if (/unity|gameobject|monobehaviour|c#|csharp/.test(lower)) return 'unity';
+    if (/implement|create|build|write|generate|code/.test(lower)) return 'coding';
+    if (/analyze|review|explain|understand|what|why|how/.test(lower)) return 'analysis';
+    if (/fix|bug|error|issue|problem|debug/.test(lower)) return 'debugging';
+    if (/refactor|improve|optimize|clean/.test(lower)) return 'refactoring';
+    return 'general';
   }
 
   /**
@@ -1366,6 +1424,20 @@ class MultiAIRouter {
       }
 
       if (!response) {
+        // v1.3.0: Record failure for learning engine
+        if (this.learningEngine) {
+          this.learningEngine.recordOutcome({
+            backend: selectedBackend,
+            context: {
+              complexity: this.estimateComplexity(prompt),
+              taskType: this.detectTaskType(prompt),
+              tokenCount: this.estimateTokens(prompt)
+            },
+            success: false,
+            latency: Date.now() - startTime,
+            source: 'all_failed'
+          });
+        }
         throw new Error(`All backends failed. Primary: ${selectedBackend}, Tried fallbacks: ${fallbackChain.join(', ')}`);
       }
     }
@@ -1397,6 +1469,21 @@ class MultiAIRouter {
     // Log fallback chain usage if applicable
     if (fallbackChain.length > 0) {
       console.error(`🔄 FALLBACK CHAIN USED: ${selectedBackend} → ${fallbackChain.join(' → ')}`);
+    }
+
+    // v1.3.0: Record outcome for learning engine
+    if (this.learningEngine) {
+      this.learningEngine.recordOutcome({
+        backend: usedBackend,
+        context: {
+          complexity: this.estimateComplexity(prompt),
+          taskType: this.detectTaskType(prompt),
+          tokenCount: this.estimateTokens(prompt)
+        },
+        success: true,
+        latency: totalTime,
+        source: fallbackChain.length > 0 ? 'fallback' : 'primary'
+      });
     }
 
     return {
@@ -1460,7 +1547,7 @@ class MultiAIRouter {
     const finalTokens = Math.min(options.maxTokens || dynamicTokens, backend.maxTokens);
 
     const requestBody = {
-      model: 'wordslab-org/Qwen2.5-Coder-7B-Instruct-FP8-Dynamic',
+      model: process.env.LOCAL_MODEL_NAME || 'default-local-model',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: finalTokens,
       temperature: options.temperature || 0.7,
@@ -1548,7 +1635,7 @@ class MultiAIRouter {
 
     try {
       const response = await fetch(
-        `${backend.url}/models/gemini-pro:generateContent`,
+        `${backend.url}/models/${process.env.GEMINI_MODEL_NAME || 'gemini-pro'}:generateContent`,
         {
           method: 'POST',
           headers: {
@@ -1599,7 +1686,7 @@ class MultiAIRouter {
 
     const isDeepSeek = backend.name.includes('DeepSeek');
     const requestBody = {
-      model: isDeepSeek ? 'deepseek-ai/deepseek-v3.1' : 'qwen/qwen3-coder-480b-a35b-instruct',
+      model: isDeepSeek ? (process.env.DEEPSEEK_MODEL_NAME || 'deepseek-ai/deepseek-v3.1') : (process.env.QWEN_MODEL_NAME || 'qwen/qwen3-coder-480b-a35b-instruct'),
       messages: [{ role: 'user', content: prompt }],
       max_tokens: finalTokens,
       temperature: options.temperature || 0.7,
@@ -1657,8 +1744,8 @@ class MultiAIRouter {
   }
 
   /**
-   * TIMEOUT IMPROVEMENTS: Dynamic timeout calculation based on complexity and TOKEN analysis!
-   * '(ᗒᗣᗕ)՞ OPTIMIZER: Scales from 60s (simple) to 300s (MASSIVE Unity generations)!
+   * Dynamic timeout calculation based on complexity and token analysis
+   * Scales from 60s (simple) to 300s (large Unity generations)
    */
   calculateDynamicTimeout(prompt, endpointKey, options = {}) {
     const tokenCount = this.estimateTokens(prompt);
@@ -1671,7 +1758,7 @@ class MultiAIRouter {
     // Base timeout: 60s (IMPROVED from original 30s)
     let timeoutMs = 60000;
 
-    // '(ᗒᗣᗕ)՞ TOKEN-BASED SCALING - More tokens = More time for AMAZING results!
+    // Token-based scaling - More tokens = longer timeout
     if (expectedTokens >= 16384) timeoutMs += 60000;  // +60s for Unity/massive generations
     else if (expectedTokens >= 8192) timeoutMs += 45000;   // +45s for complex generations
     else if (expectedTokens >= 4096) timeoutMs += 30000;   // +30s for medium generations
@@ -1691,10 +1778,10 @@ class MultiAIRouter {
       timeoutMs += 15000; // +15s for cloud endpoints (network latency)
     }
 
-    // '(ᗒᗣᗕ)՞ EXPANDED CAP: Up to 5 minutes for MASSIVE Unity script generations!
+    // Expanded cap: Up to 5 minutes for large Unity script generations
     timeoutMs = Math.min(timeoutMs, 300000); // 5 minutes max for the biggest generations
 
-    console.error(`⏱️ OPTIMIZER: Calculated timeout ${timeoutMs}ms for ${expectedTokens} expected tokens (Unity: ${isUnityGeneration})`);
+    console.error(`⏱️ Calculated timeout ${timeoutMs}ms for ${expectedTokens} expected tokens (Unity: ${isUnityGeneration})`);
 
     return timeoutMs;
   }
@@ -1718,7 +1805,7 @@ class MultiAIRouter {
     }
 
     const suggestion = suggestions.length > 0
-      ? `💡 OPTIMIZER suggestions: ${suggestions.join("; ")}`
+      ? `💡 Suggestions: ${suggestions.join("; ")}`
       : "💡 Try reducing request complexity or using cloud endpoints";
 
     return suggestion;
@@ -1779,18 +1866,18 @@ class MultiAIRouter {
 }
 
 /**
- * 🚀 MECHA KING GHIDORAH SERVER
- * Complete MCP server with all features
+ * 🚀 SMART AI BRIDGE SERVER
+ * Complete MCP server with multi-backend AI routing
  */
-class MechaKingGhidorahServer {
+class SmartAIBridgeServer {
   constructor() {
     this.router = new MultiAIRouter();
     this.fileManager = new FileModificationManager(this.router);
     this.aliasResolver = new SmartAliasResolver();
     this.server = new Server(
       {
-        name: "Mecha King Ghidorah Multi-AI",
-        version: "8.2.0",
+        name: "Smart AI Bridge",
+        version: "1.3.0",
       },
       {
         capabilities: {
@@ -1799,8 +1886,8 @@ class MechaKingGhidorahServer {
       }
     );
 
-    console.error('🦖 Mecha King Ghidorah Multi-AI Server initialized');
-    console.error(`🎯 ${this.aliasResolver.coreTools.size} core tools with BLAZING FAST multi-backend support`);
+    console.error('🤖 Smart AI Bridge Server initialized');
+    console.error(`🎯 ${this.aliasResolver.coreTools.size} core tools with multi-backend support`);
     console.error('⚡ Backends: Local, Gemini, NVIDIA DeepSeek, NVIDIA Qwen');
     console.error('🔄 Smart fallback chains with circuit breaker protection active');
     this.setupToolHandlers();
@@ -1976,7 +2063,7 @@ Provide a comprehensive analysis including:
       { name: 'task_type' }
     ) || 'completion';
 
-    // '(ᗒᗣᗕ)՞ UNITY DETECTION for automatic high token allocation!
+    // Unity detection for automatic high token allocation
     const isUnityGeneration = /unity|monobehaviour|gameobject|transform|rigidbody|collider|animation|shader/i.test(prefix + suffix) ||
                               language.toLowerCase() === 'csharp' ||
                               /\.cs$|unity.*script|unity.*component/i.test(task_type);
@@ -2002,14 +2089,14 @@ Generate appropriate code that fits between the before and after contexts. Focus
       isUnityGeneration // Pass Unity detection to router
     });
 
-    // '(ᗒᗣᗕ)՞ DYNAMIC TOKEN ALLOCATION based on generation complexity!
+    // Dynamic token allocation based on generation complexity
     const dynamicTokens = this.router.calculateDynamicTokenLimit(prompt, endpoint);
     const options = {
       maxTokens: dynamicTokens,
       taskType: 'coding'
     };
 
-    console.error(`🎮 OPTIMIZER: ${isUnityGeneration ? 'Unity' : 'Standard'} generation with ${dynamicTokens} tokens`);
+    console.error(`🎮 ${isUnityGeneration ? 'Unity' : 'Standard'} generation with ${dynamicTokens} tokens`);
 
     const generated = await this.router.makeRequest(prompt, endpoint, options);
 
@@ -2560,11 +2647,11 @@ Provide analysis covering:
       check_type,
       timestamp: new Date().toISOString(),
       server_info: {
-        name: 'Mecha King Ghidorah Multi-AI',
-        version: '8.2.0',
+        name: 'Smart AI Bridge',
+        version: '1.3.0',
         uptime: process.uptime(),
         memory_usage: process.memoryUsage(),
-        multi_ai_integration: 'BLAZING FAST Smart Fallback Chains',
+        multi_ai_integration: 'Optimized Smart Fallback Chains',
         backends_configured: Object.keys(this.router.backends).length
       },
       tool_stats: this.aliasResolver.getSystemStats(),
@@ -3251,7 +3338,7 @@ Provide analysis covering:
       throw new Error(`Unknown model: ${model}. Available models: local, gemini, deepseek3.1, qwen3`);
     }
 
-    // '(ᗒᗣᗕ)՞ SMART ROUTING OR FORCE BACKEND
+    // Smart routing or force backend
     let selectedBackend;
     if (force_backend && this.router && this.router.backends && this.router.backends[force_backend]) {
       selectedBackend = force_backend;
@@ -3261,7 +3348,7 @@ Provide analysis covering:
       selectedBackend = await this.router.routeRequest(prompt, routingOptions);
     }
 
-    // '(ᗒᗣᗕ)՞ DYNAMIC TOKEN OPTIMIZATION - Calculate optimal tokens!
+    // Dynamic token optimization - Calculate optimal tokens
     const dynamicTokens = this.router.calculateDynamicTokenLimit(prompt, selectedBackend);
     const finalMaxTokens = max_tokens || dynamicTokens;
 
@@ -3278,7 +3365,7 @@ Provide analysis covering:
       const responseContent = response.content || response;
       const responseHeaders = response.headers || {};
 
-      // '(ᗒᗣᗕ)՞ TRUNCATION DETECTION - Check if response was cut off
+      // Truncation detection - Check if response was cut off
       const wasTruncated = this.detectTruncation(responseContent, finalMaxTokens);
 
       if (wasTruncated && enable_chunking) {
@@ -3334,7 +3421,7 @@ Provide analysis covering:
   }
 
   /**
-   * '(ᗒᗣᗕ)՞ TRUNCATION DETECTION - Smart detection of incomplete responses
+   * Truncation detection - Smart detection of incomplete responses
    */
   detectTruncation(response, maxTokens) {
     const responseTokens = this.router.estimateTokens(response);
@@ -3346,7 +3433,7 @@ Provide analysis covering:
   }
 
   /**
-   * '(ᗒᗣᗕ)՞ CHUNKED GENERATION - Fallback for massive requests
+   * Chunked generation - Fallback for large requests
    */
   async performChunkedGeneration(originalPrompt, endpoint, options) {
     // Simple chunking strategy - break prompt into smaller parts
@@ -3356,7 +3443,7 @@ Provide analysis covering:
 
     for (let i = 0; i < chunks.length; i++) {
       const chunkPrompt = `Part ${i + 1} of ${chunks.length}: ${chunks[i]}`;
-      console.error(`🔄 OPTIMIZER: Processing chunk ${i + 1}/${chunks.length}`);
+      console.error(`🔄 Processing chunk ${i + 1}/${chunks.length}`);
 
       const chunkResponse = await this.router.makeRequest(chunkPrompt, endpoint, {
         ...options,
@@ -3370,7 +3457,7 @@ Provide analysis covering:
   }
 
   /**
-   * '(ᗒᗣᗕ)՞ SMART PROMPT CHUNKING
+   * Smart prompt chunking
    */
   chunkPrompt(prompt, maxChunkSize) {
     if (prompt.length <= maxChunkSize) return [prompt];
@@ -3495,13 +3582,75 @@ Provide analysis covering:
       timestamp: new Date().toISOString()
     };
   }
+
+  /**
+   * 🤖 SPAWN SUBAGENT HANDLER
+   * Create specialized AI subagents with role-based expertise
+   */
+  async handleSpawnSubagent(args) {
+    // 🔒 INPUT VALIDATION
+    const role = InputValidator.validateEnum(
+      args.role,
+      ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
+      { name: 'role', required: true }
+    );
+    const task = InputValidator.validateString(args.task, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'task'
+    });
+    const file_patterns = args.file_patterns ? InputValidator.validateArray(args.file_patterns, {
+      maxLength: 20,
+      name: 'file_patterns'
+    }) : undefined;
+    const verdict_mode = InputValidator.validateEnum(
+      args.verdict_mode || 'summary',
+      ['summary', 'full'],
+      { name: 'verdict_mode' }
+    );
+
+    console.error(`🤖 Spawning subagent with role: ${role}`);
+    console.error(`📋 Task: ${task.substring(0, 100)}${task.length > 100 ? '...' : ''}`);
+
+    try {
+      // Create subagent handler with router access
+      const handler = new SubagentHandler(this.router);
+
+      // Execute the subagent task
+      const result = await handler.handle({
+        role,
+        task,
+        file_patterns,
+        context: args.context,
+        verdict_mode
+      });
+
+      console.error(`✅ Subagent ${role} completed successfully`);
+
+      return {
+        success: true,
+        role: result.role,
+        role_name: result.role_name,
+        backend_used: result.backend_used,
+        has_verdict: result.has_verdict,
+        verdict: result.verdict,
+        text_content: result.text_content,
+        metadata: result.metadata,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`❌ Subagent ${role} failed: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 async function main() {
-  const server = new MechaKingGhidorahServer();
+  const server = new SmartAIBridgeServer();
   const transport = new StdioServerTransport();
 
-  console.error('🦖 Starting Mecha King Ghidorah Multi-AI v8.2.0...');
+  console.error('🚀 Starting Smart AI Bridge v1.3.0...');
   const stats = server.aliasResolver.getSystemStats();
   console.error(`⚡ ${stats.coreTools} core tools registered, ${stats.aliases} aliases available via SmartAliasResolver`);
   console.error('');
@@ -3542,12 +3691,12 @@ async function main() {
   console.error('   • New Tools: rate_limit_status, system_metrics');
 
   await server.server.connect(transport);
-  console.error('🎉 Mecha King Ghidorah Multi-AI server ready with BLAZING FAST performance!');
+  console.error('🎉 Smart AI Bridge server ready!');
   console.error('🌟 All backends initialized - Smart fallback chains operational!');
 }
 
 // Export for testing
-export { MechaKingGhidorahServer };
+export { SmartAIBridgeServer };
 
 main().catch((error) => {
   console.error('💥 Fatal error:', error);
