@@ -68,7 +68,8 @@ class AskHandler extends BaseHandler {
       max_tokens,
       enable_chunking = false,
       force_backend,
-      model_profile
+      model_profile,
+      auto_profile = false  // Opt-in flag for automatic profile selection
     } = args;
 
     if (!model) {
@@ -99,8 +100,8 @@ class AskHandler extends BaseHandler {
       await this.ensureRouterModel(model_profile, profileInfo);
     }
 
-    // Auto-select default profile based on detected task type (if no explicit profile and using local)
-    if (!routerModelProfile && (model === 'local' || requestedBackend === 'local')) {
+    // Auto-select default profile based on detected task type (OPT-IN: requires auto_profile=true)
+    if (auto_profile && !routerModelProfile && (model === 'local' || requestedBackend === 'local')) {
       const detectedTaskType = this.detectTaskType(prompt);
       const defaultProfile = DEFAULT_PROFILES[detectedTaskType];
       

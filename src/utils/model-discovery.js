@@ -477,6 +477,111 @@ async function getModelSummary(ports = DEFAULT_SCAN_PORTS) {
   }).join('\n');
 }
 
+/**
+ * Get dynamic slot count from llama.cpp router for the currently loaded model
+ * Queries /v1/models and extracts --parallel from the loaded model's args
+ * @param {number} [routerPort=8081] - Router port
+ * @param {number} [timeout=3000] - Request timeout
+ * @returns {Promise<{slots: number, model: string, context: number, status: string}>}
+ */
+async function getRouterSlotCount(routerPort = 8081, timeout = 3000) {
+  try {
+    const response = await fetch(`http://localhost:${routerPort}/v1/models`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(timeout)
+    });
+
+    if (!response.ok) {
+      return { slots: 2, model: 'unknown', context: 0, status: 'router_error' };
+    }
+
+    const data = await response.json();
+    const models = data?.data || [];
+
+    // Find the loaded model (status.value === 'loaded')
+    const loadedModel = models.find(m => m.status?.value === 'loaded');
+
+    if (!loadedModel) {
+      // No model loaded yet, return conservative default
+      return { slots: 2, model: 'none', context: 0, status: 'no_model_loaded' };
+    }
+
+    // Extract --parallel from args array
+    const args = loadedModel.status?.args || [];
+    const parallelIdx = args.indexOf('--parallel');
+    const slots = parallelIdx !== -1 && args[parallelIdx + 1]
+      ? parseInt(args[parallelIdx + 1], 10)
+      : 2; // Conservative default
+
+    // Extract --ctx-size from args array
+    const ctxIdx = args.indexOf('--ctx-size');
+    const context = ctxIdx !== -1 && args[ctxIdx + 1]
+      ? parseInt(args[ctxIdx + 1], 10)
+      : 0;
+
+    return {
+      slots,
+      model: loadedModel.id,
+      context,
+      status: 'loaded'
+    };
+
+  } catch (error) {
+    console.error('[ModelDiscovery] Router slot query failed:', error.message);
+    return { slots: 2, model: 'error', context: 0, status: 'error' };
+  }
+}
+
+/**
+ * Get slot counts for all models in router config (loaded or not)
+ * @param {number} [routerPort=8081] - Router port
+ * @returns {Promise<Map<string, {slots: number, context: number, status: string}>>}
+ */
+async function getAllRouterModelSlots(routerPort = 8081) {
+  const slotMap = new Map();
+
+  try {
+    const response = await fetch(`http://localhost:${routerPort}/v1/models`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(3000)
+    });
+
+    if (!response.ok) return slotMap;
+
+    const data = await response.json();
+    const models = data?.data || [];
+
+    for (const model of models) {
+      const args = model.status?.args || [];
+
+      // Extract --parallel
+      const parallelIdx = args.indexOf('--parallel');
+      const slots = parallelIdx !== -1 && args[parallelIdx + 1]
+        ? parseInt(args[parallelIdx + 1], 10)
+        : 2;
+
+      // Extract --ctx-size
+      const ctxIdx = args.indexOf('--ctx-size');
+      const context = ctxIdx !== -1 && args[ctxIdx + 1]
+        ? parseInt(args[ctxIdx + 1], 10)
+        : 0;
+
+      slotMap.set(model.id, {
+        slots,
+        context,
+        status: model.status?.value || 'unknown'
+      });
+    }
+
+  } catch (error) {
+    console.error('[ModelDiscovery] Failed to get all router model slots:', error.message);
+  }
+
+  return slotMap;
+}
+
 export {
   DEFAULT_SCAN_PORTS,
   SERVER_TYPES,
@@ -490,5 +595,7 @@ export {
   checkIfOrchestrator,
   clearCache,
   getModelSummary,
+  getRouterSlotCount,
+  getAllRouterModelSlots,
   CACHE_TTL
 };

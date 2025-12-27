@@ -18,6 +18,7 @@ import { BaseHandler } from './base-handler.js';
 import { SubagentHandler } from './subagent-handler.js';
 import { ConcurrentRequestManager } from '../utils/concurrent-request-manager.js';
 import { roleTemplates } from '../config/role-templates.js';
+import { getRouterSlotCount } from '../utils/model-discovery.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -33,7 +34,8 @@ class ParallelAgentsHandler extends BaseHandler {
     super(context);
 
     /** @type {ConcurrentRequestManager} */
-    this.concurrentManager = new ConcurrentRequestManager(6); // Max 6 parallel agents
+    // Will be re-initialized with dynamic slot count in execute()
+    this.concurrentManager = new ConcurrentRequestManager(10); // Default, updated dynamically
 
     /** @type {SubagentHandler} */
     this.subagentHandler = new SubagentHandler(context);
@@ -55,7 +57,7 @@ class ParallelAgentsHandler extends BaseHandler {
   async execute(args) {
     const {
       task,
-      max_parallel = 2,
+      max_parallel,  // Now optional - will auto-detect from router
       iterate_until_quality = true,
       max_iterations = 3,
       work_directory
@@ -70,12 +72,31 @@ class ParallelAgentsHandler extends BaseHandler {
         fs.mkdirSync(workDir, { recursive: true });
       }
 
+      // Dynamic slot detection from llama.cpp router
+      let effectiveMaxParallel = max_parallel;
+      let routerInfo = null;
+
+      if (!max_parallel) {
+        routerInfo = await getRouterSlotCount(8081);
+        effectiveMaxParallel = routerInfo.slots;
+        console.error(`[ParallelAgents] Auto-detected ${effectiveMaxParallel} slots from router (model: ${routerInfo.model}, ctx: ${routerInfo.context})`);
+      } else {
+        effectiveMaxParallel = max_parallel;
+      }
+
+      // Safety cap at 10 (reasonable maximum for most setups)
+      effectiveMaxParallel = Math.min(effectiveMaxParallel, 10);
+
+      // Update ConcurrentRequestManager with actual slot count
+      this.concurrentManager = new ConcurrentRequestManager(effectiveMaxParallel);
+
       console.error(`[ParallelAgents] Starting workflow for: ${task.substring(0, 50)}...`);
       console.error(`[ParallelAgents] Work directory: ${workDir}`);
-      console.error(`[ParallelAgents] Max parallel: ${max_parallel}`);
+      console.error(`[ParallelAgents] Max parallel: ${effectiveMaxParallel}${routerInfo ? ' (auto-detected)' : ''}`);
 
       // Stage 1: Decompose task using Worker (Phase 1 learning: not Orchestrator)
-      const decomposed = await this.decompose(task, max_parallel);
+      // Pass slot count so decomposer can batch independent tasks appropriately
+      const decomposed = await this.decompose(task, effectiveMaxParallel);
 
       if (decomposed.error) {
         return this.buildErrorResponse(new Error(decomposed.error), {
@@ -101,7 +122,7 @@ class ParallelAgentsHandler extends BaseHandler {
 
       for (const group of decomposed.parallel_groups || []) {
         console.error(`[ParallelAgents] Executing group ${group.group}: ${group.name || 'unnamed'}`);
-        const groupResults = await this.executeGroup(group, max_parallel);
+        const groupResults = await this.executeGroup(group, effectiveMaxParallel);
         results.groups.push(groupResults);
 
         // Collect outputs
@@ -178,8 +199,11 @@ class ParallelAgentsHandler extends BaseHandler {
         execution: {
           groups_executed: results.groups.length,
           tasks_completed: results.all_outputs.filter(o => o.success).length,
-          tasks_failed: results.all_outputs.filter(o => !o.success).length
+          tasks_failed: results.all_outputs.filter(o => !o.success).length,
+          max_parallel_used: effectiveMaxParallel,
+          slots_auto_detected: !max_parallel
         },
+        router_info: routerInfo || { slots: effectiveMaxParallel, model: 'manual', status: 'specified' },
         quality: {
           verdict: qualityResult.verdict,
           score: qualityResult.score,
@@ -207,13 +231,18 @@ class ParallelAgentsHandler extends BaseHandler {
    * @returns {Promise<Object>}
    */
   async decompose(task, slots) {
-    console.error(`[ParallelAgents] Decomposing task with ${slots} slots`);
+    console.error(`[ParallelAgents] Decomposing task with ${slots} slots available`);
 
     try {
       // Use tdd-decomposer role (routes to Worker per Phase 1 learning)
+      // The role template contains {{SLOTS}} placeholder that SubagentHandler will replace
       const result = await this.subagentHandler.execute({
         role: 'tdd-decomposer',
-        task: `Task: ${task}\nAvailable slots: ${slots}`,
+        task: `Task: ${task}`,
+        context: {
+          available_slots: slots,
+          slot_replacement: { '{{SLOTS}}': String(slots) }  // For template replacement
+        },
         verdict_mode: 'full'
       });
 
@@ -228,12 +257,104 @@ class ParallelAgentsHandler extends BaseHandler {
         return { error: 'JSON parsing failed', raw: result.response };
       }
 
-      return parsed;
+      // Reorganize by phase to maximize parallelism
+      // LLMs tend to group by feature; we force phase-based grouping
+      const reorganized = this.reorganizeByPhase(parsed, slots);
+
+      return reorganized;
 
     } catch (error) {
       console.error(`[ParallelAgents] Decomposition error:`, error);
       return { error: error.message };
     }
+  }
+
+
+  /**
+   * Reorganize decomposition to maximize parallelism by grouping by phase
+   * LLMs tend to group by feature; we force phase-based grouping for better parallelism
+   * @private
+   * @param {Object} decomposed - Original decomposition from LLM
+   * @param {number} maxParallel - Maximum parallel tasks
+   * @returns {Object} - Reorganized decomposition
+   */
+  reorganizeByPhase(decomposed, maxParallel) {
+    if (!decomposed.parallel_groups || decomposed.parallel_groups.length === 0) {
+      return decomposed;
+    }
+
+    // Collect all tasks by phase
+    const tasksByPhase = { RED: [], GREEN: [], REFACTOR: [] };
+    
+    for (const group of decomposed.parallel_groups) {
+      for (const task of group.tasks || []) {
+        const phase = task.phase?.toUpperCase() || 'GREEN';
+        if (tasksByPhase[phase]) {
+          tasksByPhase[phase].push(task);
+        }
+      }
+    }
+
+    // Build new phase-based groups
+    const newGroups = [];
+    let groupNum = 1;
+
+    // RED phase first (all tests in parallel)
+    if (tasksByPhase.RED.length > 0) {
+      // Split into batches if more than maxParallel
+      for (let i = 0; i < tasksByPhase.RED.length; i += maxParallel) {
+        const batch = tasksByPhase.RED.slice(i, i + maxParallel);
+        newGroups.push({
+          group: groupNum++,
+          name: `RED phase - all tests (batch ${Math.floor(i / maxParallel) + 1})`,
+          tasks: batch.map((t, idx) => ({
+            ...t,
+            id: t.id || `R${i + idx + 1}`
+          }))
+        });
+      }
+    }
+
+    // GREEN phase second (all implementations in parallel)
+    if (tasksByPhase.GREEN.length > 0) {
+      for (let i = 0; i < tasksByPhase.GREEN.length; i += maxParallel) {
+        const batch = tasksByPhase.GREEN.slice(i, i + maxParallel);
+        newGroups.push({
+          group: groupNum++,
+          name: `GREEN phase - all implementations (batch ${Math.floor(i / maxParallel) + 1})`,
+          tasks: batch.map((t, idx) => ({
+            ...t,
+            id: t.id || `G${i + idx + 1}`
+          }))
+        });
+      }
+    }
+
+    // REFACTOR phase last (optional)
+    if (tasksByPhase.REFACTOR.length > 0) {
+      for (let i = 0; i < tasksByPhase.REFACTOR.length; i += maxParallel) {
+        const batch = tasksByPhase.REFACTOR.slice(i, i + maxParallel);
+        newGroups.push({
+          group: groupNum++,
+          name: `REFACTOR phase (batch ${Math.floor(i / maxParallel) + 1})`,
+          tasks: batch.map((t, idx) => ({
+            ...t,
+            id: t.id || `F${i + idx + 1}`
+          }))
+        });
+      }
+    }
+
+    const originalTaskCount = decomposed.parallel_groups.reduce((sum, g) => sum + (g.tasks?.length || 0), 0);
+    const newTaskCount = newGroups.reduce((sum, g) => sum + (g.tasks?.length || 0), 0);
+
+    console.error(`[ParallelAgents] Reorganized: ${decomposed.parallel_groups.length} feature-groups → ${newGroups.length} phase-groups (${newTaskCount} tasks)`);
+
+    return {
+      parallel_groups: newGroups,
+      _reorganized: true,
+      _original_groups: decomposed.parallel_groups.length
+    };
   }
 
   /**

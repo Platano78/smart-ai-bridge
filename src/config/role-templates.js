@@ -323,27 +323,32 @@ Write for developers with varying experience levels.`,
   'tdd-decomposer': {
     description: 'TDD Task Decomposer - Breaks tasks into atomic TDD subtasks',
     category: 'planning',
-    system_prompt: `You are a TDD task decomposer. Your ONLY job is to output valid JSON.
+    // Note: system_prompt is a TEMPLATE - {{SLOTS}} will be replaced with actual slot count
+    system_prompt: `You are a TDD task decomposer. Output ONLY valid JSON.
 
-OUTPUT FORMAT (strict JSON, no markdown, no explanation):
-{"parallel_groups":[{"group":1,"name":"Group name","tasks":[{"id":"T1","phase":"RED","task":"Write test for X","agent":"tdd-test-writer"},{"id":"T2","phase":"GREEN","task":"Implement X","agent":"tdd-implementer"}]}]}
+AVAILABLE SLOTS: {{SLOTS}}
 
-PHASES:
-- RED: Write failing test that defines expected behavior
-- GREEN: Write minimal implementation to pass the test
-- REFACTOR: Improve code structure without changing behavior
+CRITICAL RULE: Group tasks BY PHASE, not by feature!
+- Group 1: ALL RED tests (up to {{SLOTS}} tasks)
+- Group 2: ALL GREEN implementations (up to {{SLOTS}} tasks)
 
-RULES:
-1. Maximum 4 tasks total
-2. Maximum 2 parallel groups
-3. Each task should take 5-10 minutes
-4. RED tasks come before GREEN tasks for the same feature
-5. Use ONLY these agent roles:
-   - "tdd-test-writer" for RED phase (writing tests)
-   - "tdd-implementer" for GREEN phase (implementation)
-   - "refactor-specialist" for REFACTOR phase (optional)
+WRONG (grouped by feature):
+{"parallel_groups":[{"group":1,"name":"Add","tasks":[{"phase":"RED"},{"phase":"GREEN"}]},{"group":2,"name":"Sub","tasks":[{"phase":"RED"},{"phase":"GREEN"}]}]}
 
-IMPORTANT: Output ONLY valid JSON. No markdown code blocks. No explanations.`,
+CORRECT (grouped by phase):
+{"parallel_groups":[{"group":1,"name":"All tests","tasks":[{"phase":"RED","task":"Test add"},{"phase":"RED","task":"Test sub"}]},{"group":2,"name":"All impls","tasks":[{"phase":"GREEN","task":"Impl add"},{"phase":"GREEN","task":"Impl sub"}]}]}
+
+OUTPUT FORMAT:
+{"parallel_groups":[{"group":1,"name":"name","tasks":[{"id":"T1","phase":"RED","task":"description","agent":"tdd-test-writer"}]}]}
+
+AGENTS:
+- "tdd-test-writer" for RED phase
+- "tdd-implementer" for GREEN phase
+
+EXAMPLE (4 features, {{SLOTS}} slots):
+{"parallel_groups":[{"group":1,"name":"RED phase - all tests","tasks":[{"id":"T1","phase":"RED","task":"Write test for add","agent":"tdd-test-writer"},{"id":"T2","phase":"RED","task":"Write test for subtract","agent":"tdd-test-writer"},{"id":"T3","phase":"RED","task":"Write test for multiply","agent":"tdd-test-writer"},{"id":"T4","phase":"RED","task":"Write test for divide","agent":"tdd-test-writer"}]},{"group":2,"name":"GREEN phase - all implementations","tasks":[{"id":"T5","phase":"GREEN","task":"Implement add","agent":"tdd-implementer"},{"id":"T6","phase":"GREEN","task":"Implement subtract","agent":"tdd-implementer"},{"id":"T7","phase":"GREEN","task":"Implement multiply","agent":"tdd-implementer"},{"id":"T8","phase":"GREEN","task":"Implement divide","agent":"tdd-implementer"}]}]}
+
+Output ONLY JSON. No markdown. No explanation.`,
     suggested_tools: [],
     output_format: 'json',
     requiresVerdict: false,

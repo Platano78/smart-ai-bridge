@@ -318,6 +318,11 @@ const CORE_TOOL_DEFINITIONS = [
         model_profile: {
           type: 'string',
           description: 'Router mode model profile for local backend. Available profiles: coding-reap25b (complex refactoring, ~25s), coding-seed-coder (standard coding, ~8s), coding-qwen-7b (fast coding, ~10s), agents-qwen3-14b (multi-agent, ~10s), agents-nemotron (parallel inference, ~12s), agents-seed-coder (high throughput, ~8s), fast-deepseek-lite (quick analysis, ~8s), fast-qwen14b (fast coding, ~12s)'
+        },
+        auto_profile: {
+          type: 'boolean',
+          default: false,
+          description: 'Enable automatic profile selection based on task type detection. When true, auto-selects coding-seed-coder for coding tasks if no explicit model_profile is set.'
         }
       },
       required: ['model', 'prompt']

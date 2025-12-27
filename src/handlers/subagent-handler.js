@@ -216,7 +216,16 @@ class SubagentHandler extends BaseHandler {
       parts.push('', '## Output Format', template.output_format);
     }
 
-    return parts.join('\n');
+    // Apply template replacements (e.g., {{SLOTS}} -> actual slot count)
+    let result = parts.join('\n');
+    if (context.slot_replacement) {
+      for (const [placeholder, value] of Object.entries(context.slot_replacement)) {
+        // Simple string replacement - no regex needed for literal placeholders
+        result = result.split(placeholder).join(value);
+      }
+    }
+
+    return result;
   }
 
   /**
