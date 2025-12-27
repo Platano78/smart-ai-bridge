@@ -162,11 +162,13 @@ class ParallelAgentsHandler extends BaseHandler {
 
           console.error(`[ParallelAgents] Quality gate ITERATE (score: ${qualityResult.score})`);
 
-          // Retry failed tasks
+          // Retry failed tasks with specific feedback
           if (qualityResult.retry_tasks && qualityResult.retry_tasks.length > 0) {
             for (const taskId of qualityResult.retry_tasks) {
-              console.error(`[ParallelAgents] Retrying task: ${taskId}`);
-              const retryResult = await this.retryTask(taskId, decomposed, results);
+              // Get per-task feedback if available, otherwise use general issues
+              const taskFeedback = qualityResult.task_issues?.[taskId] || qualityResult.issues || [];
+              console.error(`[ParallelAgents] Retrying task: ${taskId} with ${taskFeedback.length} feedback items`);
+              const retryResult = await this.retryTask(taskId, decomposed, results, taskFeedback);
               if (retryResult) {
                 results.task_results[taskId] = retryResult;
                 results.all_outputs.push(retryResult);
@@ -408,12 +410,14 @@ class ParallelAgentsHandler extends BaseHandler {
   }
 
   /**
-   * Execute a single task
+   * Execute a single task with optional feedback injection
+   * Enhanced: Supports retry with quality feedback for targeted fixes
    * @param {Object} taskDef - Task definition
    * @param {string} uniqueId - Unique task ID (Phase 1 fix: prevents race conditions)
+   * @param {Object} retryContext - Optional retry context with feedback
    * @returns {Promise<Object>}
    */
-  async executeTask(taskDef, uniqueId) {
+  async executeTask(taskDef, uniqueId, retryContext = null) {
     const { id, phase, task, agent } = taskDef;
 
     // Map phase to role
@@ -431,16 +435,35 @@ class ParallelAgentsHandler extends BaseHandler {
       role = 'code-reviewer';  // Default
     }
 
-    console.error(`[ParallelAgents] Executing ${id} (${phase}) with role ${role}`);
+    // Build task prompt - inject feedback if this is a retry
+    let taskPrompt = task;
+    if (retryContext?.isRetry && retryContext.feedback?.length > 0) {
+      const feedbackSection = retryContext.feedback.map((f, i) => `${i + 1}. ${f}`).join('\n');
+      taskPrompt = `${task}
+
+⚠️ RETRY - QUALITY ISSUES TO FIX:
+A quality reviewer found these specific issues with the previous attempt:
+${feedbackSection}
+
+${retryContext.previousOutput ? `PREVIOUS ATTEMPT (for reference):
+${retryContext.previousOutput.substring(0, 500)}...` : ''}
+
+Please address ALL the issues above in your new implementation.`;
+      
+      console.error(`[ParallelAgents] Executing ${id} (${phase}) with role ${role} [RETRY with feedback]`);
+    } else {
+      console.error(`[ParallelAgents] Executing ${id} (${phase}) with role ${role}`);
+    }
 
     try {
       const result = await this.subagentHandler.execute({
         role,
-        task,
+        task: taskPrompt,
         context: {
           task_id: uniqueId,
           phase,
-          original_id: id
+          original_id: id,
+          isRetry: retryContext?.isRetry || false
         },
         verdict_mode: 'full'
       });
@@ -453,7 +476,8 @@ class ParallelAgentsHandler extends BaseHandler {
         role,
         response: result.response,
         backend_used: result.backend_used,
-        processing_time_ms: result.processing_time_ms
+        processing_time_ms: result.processing_time_ms,
+        wasRetry: retryContext?.isRetry || false
       };
 
     } catch (error) {
@@ -464,22 +488,42 @@ class ParallelAgentsHandler extends BaseHandler {
         unique_id: uniqueId,
         phase,
         role,
-        error: error.message
+        error: error.message,
+        wasRetry: retryContext?.isRetry || false
       };
     }
   }
 
   /**
-   * Perform quality review of results
+   * Perform quality review of results with per-task feedback
+   * Enhanced: Returns task_issues map for targeted retry feedback
    * @param {Object} results - Execution results
    * @returns {Promise<Object>}
    */
   async qualityReview(results) {
     try {
-      // Use tdd-quality-reviewer (routes to Orchestrator per Phase 1 learning)
+      // Use tdd-quality-reviewer with enhanced prompt for per-task issues
       const review = await this.subagentHandler.execute({
         role: 'tdd-quality-reviewer',
-        task: `Review these TDD agent outputs and provide quality assessment:\n\n${JSON.stringify(results.task_results, null, 2)}`,
+        task: `Review these TDD agent outputs and provide quality assessment.
+
+IMPORTANT: For each task that needs improvement, provide SPECIFIC actionable feedback.
+
+OUTPUT FORMAT (strict JSON):
+{
+  "verdict": "pass" | "iterate",
+  "score": 0-100,
+  "summary": "Brief overall assessment",
+  "retry_tasks": ["T1", "T3"],
+  "task_issues": {
+    "T1": ["specific issue 1", "specific issue 2"],
+    "T3": ["specific issue for T3"]
+  },
+  "issues": ["general issue 1", "general issue 2"]
+}
+
+TASK OUTPUTS TO REVIEW:
+${JSON.stringify(results.task_results, null, 2)}`,
         verdict_mode: 'full'
       });
 
@@ -488,7 +532,8 @@ class ParallelAgentsHandler extends BaseHandler {
           verdict: 'error',
           score: 0,
           issues: ['Quality review failed'],
-          retry_tasks: []
+          retry_tasks: [],
+          task_issues: {}
         };
       }
 
@@ -499,6 +544,7 @@ class ParallelAgentsHandler extends BaseHandler {
         score: parsed.score || 0,
         issues: parsed.issues || [],
         retry_tasks: parsed.retry_tasks || [],
+        task_issues: parsed.task_issues || {},
         summary: parsed.summary || 'No summary available'
       };
 
@@ -508,19 +554,22 @@ class ParallelAgentsHandler extends BaseHandler {
         verdict: 'error',
         score: 0,
         issues: [error.message],
-        retry_tasks: []
+        retry_tasks: [],
+        task_issues: {}
       };
     }
   }
 
   /**
-   * Retry a failed task
+   * Retry a failed task with quality feedback injection
+   * Enhanced: Passes specific issues to the agent for targeted fixes
    * @param {string} taskId - Task ID to retry
    * @param {Object} decomposed - Original decomposition
    * @param {Object} results - Current results
+   * @param {string[]} feedback - Specific issues to fix (from quality reviewer)
    * @returns {Promise<Object|null>}
    */
-  async retryTask(taskId, decomposed, results) {
+  async retryTask(taskId, decomposed, results, feedback = []) {
     // Find original task definition
     let taskDef = null;
     for (const group of decomposed.parallel_groups || []) {
@@ -537,8 +586,18 @@ class ParallelAgentsHandler extends BaseHandler {
       return null;
     }
 
+    // Get previous output for context
+    const previousOutput = results.task_results[taskId]?.response || null;
+
     const uniqueId = `${taskId}-retry-${Date.now()}`;
-    return this.executeTask(taskDef, uniqueId);
+    
+    console.error(`[ParallelAgents] Retrying ${taskId} with ${feedback.length} feedback items`);
+    
+    return this.executeTask(taskDef, uniqueId, {
+      feedback,
+      previousOutput,
+      isRetry: true
+    });
   }
 
   /**
