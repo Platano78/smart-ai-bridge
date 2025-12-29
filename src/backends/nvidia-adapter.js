@@ -3,7 +3,7 @@
  * @module backends/nvidia-adapter
  *
  * Adapters for NVIDIA cloud backends:
- * - DeepSeek V3.2 Terminus (reasoning)
+ * - DeepSeek V3.2 (reasoning)
  * - Qwen3 Coder 480B (coding)
  */
 
@@ -26,7 +26,7 @@ function calculateDynamicTimeout(maxTokens, thinking = false) {
 }
 
 /**
- * DeepSeek V3.2 adapter
+ * DeepSeek V3.2 adapter (reasoning model)
  */
 class NvidiaDeepSeekAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -36,7 +36,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       url: NVIDIA_BASE_URL,
       apiKey: config.apiKey || process.env.NVIDIA_API_KEY,
       maxTokens: config.maxTokens || 8192,
-      timeout: config.timeout || 60000,
+      timeout: config.timeout || 120000, // Longer timeout for reasoning model
       streaming: true,
       ...config
     });
@@ -89,7 +89,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
     const startTime = Date.now();
 
     try {
-      // Quick connectivity check (3s timeout for cloud)
+      // DeepSeek V3.2 is a reasoning model - needs longer timeout (10s)
       const response = await fetch(this.config.url, {
         method: 'POST',
         headers: this.buildHeaders(),
@@ -98,7 +98,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
           messages: [{ role: 'user', content: 'ping' }],
           max_tokens: 5
         }),
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(10000)
       });
 
       this.lastHealth = {

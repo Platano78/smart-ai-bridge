@@ -102,10 +102,14 @@ class LocalAdapter extends BackendAdapter {
       if (response.ok) {
         const data = await response.json();
         if (data.data && data.data.length > 0) {
-          const modelInfo = data.data[0];
+          // FIX: Find the LOADED model, not just the first one alphabetically
+          // Router mode returns all models but only one is actually loaded
+          const loadedModel = data.data.find(m => m.status?.value === 'loaded');
+          const modelInfo = loadedModel || data.data[0]; // Fallback to first if none loaded
           this.modelId = modelInfo.id;
-          this.model = modelInfo.id; // Use the actual model ID for requests
-          console.error(`✅ LocalAdapter: Model detected: ${this.modelId}`);
+          this.model = modelInfo.id;
+          const status = loadedModel ? '(loaded)' : '(fallback to first)';
+          console.error(`✅ LocalAdapter: Model detected: ${this.modelId} ${status}`);
         }
       }
     } catch (error) {
@@ -186,6 +190,20 @@ class LocalAdapter extends BackendAdapter {
   }
 
   /**
+   * Calculate dynamic timeout based on token count
+   * Local models are slower than cloud - ~30-50 tokens/sec
+   * @param {number} maxTokens - Requested max tokens
+   * @returns {number} Timeout in milliseconds
+   */
+  calculateDynamicTimeout(maxTokens) {
+    // ~25ms per token for local inference (conservative estimate)
+    // This accounts for slower local models and potential queuing
+    const baseMs = maxTokens * 25;
+    // min 60s (model loading buffer), max 10min for large generations
+    return Math.min(Math.max(60000, baseMs), 600000);
+  }
+
+  /**
    * Make request to local llama-server instance
    * @param {string} prompt - Prompt to send
    * @param {Object} [options] - Request options
@@ -198,20 +216,25 @@ class LocalAdapter extends BackendAdapter {
     // Router mode: use routerModel as the model name if provided
     // This tells the router which preset to use
     const modelToUse = options.routerModel || this.model || undefined;
+    const requestedTokens = options.maxTokens || this.config.maxTokens;
 
     const body = {
       model: modelToUse, // Router uses this to select preset
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: options.maxTokens || this.config.maxTokens,
+      max_tokens: requestedTokens,
       temperature: options.temperature || 0.7,
       stream: false
     };
+
+    // Dynamic timeout: options > config > calculated based on token count
+    const timeout = options.timeout
+      || (requestedTokens > 4000 ? this.calculateDynamicTimeout(requestedTokens) : this.config.timeout);
 
     const response = await fetch(this.config.url, {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(timeout)
     });
 
     if (!response.ok) {
@@ -259,7 +282,9 @@ class LocalAdapter extends BackendAdapter {
         try {
           const data = await response.json();
           if (data.data && data.data.length > 0) {
-            const modelInfo = data.data[0];
+            // FIX: Find the LOADED model, not just the first one alphabetically
+            const loadedModel = data.data.find(m => m.status?.value === 'loaded');
+            const modelInfo = loadedModel || data.data[0];
             this.modelId = modelInfo.id;
             this.model = modelInfo.id;
           }
