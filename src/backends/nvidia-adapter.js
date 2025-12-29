@@ -54,12 +54,16 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       throw new Error('NVIDIA_API_KEY not configured');
     }
 
-    // Try V3.2 first, fallback to V3.1-terminus on timeout
+    // Try V3.2 first, fallback to V3.1-terminus on timeout or server error
     try {
       return await this._executeRequest(prompt, this.model, options);
     } catch (error) {
-      if (error.name === 'TimeoutError' || error.message.includes('timeout') || error.message.includes('aborted')) {
-        console.error(`⚠️ DeepSeek V3.2 timed out, falling back to V3.1-terminus...`);
+      const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout') || error.message.includes('aborted');
+      const isServerError = error.message.includes('500') || error.message.includes('502') || error.message.includes('503') || error.message.includes('Internal Server Error');
+
+      if (isTimeout || isServerError) {
+        const reason = isTimeout ? 'timed out' : 'server error';
+        console.error(`⚠️ DeepSeek V3.2 ${reason}, falling back to V3.1-terminus...`);
         return await this._executeRequest(prompt, this.fallbackModel, options, true);
       }
       throw error;
