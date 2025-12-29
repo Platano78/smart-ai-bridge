@@ -85,10 +85,14 @@ export class AnalyzeFileHandler extends BaseHandler {
       console.error(`[AnalyzeFile] 📖 Analyzing ${filePath} (${content.length} chars)`);
       console.error(`[AnalyzeFile] 🎯 Backend: ${selectedBackend}, Type: ${analysisType}${modelProfile ? `, Model: ${modelProfile}` : ''}`);
 
-      // 6. Make request to local LLM via router
+      // 6. Make request to LLM via router
+      // Use longer timeout for file analysis (local can be slow with large files)
+      const timeoutMs = selectedBackend === 'local' ? 300000 : 120000; // 5min local, 2min cloud
+
       const response = await this.makeRequest(prompt, selectedBackend, {
         maxTokens: maxResponseTokens,
-        routerModel: modelProfile  // Pass model profile for llama-swap router
+        routerModel: modelProfile,  // Pass model profile for llama-swap router
+        timeout: timeoutMs
       });
 
       const processingTime = Date.now() - startTime;

@@ -11,8 +11,17 @@
  */
 
 import { BaseHandler } from './base-handler.js';
+import { AnalyzeFileHandler } from './analyze-file-handler.js';
 import fs from 'fs/promises';
 import path from 'path';
+
+// Map analysis_type to LLM questions
+const ANALYSIS_TYPE_QUESTIONS = {
+  relationships: 'Analyze this file and identify all imports, exports, dependencies, and relationships with other modules. List class inheritance, interface implementations, and external dependencies.',
+  structure: 'Analyze the structure of this file. List all classes, functions, methods, interfaces, and their signatures. Include visibility modifiers and return types.',
+  summary: 'Provide a concise summary of what this file does, its main purpose, and key components.',
+  architecture: 'Analyze the architectural patterns used in this file. Identify design patterns, SOLID principles compliance, and potential architectural issues.'
+};
 
 class ReadHandler extends BaseHandler {
   constructor(context) {
@@ -34,12 +43,6 @@ class ReadHandler extends BaseHandler {
    * @returns {Promise<Object>}
    */
   async execute(args) {
-    // Deprecation warning
-    console.error('\x1b[33m⚠️  DEPRECATED: read() is deprecated since MKG v9.0\x1b[0m');
-    console.error('\x1b[33m   Use analyze_file() for ~90% token savings.\x1b[0m');
-    console.error('\x1b[33m   The new tool routes analysis to local LLMs instead of Claude.\x1b[0m');
-    console.error('');
-
     const {
       file_paths,
       max_files = 10,
@@ -52,6 +55,17 @@ class ReadHandler extends BaseHandler {
     if (!file_paths || file_paths.length === 0) {
       throw new Error('file_paths is required');
     }
+
+    // Route non-content analysis to LLM-based AnalyzeFileHandler
+    if (analysis_type !== 'content' && ANALYSIS_TYPE_QUESTIONS[analysis_type]) {
+      console.error(`[ReadHandler] 🔄 Routing '${analysis_type}' analysis to LLM...`);
+      return this.delegateToLLMAnalysis(file_paths, analysis_type, max_files);
+    }
+
+    // For 'content' type, show deprecation warning and use legacy approach
+    console.error('\x1b[33m⚠️  DEPRECATED: read() with analysis_type=content is deprecated since MKG v9.0\x1b[0m');
+    console.error('\x1b[33m   Use analyze_file() for ~90% token savings.\x1b[0m');
+    console.error('');
 
     const perFileLimit = Math.floor(this.TOKEN_LIMIT / Math.min(file_paths.length, max_files));
 
@@ -148,6 +162,70 @@ class ReadHandler extends BaseHandler {
       files_processed: results.length,
       results,
       metadata
+    });
+  }
+
+  /**
+   * Delegate analysis to LLM-based AnalyzeFileHandler
+   * @private
+   * @param {string[]} filePaths - Files to analyze
+   * @param {string} analysisType - Type of analysis
+   * @param {number} maxFiles - Maximum files to process
+   * @returns {Promise<Object>}
+   */
+  async delegateToLLMAnalysis(filePaths, analysisType, maxFiles) {
+    const analyzeHandler = new AnalyzeFileHandler(this.context);
+    const question = ANALYSIS_TYPE_QUESTIONS[analysisType];
+    const results = [];
+    const startTime = Date.now();
+
+    for (const filePath of filePaths.slice(0, maxFiles)) {
+      try {
+        const result = await analyzeHandler.execute({
+          filePath,
+          question,
+          options: {
+            backend: 'local',  // Use local LLM (free, no token cost)
+            analysisType: analysisType === 'relationships' ? 'architecture' : 'general',
+            maxResponseTokens: 1500  // Keep responses concise
+          }
+        });
+
+        if (result.success) {
+          results.push({
+            file_path: filePath,
+            summary: result.summary,
+            findings: result.findings,
+            confidence: result.confidence,
+            suggestedActions: result.suggestedActions,
+            backend_used: result.backend_used,
+            tokens_saved: result.tokens_saved
+          });
+        } else {
+          results.push({
+            file_path: filePath,
+            error: result.error || 'Analysis failed'
+          });
+        }
+      } catch (error) {
+        results.push({
+          file_path: filePath,
+          error: error.message
+        });
+      }
+    }
+
+    const totalTokensSaved = results.reduce((sum, r) => sum + (r.tokens_saved || 0), 0);
+
+    return this.buildSuccessResponse({
+      analysis_type: analysisType,
+      files_processed: results.length,
+      results,
+      metadata: {
+        llm_powered: true,
+        total_tokens_saved: totalTokensSaved,
+        processing_time_ms: Date.now() - startTime
+      }
     });
   }
 
