@@ -14,15 +14,18 @@ const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 /**
  * Calculate dynamic timeout based on requested max_tokens
  * @param {number} maxTokens - Maximum tokens to generate
+ * @param {boolean} thinking - Whether thinking/reasoning mode is enabled
  * @returns {number} Timeout in milliseconds
  */
 function calculateDynamicTimeout(maxTokens, thinking = false) {
-  // ~15ms per token (NVIDIA generates ~50-100 t/s)
-  // Thinking mode adds 2x multiplier for reasoning overhead
-  const baseMs = maxTokens * 15;
-  const withThinking = thinking ? baseMs * 2 : baseMs;
-  // min 30s, max 5min
-  return Math.min(Math.max(30000, withThinking), 300000);
+  // NVIDIA cloud models (480B-685B params) are slower than local inference
+  // Realistic: ~30-50ms per token including queue time + cold start
+  // For 8000 tokens: 8000 * 40 = 320s = ~5.3 min
+  const baseMs = maxTokens * 40;
+  // Thinking mode (DeepSeek V3.2) adds reasoning overhead
+  const withThinking = thinking ? baseMs * 1.5 : baseMs;
+  // min 60s, max 10min (NVIDIA large models can queue)
+  return Math.min(Math.max(60000, withThinking), 600000);
 }
 
 /**
@@ -41,7 +44,9 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       ...config
     });
 
+    // Primary: DeepSeek V3.2, Fallback: V3.1-terminus
     this.model = 'deepseek-ai/deepseek-v3.2';
+    this.fallbackModel = 'deepseek-ai/deepseek-v3.1-terminus';
   }
 
   async makeRequest(prompt, options = {}) {
@@ -49,25 +54,42 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       throw new Error('NVIDIA_API_KEY not configured');
     }
 
+    // Try V3.2 first, fallback to V3.1-terminus on timeout
+    try {
+      return await this._executeRequest(prompt, this.model, options);
+    } catch (error) {
+      if (error.name === 'TimeoutError' || error.message.includes('timeout') || error.message.includes('aborted')) {
+        console.error(`⚠️ DeepSeek V3.2 timed out, falling back to V3.1-terminus...`);
+        return await this._executeRequest(prompt, this.fallbackModel, options, true);
+      }
+      throw error;
+    }
+  }
+
+  async _executeRequest(prompt, model, options = {}, isFallback = false) {
+    // V3.1-terminus uses different params (from NVIDIA docs)
+    const isTerminus = model.includes('terminus');
+
     const body = {
-      model: this.model,
+      model: model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: options.maxTokens || this.config.maxTokens,
-      temperature: options.temperature || 1,
-      top_p: 0.95,
+      temperature: isTerminus ? 0.2 : (options.temperature || 1),
+      top_p: isTerminus ? 0.7 : 0.95,
       stream: false
     };
 
-    // Add thinking mode if requested (V3.2 format)
-    if (options.thinking) {
+    // Add thinking mode (both V3.2 and V3.1-terminus support it)
+    if (options.thinking !== false) {
       body.extra_body = { chat_template_kwargs: { thinking: true } };
     }
 
-    // Dynamic timeout: options > env var > dynamic calculation
+    // Dynamic timeout - shorter for fallback since V3.1-terminus is faster
     const requestedTokens = options.maxTokens || this.config.maxTokens;
+    const baseTimeout = isFallback ? 60000 : calculateDynamicTimeout(requestedTokens, options.thinking);
     const timeout = options.timeout
       || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
-      || calculateDynamicTimeout(requestedTokens, options.thinking);
+      || baseTimeout;
 
     const response = await fetch(this.config.url, {
       method: 'POST',
@@ -78,11 +100,18 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`NVIDIA DeepSeek error: ${response.status} - ${error}`);
+      throw new Error(`NVIDIA DeepSeek error (${model}): ${response.status} - ${error}`);
     }
 
     const data = await response.json();
-    return this.parseResponse(data);
+    const result = this.parseResponse(data);
+
+    // Add metadata about which model was used
+    result.metadata = result.metadata || {};
+    result.metadata.model = model;
+    result.metadata.wasFallback = isFallback;
+
+    return result;
   }
 
   async checkHealth() {
@@ -137,7 +166,8 @@ class NvidiaQwenAdapter extends BackendAdapter {
       ...config
     });
 
-    this.model = 'qwen/qwen3-235b-a22b';
+    // Qwen3 Coder 480B - coding-optimized model (not the base qwen3-235b)
+    this.model = 'qwen/qwen3-coder-480b-a35b-instruct';
   }
 
   async makeRequest(prompt, options = {}) {
@@ -150,6 +180,7 @@ class NvidiaQwenAdapter extends BackendAdapter {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: options.maxTokens || this.config.maxTokens,
       temperature: options.temperature || 0.7,
+      top_p: options.top_p || 0.8,  // NVIDIA recommended for Qwen3 Coder
       stream: false
     };
 
@@ -179,6 +210,7 @@ class NvidiaQwenAdapter extends BackendAdapter {
     const startTime = Date.now();
 
     try {
+      // Qwen3 Coder 480B is a large model - needs longer timeout (8s)
       const response = await fetch(this.config.url, {
         method: 'POST',
         headers: this.buildHeaders(),
@@ -187,7 +219,7 @@ class NvidiaQwenAdapter extends BackendAdapter {
           messages: [{ role: 'user', content: 'ping' }],
           max_tokens: 5
         }),
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(8000)
       });
 
       this.lastHealth = {
