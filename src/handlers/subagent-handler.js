@@ -366,11 +366,12 @@ class SubagentHandler extends BaseHandler {
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
       // Try to reach local endpoint (vLLM or LM Studio)
+      // Priority: llama.cpp (8081) first, then vLLM (8000), then LM Studio (1234)
       const endpoints = [
-        'http://localhost:8000/v1/models',  // vLLM
-        'http://localhost:1234/v1/models',  // LM Studio
-        'http://127.0.0.1:8000/v1/models',
-        'http://127.0.0.1:1234/v1/models'
+        'http://127.0.0.1:8081/v1/models',  // llama.cpp router
+        'http://127.0.0.1:8081/health',     // llama.cpp health endpoint
+        'http://127.0.0.1:8000/v1/models',  // vLLM
+        'http://127.0.0.1:1234/v1/models'   // LM Studio
       ];
 
       for (const endpoint of endpoints) {

@@ -26,7 +26,7 @@
       "context_limit": 65536,
       "strengths": "Large context, free inference",
       "config": {
-        "url": "http://localhost:8081/v1/chat/completions",
+        "url": "http://127.0.0.1:8081/v1/chat/completions",
         "model": "dynamic",
         "maxTokens": 65536,
         "timeout": 120000

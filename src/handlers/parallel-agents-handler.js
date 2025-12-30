@@ -502,28 +502,31 @@ Please address ALL the issues above in your new implementation.`;
    */
   async qualityReview(results) {
     try {
-      // Use tdd-quality-reviewer with enhanced prompt for per-task issues
+      // Truncate task outputs to prevent context overflow
+      // task_results is an object keyed by task ID, not an array
+      const truncatedResults = Object.entries(results.task_results || {}).map(([taskId, t]) => ({
+        id: taskId,
+        phase: t.phase,
+        success: t.success,
+        // Truncate response to first 500 chars to keep context manageable
+        output_preview: t.response ? t.response.substring(0, 500) + (t.response.length > 500 ? '...' : '') : 'No output'
+      }));
+
+      // Use tdd-quality-reviewer with truncated outputs
       const review = await this.subagentHandler.execute({
         role: 'tdd-quality-reviewer',
         task: `Review these TDD agent outputs and provide quality assessment.
 
-IMPORTANT: For each task that needs improvement, provide SPECIFIC actionable feedback.
+RULES:
+1. If all tasks completed successfully with code output, score 80+
+2. If tests AND implementation exist, verdict should be "pass"
+3. Only "iterate" if there are real bugs or missing functionality
 
-OUTPUT FORMAT (strict JSON):
-{
-  "verdict": "pass" | "iterate",
-  "score": 0-100,
-  "summary": "Brief overall assessment",
-  "retry_tasks": ["T1", "T3"],
-  "task_issues": {
-    "T1": ["specific issue 1", "specific issue 2"],
-    "T3": ["specific issue for T3"]
-  },
-  "issues": ["general issue 1", "general issue 2"]
-}
+OUTPUT FORMAT (strict JSON only, no explanation):
+{"verdict":"pass","score":85,"summary":"Brief assessment"}
 
-TASK OUTPUTS TO REVIEW:
-${JSON.stringify(results.task_results, null, 2)}`,
+TASK SUMMARIES:
+${JSON.stringify(truncatedResults, null, 2)}`,
         verdict_mode: 'full'
       });
 

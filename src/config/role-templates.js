@@ -60,11 +60,11 @@ Provide constructive feedback with specific line numbers and improvement suggest
 - **Reasoning**: [Brief explanation]`,
     requiresVerdict: true,
     enableThinking: true,
-    maxTokens: 16384,
+    maxTokens: 32768,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+    fallback_order: ['local', 'nvidia_qwen', 'gemini']
   },
 
   'security-auditor': {
@@ -111,11 +111,11 @@ For each finding, provide:
 - **Reasoning**: [Brief explanation]`,
     requiresVerdict: true,
     enableThinking: true,
-    maxTokens: 16384,
+    maxTokens: 32768,
     // Dynamic capability-based backend selection
     required_capabilities: ['deep_reasoning', 'security_focus'],
     context_sensitivity: 'medium',
-    fallback_order: ['nvidia_deepseek', 'nvidia_qwen', 'local']
+    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_qwen']
   },
 
   'planner': {
@@ -165,11 +165,11 @@ Create clear, actionable plans that developers can follow immediately.`,
 [Time estimates for sequential and parallel execution]`,
     requiresVerdict: false,
     enableThinking: true,
-    maxTokens: 32768, // Larger for comprehensive plans
+    maxTokens: 65536, // Larger for comprehensive plans
     // Dynamic capability-based backend selection with context awareness
     required_capabilities: ['deep_reasoning'],
     context_sensitivity: 'high',  // Triggers context-based routing
-    fallback_order: ['nvidia_deepseek', 'nvidia_qwen', 'local'],
+    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_qwen'],
     // Context-aware routing rules
     routing_rules: {
       small_task: { prefer: 'nvidia_deepseek', reason: 'Deep reasoning for architecture' },
@@ -217,11 +217,11 @@ Provide refactored code with clear before/after comparisons and explanations.`,
 - **Recommendation**: APPLY|REVIEW_FURTHER|DEFER`,
     requiresVerdict: true,
     enableThinking: true,
-    maxTokens: 16384,
+    maxTokens: 32768,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+    fallback_order: ['local', 'nvidia_qwen', 'gemini']
   },
 
   'test-generator': {
@@ -264,11 +264,11 @@ Use appropriate testing frameworks and follow testing best practices.`,
 - **Additional Tests Needed**: [List if any]`,
     requiresVerdict: true,
     enableThinking: false, // Fast generation
-    maxTokens: 16384,
+    maxTokens: 32768,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['nvidia_qwen', 'local', 'gemini']
+    fallback_order: ['local', 'nvidia_qwen', 'gemini']
   },
 
   'documentation-writer': {
@@ -309,11 +309,11 @@ Write for developers with varying experience levels.`,
 [Common issues and solutions]`,
     requiresVerdict: false,
     enableThinking: false,
-    maxTokens: 32768,
+    maxTokens: 65536,
     // Dynamic capability-based backend selection
     required_capabilities: ['fast_generation', 'documentation'],
     context_sensitivity: 'low',
-    fallback_order: ['gemini', 'nvidia_qwen', 'local']
+    fallback_order: ['local', 'nvidia_qwen', 'gemini']
   },
 
   // ===========================================
@@ -364,17 +364,29 @@ Output ONLY JSON. No markdown. No explanation.`,
     category: 'generation',
     system_prompt: `You are a TDD test writer operating in the RED phase.
 
-Your job is to write FAILING tests that define expected behavior BEFORE implementation exists.
+Your job is to write COMPREHENSIVE, FAILING tests that define expected behavior BEFORE implementation exists.
 
 GUIDELINES:
-1. Use pytest/unittest patterns for Python, Jest for JavaScript
-2. Write clear, descriptive test names that explain expected behavior
-3. Cover happy path, edge cases, and error conditions
+1. Use pytest/unittest patterns for Python, Jest for JavaScript, appropriate frameworks for other languages
+2. Write clear, descriptive test names that explain expected behavior (test_should_X_when_Y pattern)
+3. Cover ALL scenarios:
+   - Happy path (normal valid inputs)
+   - Edge cases (empty, null, boundary values)
+   - Error conditions (invalid inputs, exceptions)
+   - Type validation (wrong types should fail gracefully)
 4. Tests should FAIL because the implementation doesn't exist yet
-5. Each test should be atomic and test ONE thing
-6. Include setup/teardown as needed
+5. Each test should be atomic and test ONE specific behavior
+6. Include comprehensive setup/teardown and fixtures
+7. Add docstrings explaining what each test validates
+8. Use parametrized tests for similar cases
 
-OUTPUT: Complete, runnable test code. Include imports and any necessary fixtures.`,
+QUALITY REQUIREMENTS:
+- Minimum 5 test cases per function/feature
+- At least 1 edge case test
+- At least 1 error handling test
+- All tests must be runnable independently
+
+OUTPUT: Complete, runnable test code with imports, fixtures, and comprehensive docstrings.`,
     suggested_tools: [
       'read',           // Read existing code for context
       'write_files_atomic'  // Write test files
@@ -382,7 +394,7 @@ OUTPUT: Complete, runnable test code. Include imports and any necessary fixtures
     output_format: 'code',
     requiresVerdict: false,
     enableThinking: true,
-    maxTokens: 4096,
+    maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
     fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
@@ -393,17 +405,27 @@ OUTPUT: Complete, runnable test code. Include imports and any necessary fixtures
     category: 'generation',
     system_prompt: `You are a TDD implementer operating in the GREEN phase.
 
-Your job is to write the MINIMAL code needed to make failing tests pass.
+Your job is to write COMPLETE, WORKING code that makes all tests pass.
 
 GUIDELINES:
-1. Do NOT over-engineer - just make the tests pass
-2. Keep it simple - no premature optimization
-3. Follow existing code patterns and style
-4. Add docstrings/comments only where necessary
-5. The goal is "make it work" not "make it perfect"
-6. Refactoring comes in a separate phase
+1. Make ALL tests pass - this is the primary goal
+2. Keep it simple but COMPLETE - don't leave stubs or TODOs
+3. Follow existing code patterns and style conventions
+4. Add comprehensive docstrings explaining the implementation
+5. Include proper type hints/annotations where applicable
+6. Handle edge cases that tests cover
+7. Use defensive programming for error cases
+8. The goal is "make it work correctly" with clean code
 
-OUTPUT: Complete, working implementation code that passes the tests.`,
+QUALITY REQUIREMENTS:
+- All test cases must pass
+- No placeholder/stub code
+- Proper error handling for edge cases
+- Clear docstrings on all public functions
+- Follow language-specific best practices
+- Input validation where appropriate
+
+OUTPUT: Complete, working, production-quality implementation code with docstrings.`,
     suggested_tools: [
       'read',           // Read tests and existing code
       'write_files_atomic'  // Write implementation
@@ -411,7 +433,7 @@ OUTPUT: Complete, working implementation code that passes the tests.`,
     output_format: 'code',
     requiresVerdict: false,
     enableThinking: true,
-    maxTokens: 4096,
+    maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
     fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
@@ -442,28 +464,31 @@ OUTPUT FORMAT (strict JSON):
   "summary": "Brief quality assessment"
 }
 
-SCORING CRITERIA:
-- 90-100: Excellent, production ready
-- 70-89: Good, minor improvements possible
-- 50-69: Acceptable, needs iteration
-- 0-49: Poor, must retry
+SCORING CRITERIA (be generous for working code):
+- 85-100: Excellent - tests pass, code works, good structure
+- 70-84: Good - minor issues but functional, PASS with notes
+- 50-69: Needs work - missing tests or broken implementation
+- 0-49: Poor - fundamentally broken, must retry
 
-EVALUATION FACTORS:
-1. Tests cover requirements (for RED phase outputs)
-2. Implementation is minimal but complete (for GREEN phase)
-3. Code follows style guidelines
-4. No obvious bugs or security issues
-5. Documentation is adequate
+IMPORTANT: If the code WORKS and tests PASS, score should be 80+.
+Don't penalize for style preferences or "nice to have" improvements.
 
-Be strict but pragmatic. Real-world code doesn't need to be perfect.`,
+EVALUATION FACTORS (weighted):
+1. [40%] Tests cover core requirements (happy path + basic edge cases)
+2. [40%] Implementation passes tests and handles errors
+3. [10%] Code follows reasonable style (not nitpicky)
+4. [10%] Basic documentation present
+
+Be PRAGMATIC not perfectionist. Working code > perfect code.
+If it works and is readable, score 80+. Only iterate for real issues.`,
     suggested_tools: ['ask'],  // Can query for clarification
     output_format: 'json',
     requiresVerdict: true,
-    enableThinking: true,  // Reasoning helps quality review
-    maxTokens: 1024,
-    required_capabilities: ['deep_reasoning'],
+    enableThinking: false,  // DISABLED: Prevents timeout, JSON output only
+    maxTokens: 2048,  // Reduced - only needs JSON output
+    required_capabilities: ['code_specialized'],  // Changed from deep_reasoning
     context_sensitivity: 'low',
-    fallback_order: ['nvidia_deepseek', 'nvidia_qwen']  // Orchestrator-class
+    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
   }
 };
 

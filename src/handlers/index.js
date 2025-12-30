@@ -33,6 +33,9 @@ import { BatchAnalyzeHandler } from './batch-analyze-handler.js';
 import { BatchModifyHandler } from './batch-modify-handler.js';
 import { RefactorHandler } from './refactor-handler.js';
 
+// MKG v9.1: Image Generation (Stable Diffusion)
+import { GenerateImageHandler, SdStatusHandler } from './image-generation-handler.js';
+
 /**
  * Handler class registry mapping handler names to classes
  */
@@ -59,7 +62,11 @@ const HANDLER_REGISTRY = {
   'handleModifyFile': ModifyFileHandler,
   'handleBatchAnalyze': BatchAnalyzeHandler,
   'handleBatchModify': BatchModifyHandler,
-  'handleRefactor': RefactorHandler
+  'handleRefactor': RefactorHandler,
+
+  // MKG v9.1: Image Generation (Stable Diffusion)
+  'handleGenerateImage': GenerateImageHandler,
+  'handleSdStatus': SdStatusHandler
 };
 
 /**
@@ -176,6 +183,10 @@ export {
   BatchAnalyzeHandler,
   BatchModifyHandler,
   RefactorHandler,
+
+  // MKG v9.1: Image Generation (Stable Diffusion)
+  GenerateImageHandler,
+  SdStatusHandler,
 
   // Registry and factory
   HANDLER_REGISTRY,

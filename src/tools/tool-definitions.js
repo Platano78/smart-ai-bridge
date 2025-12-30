@@ -834,6 +834,57 @@ const CORE_TOOL_DEFINITIONS = [
       },
       required: ['scope', 'target', 'instructions']
     }
+  },
+  // 🖼️ IMAGE GENERATION TOOLS - Stable Diffusion Integration
+  {
+    name: 'generate_image',
+    description: '🖼️ Generate images using local Stable Diffusion (FLUX.1-dev) - Create high-quality images from text prompts. Runs on local GPU (RTX 5080). Server must be running on port 8084.',
+    handler: 'handleGenerateImage',
+    schema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Text description of the image to generate'
+        },
+        size: {
+          type: 'string',
+          enum: ['256x256', '512x512', '768x768', '1024x1024'],
+          default: '512x512',
+          description: 'Image dimensions (width x height)'
+        },
+        steps: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 50,
+          default: 20,
+          description: 'Number of diffusion steps (more = higher quality but slower)'
+        },
+        cfg_scale: {
+          type: 'number',
+          minimum: 0,
+          maximum: 20,
+          default: 1.0,
+          description: 'Classifier-free guidance scale (1.0 recommended for FLUX)'
+        },
+        seed: {
+          type: 'integer',
+          default: -1,
+          description: 'Random seed (-1 for random)'
+        }
+      },
+      required: ['prompt']
+    }
+  },
+  {
+    name: 'sd_status',
+    description: '🖼️ Check Stable Diffusion server status - Returns whether the SD server is running and ready to generate images.',
+    handler: 'handleSdStatus',
+    schema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
   }
 ];
 

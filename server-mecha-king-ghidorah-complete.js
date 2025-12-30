@@ -573,6 +573,57 @@ class SmartAliasResolver {
           },
           required: ['prompt', 'topic']
         }
+      },
+      // 🖼️ IMAGE GENERATION TOOLS - Stable Diffusion Integration
+      {
+        name: 'generate_image',
+        description: '🖼️ Generate images using local Stable Diffusion (FLUX.1-dev) - Create high-quality images from text prompts. Runs on local GPU (RTX 5080). Server must be running on port 8084.',
+        handler: 'handleGenerateImage',
+        schema: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              description: 'Text description of the image to generate'
+            },
+            size: {
+              type: 'string',
+              enum: ['256x256', '512x512', '768x768', '1024x1024'],
+              default: '512x512',
+              description: 'Image dimensions (width x height)'
+            },
+            steps: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 20,
+              description: 'Number of diffusion steps (more = higher quality but slower)'
+            },
+            cfg_scale: {
+              type: 'number',
+              minimum: 0,
+              maximum: 20,
+              default: 1.0,
+              description: 'Classifier-free guidance scale (1.0 recommended for FLUX)'
+            },
+            seed: {
+              type: 'integer',
+              default: -1,
+              description: 'Random seed (-1 for random)'
+            }
+          },
+          required: ['prompt']
+        }
+      },
+      {
+        name: 'sd_status',
+        description: '🖼️ Check Stable Diffusion server status - Returns whether the SD server is running and ready to generate images.',
+        handler: 'handleSdStatus',
+        schema: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
       }
     ];
 
@@ -1059,7 +1110,7 @@ class EnhancedAIRouter {
         priority: 2,
         maxTokens: 128000,
         specialization: 'analysis',
-        model: 'deepseek-ai/deepseek-v3.1'
+        model: 'deepseek-ai/deepseek-v3.2'
       },
       nvidia_qwen: {
         name: 'NVIDIA-Qwen-3-Coder-480B',
@@ -1278,13 +1329,20 @@ class EnhancedAIRouter {
 
     const isNvidia = endpointKey.startsWith('nvidia_');
 
+    const maxTokens = Math.min(options.maxTokens || 4096, endpoint.maxTokens);
+
     const requestBody = {
-      model: isNvidia ? (endpointKey === 'nvidia_deepseek' ? 'deepseek-ai/deepseek-v3.1' : 'qwen/qwen3-coder-480b-a35b-instruct') : 'qwen2.5-coder-7b-fp8-dynamic',
+      model: isNvidia ? (endpointKey === 'nvidia_deepseek' ? 'deepseek-ai/deepseek-v3.2' : 'qwen/qwen3-coder-480b-a35b-instruct') : 'qwen2.5-coder-7b-fp8-dynamic',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: Math.min(options.maxTokens || 4096, endpoint.maxTokens),
+      max_tokens: maxTokens,
       temperature: options.temperature || 0.7,
       stream: false
     };
+
+    // Add top_p for Qwen3 Coder (NVIDIA recommended)
+    if (endpointKey === 'nvidia_qwen') {
+      requestBody.top_p = 0.8;
+    }
 
     // Add extra_body for DeepSeek thinking mode
     if (endpointKey === 'nvidia_deepseek' && options.thinking !== false) {
@@ -1297,11 +1355,13 @@ class EnhancedAIRouter {
     };
 
     console.error(`🚀 Calling ${endpoint.name} at ${endpoint.url}...`);
-    console.error(`🚀 DEBUG: endpointKey=${endpointKey}, isNvidia=${isNvidia}, model=${requestBody.model}`);
-    console.error(`🚀 DEBUG: Full requestBody:`, JSON.stringify(requestBody, null, 2));
 
-    // Create timeout protection using AbortController
-    const timeoutMs = options.timeout || 30000; // Default 30s timeout
+    // Dynamic timeout: NVIDIA cloud models (480B-685B) need ~40ms/token + queue time
+    // For 8000 tokens: 8000 * 40 = 320s; thinking mode adds 1.5x
+    const isThinking = endpointKey === 'nvidia_deepseek' && options.thinking !== false;
+    const baseTimeout = maxTokens * 40; // 40ms per token for large cloud models
+    const calculatedTimeout = isThinking ? baseTimeout * 1.5 : baseTimeout;
+    const timeoutMs = options.timeout || Math.min(Math.max(60000, calculatedTimeout), 600000); // min 60s, max 10min
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -2632,6 +2692,103 @@ Provide specific, actionable feedback.`;
 
   async handleBackupRestore(args) {
     return await this.fileManager.orchestrateOperation('backup_restore', args);
+  }
+
+  // 🖼️ IMAGE GENERATION HANDLERS - Stable Diffusion Integration
+  async handleGenerateImage(args) {
+    const {
+      prompt,
+      size = '512x512',
+      steps = 20,
+      cfg_scale = 1.0,
+      seed = -1
+    } = args;
+
+    console.error(`🖼️ Generating image: "${prompt.substring(0, 50)}..."`);
+
+    try {
+      // Call the Python MCP wrapper
+      const { execSync } = require('child_process');
+      const wrapperPath = '/home/platano/project/stable-diffusion.cpp/mcp_wrapper.py';
+
+      const mcpArgs = JSON.stringify({
+        prompt,
+        size,
+        steps,
+        cfg_scale,
+        seed
+      });
+
+      const result = execSync(
+        `python3 "${wrapperPath}" mcp sd_generate_image --args '${mcpArgs.replace(/'/g, "'\\''")}'`,
+        {
+          encoding: 'utf-8',
+          timeout: 300000,  // 5 minute timeout for image generation
+          maxBuffer: 50 * 1024 * 1024  // 50MB buffer for base64 images
+        }
+      );
+
+      const parsed = JSON.parse(result);
+
+      return {
+        success: true,
+        tool: 'generate_image',
+        ...parsed,
+        mkg_metadata: {
+          handler: 'handleGenerateImage',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      console.error(`❌ Image generation failed:`, error.message);
+      return {
+        success: false,
+        tool: 'generate_image',
+        error: error.message,
+        prompt: prompt,
+        hint: 'Make sure SD server is running: start-sd-server.sh start'
+      };
+    }
+  }
+
+  async handleSdStatus(args) {
+    console.error(`🖼️ Checking SD server status...`);
+
+    try {
+      const { execSync } = require('child_process');
+      const wrapperPath = '/home/platano/project/stable-diffusion.cpp/mcp_wrapper.py';
+
+      const result = execSync(
+        `python3 "${wrapperPath}" mcp sd_check_status --args '{}'`,
+        {
+          encoding: 'utf-8',
+          timeout: 10000  // 10 second timeout for status check
+        }
+      );
+
+      const parsed = JSON.parse(result);
+
+      return {
+        success: true,
+        tool: 'sd_status',
+        ...parsed,
+        mkg_metadata: {
+          handler: 'handleSdStatus',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      console.error(`❌ SD status check failed:`, error.message);
+      return {
+        success: false,
+        tool: 'sd_status',
+        online: false,
+        error: error.message,
+        hint: 'SD server may not be running. Start with: start-sd-server.sh start'
+      };
+    }
   }
 
   async handleAsk(args) {
