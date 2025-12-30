@@ -448,6 +448,15 @@ const CORE_TOOL_DEFINITIONS = [
           enum: ['summary', 'full'],
           default: 'summary',
           description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+        },
+        write_files: {
+          type: 'boolean',
+          default: false,
+          description: 'Write generated code blocks to files (default: false). Set to true to save output code to work_directory.'
+        },
+        work_directory: {
+          type: 'string',
+          description: 'Directory for generated files (default: /tmp/subagent-{role}-{timestamp})'
         }
       },
       required: ['role', 'task']
@@ -482,6 +491,11 @@ const CORE_TOOL_DEFINITIONS = [
           minimum: 1,
           maximum: 5,
           description: 'Maximum quality gate iterations (prevents infinite loops)'
+        },
+        write_files: {
+          type: 'boolean',
+          default: true,
+          description: 'Write generated code to files in work_directory (default: true). Files are organized by phase (red/green/refactor subdirectories).'
         },
         work_directory: {
           type: 'string',

@@ -51,6 +51,7 @@ class ParallelAgentsHandler extends BaseHandler {
    * @param {number} [args.max_parallel=2] - Maximum parallel agents
    * @param {boolean} [args.iterate_until_quality=true] - Enable quality iteration
    * @param {number} [args.max_iterations=3] - Maximum quality iterations
+   * @param {boolean} [args.write_files=true] - Write generated code to files
    * @param {string} [args.work_directory] - Optional work directory
    * @returns {Promise<Object>}
    */
@@ -60,8 +61,12 @@ class ParallelAgentsHandler extends BaseHandler {
       max_parallel,  // Now optional - will auto-detect from router
       iterate_until_quality = true,
       max_iterations = 3,
-      work_directory
+      work_directory,
+      write_files = true  // NEW: Write generated code to files (default: true)
     } = args;
+
+    // Store write_files setting for use in executeGroup/executeTask
+    this.writeFilesEnabled = write_files;
 
     const startTime = Date.now();
     const workDir = work_directory || `/tmp/parallel-agents-${Date.now()}`;
@@ -122,7 +127,7 @@ class ParallelAgentsHandler extends BaseHandler {
 
       for (const group of decomposed.parallel_groups || []) {
         console.error(`[ParallelAgents] Executing group ${group.group}: ${group.name || 'unnamed'}`);
-        const groupResults = await this.executeGroup(group, effectiveMaxParallel);
+        const groupResults = await this.executeGroup(group, effectiveMaxParallel, workDir);
         results.groups.push(groupResults);
 
         // Collect outputs
@@ -195,6 +200,11 @@ class ParallelAgentsHandler extends BaseHandler {
 
       const processingTime = Date.now() - startTime;
 
+      // Collect all written files from task outputs
+      const allWrittenFiles = results.all_outputs
+        .filter(o => o.files_written && o.files_written.length > 0)
+        .flatMap(o => o.files_written);
+
       return this.buildSuccessResponse({
         task,
         decomposition: decomposed,
@@ -203,7 +213,9 @@ class ParallelAgentsHandler extends BaseHandler {
           tasks_completed: results.all_outputs.filter(o => o.success).length,
           tasks_failed: results.all_outputs.filter(o => !o.success).length,
           max_parallel_used: effectiveMaxParallel,
-          slots_auto_detected: !max_parallel
+          slots_auto_detected: !max_parallel,
+          files_written: allWrittenFiles.length,  // NEW: Count of files written
+          write_files_enabled: write_files
         },
         router_info: routerInfo || { slots: effectiveMaxParallel, model: 'manual', status: 'specified' },
         quality: {
@@ -212,6 +224,7 @@ class ParallelAgentsHandler extends BaseHandler {
           iterations: iteration + (iterate_until_quality ? 1 : 0)
         },
         synthesis,
+        files: allWrittenFiles,  // NEW: List of all written files
         work_directory: workDir,
         processing_time_ms: processingTime,
         metrics: this.concurrentManager.getMetrics()
@@ -363,9 +376,10 @@ class ParallelAgentsHandler extends BaseHandler {
    * Execute a group of tasks in parallel
    * @param {Object} group - Group definition
    * @param {number} maxParallel - Maximum parallel tasks
+   * @param {string} workDir - Work directory for file output
    * @returns {Promise<Object>}
    */
-  async executeGroup(group, maxParallel) {
+  async executeGroup(group, maxParallel, workDir) {
     const tasks = group.tasks || [];
     const outputs = [];
 
@@ -380,7 +394,7 @@ class ParallelAgentsHandler extends BaseHandler {
       const promises = batch.map((taskDef, idx) => {
         const uniqueId = `${group.group}-${taskDef.id || idx}-${Date.now()}`;
         return this.concurrentManager.executeRequest(
-          this.executeTask(taskDef, uniqueId),
+          this.executeTask(taskDef, uniqueId, null, workDir),
           'normal'
         );
       });
@@ -412,12 +426,14 @@ class ParallelAgentsHandler extends BaseHandler {
   /**
    * Execute a single task with optional feedback injection
    * Enhanced: Supports retry with quality feedback for targeted fixes
+   * Enhanced: Writes generated code to files when write_files is enabled
    * @param {Object} taskDef - Task definition
    * @param {string} uniqueId - Unique task ID (Phase 1 fix: prevents race conditions)
    * @param {Object} retryContext - Optional retry context with feedback
+   * @param {string} workDir - Work directory for file output
    * @returns {Promise<Object>}
    */
-  async executeTask(taskDef, uniqueId, retryContext = null) {
+  async executeTask(taskDef, uniqueId, retryContext = null, workDir = null) {
     const { id, phase, task, agent } = taskDef;
 
     // Map phase to role
@@ -468,6 +484,16 @@ Please address ALL the issues above in your new implementation.`;
         verdict_mode: 'full'
       });
 
+      // NEW: Write generated code to files if enabled and successful
+      let writtenFiles = [];
+      if (result.success && this.writeFilesEnabled && workDir && result.response) {
+        const codeBlocks = this.parseCodeBlocks(result.response);
+        if (codeBlocks.length > 0) {
+          writtenFiles = this.writeGeneratedFiles(codeBlocks, workDir, id, phase || 'output');
+          console.error(`[ParallelAgents] Task ${id}: Wrote ${writtenFiles.length} files`);
+        }
+      }
+
       return {
         success: result.success,
         task_id: id,
@@ -477,7 +503,8 @@ Please address ALL the issues above in your new implementation.`;
         response: result.response,
         backend_used: result.backend_used,
         processing_time_ms: result.processing_time_ms,
-        wasRetry: retryContext?.isRetry || false
+        wasRetry: retryContext?.isRetry || false,
+        files_written: writtenFiles  // NEW: Include written files in output
       };
 
     } catch (error) {
@@ -689,6 +716,120 @@ ${JSON.stringify(truncatedResults, null, 2)}`,
         parseError: parseError.message
       };
     }
+  }
+
+
+  /**
+   * Parse code blocks from LLM response
+   * Extracts code with language hints and optional filename from comments
+   * @param {string} response - Raw LLM response containing code blocks
+   * @returns {Array<{language: string, filename: string|null, code: string}>}
+   */
+  parseCodeBlocks(response) {
+    if (!response || typeof response !== 'string') {
+      return [];
+    }
+
+    const codeBlocks = [];
+    // Match ```language ... ``` blocks
+    const regex = /```(\w+)?\s*\n([\s\S]*?)```/g;
+    let match;
+
+    while ((match = regex.exec(response)) !== null) {
+      const language = match[1] || 'txt';
+      const code = match[2].trim();
+      
+      // Try to extract filename from first comment line
+      let filename = null;
+      const lines = code.split('\n');
+      const firstLine = lines[0] || '';
+      
+      // Check for filename patterns: # filename.py, // filename.js, /* filename */
+      const filenamePatterns = [
+        /^#\s*(\S+\.\w+)/,           // # filename.py
+        /^\/\/\s*(\S+\.\w+)/,        // // filename.js
+        /^\/\*\s*(\S+\.\w+)/,        // /* filename.js
+        /^['"]?(\S+\.\w+)['"]?$/,    // 'filename.py' or filename.py
+        /^@file(?:name)?\s+(\S+\.\w+)/i  // @file filename.py
+      ];
+
+      for (const pattern of filenamePatterns) {
+        const filenameMatch = firstLine.match(pattern);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+          break;
+        }
+      }
+
+      // Generate filename from language if not found
+      if (!filename) {
+        const extensions = {
+          javascript: 'js', typescript: 'ts', python: 'py',
+          java: 'java', csharp: 'cs', cpp: 'cpp', c: 'c',
+          rust: 'rs', go: 'go', ruby: 'rb', php: 'php',
+          swift: 'swift', kotlin: 'kt', scala: 'scala',
+          html: 'html', css: 'css', scss: 'scss',
+          json: 'json', yaml: 'yaml', xml: 'xml',
+          sql: 'sql', bash: 'sh', shell: 'sh', sh: 'sh'
+        };
+        const ext = extensions[language.toLowerCase()] || language.toLowerCase() || 'txt';
+        filename = `generated_${codeBlocks.length + 1}.${ext}`;
+      }
+
+      codeBlocks.push({ language, filename, code });
+    }
+
+    return codeBlocks;
+  }
+
+  /**
+   * Write generated code blocks to files in work directory
+   * @param {Array} codeBlocks - Parsed code blocks from parseCodeBlocks
+   * @param {string} workDir - Work directory path
+   * @param {string} taskId - Task ID for organizing files
+   * @param {string} phase - Task phase (RED/GREEN/REFACTOR)
+   * @returns {Array<{path: string, filename: string, language: string, bytes: number}>}
+   */
+  writeGeneratedFiles(codeBlocks, workDir, taskId, phase = 'output') {
+    const writtenFiles = [];
+    
+    // Create phase subdirectory
+    const phaseDir = path.join(workDir, phase.toLowerCase());
+    if (!fs.existsSync(phaseDir)) {
+      fs.mkdirSync(phaseDir, { recursive: true });
+    }
+
+    for (const block of codeBlocks) {
+      try {
+        // Sanitize filename
+        const safeFilename = block.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = path.join(phaseDir, safeFilename);
+        
+        // Handle duplicate filenames by adding task ID prefix
+        let finalPath = filePath;
+        if (fs.existsSync(filePath)) {
+          const ext = path.extname(safeFilename);
+          const base = path.basename(safeFilename, ext);
+          finalPath = path.join(phaseDir, `${base}_${taskId}${ext}`);
+        }
+
+        fs.writeFileSync(finalPath, block.code, 'utf8');
+        
+        writtenFiles.push({
+          path: finalPath,
+          filename: path.basename(finalPath),
+          language: block.language,
+          bytes: Buffer.byteLength(block.code, 'utf8')
+        });
+
+        console.error(`[ParallelAgents] Wrote file: ${finalPath} (${block.language}, ${writtenFiles[writtenFiles.length - 1].bytes} bytes)`);
+
+      } catch (error) {
+        console.error(`[ParallelAgents] Failed to write ${block.filename}:`, error.message);
+      }
+    }
+
+    return writtenFiles;
   }
 
   /**

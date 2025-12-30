@@ -7,7 +7,7 @@
  * suggested tools, and specialized behavior.
  */
 
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { BaseHandler } from './base-handler.js';
 import { roleTemplates } from '../config/role-templates.js';
@@ -45,6 +45,8 @@ class SubagentHandler extends BaseHandler {
    * @param {string[]} [args.file_patterns] - Glob patterns for files to analyze
    * @param {Object} [args.context] - Additional context for subagent
    * @param {string} [args.verdict_mode='summary'] - Verdict parsing mode (summary|full)
+   * @param {boolean} [args.write_files=false] - Write generated code to files
+   * @param {string} [args.work_directory] - Directory for generated files
    * @returns {Promise<Object>}
    */
   async execute(args) {
@@ -53,7 +55,9 @@ class SubagentHandler extends BaseHandler {
       task,
       file_patterns = [],
       context = {},
-      verdict_mode = 'summary'
+      verdict_mode = 'summary',
+      write_files = false,  // Default false for spawn_subagent (explicit opt-in)
+      work_directory
     } = args;
 
     // Handle auto-role selection
@@ -116,6 +120,17 @@ class SubagentHandler extends BaseHandler {
       const processingTime = Date.now() - startTime;
       this.metrics.recordSpawnSuccess(role, processingTime);
 
+      // NEW: Write generated code to files if enabled
+      let writtenFiles = [];
+      if (write_files && responseContent) {
+        const workDir = work_directory || `/tmp/subagent-${role}-${Date.now()}`;
+        const codeBlocks = this.parseCodeBlocks(responseContent);
+        if (codeBlocks.length > 0) {
+          writtenFiles = this.writeGeneratedFiles(codeBlocks, workDir, role);
+          console.error(`[SubagentHandler] Wrote ${writtenFiles.length} files to ${workDir}`);
+        }
+      }
+
       const result = this.buildSuccessResponse({
         role,
         task,
@@ -123,6 +138,8 @@ class SubagentHandler extends BaseHandler {
         response: responseContent,
         verdict,
         files_analyzed: fileContents.length,
+        files_written: writtenFiles,  // NEW: Include written files
+        work_directory: write_files ? (work_directory || `/tmp/subagent-${role}-${Date.now()}`) : null,
         suggested_tools: template.suggested_tools,
         processing_time_ms: processingTime,
         metrics: this.metrics.getMetricsSummary()
@@ -569,6 +586,112 @@ Best role:`;
 
     console.log(`[SubagentHandler] Total files read: ${contents.length}, total size: ${totalSize} bytes`);
     return contents;
+  }
+
+  /**
+   * Parse code blocks from LLM response
+   * Extracts code with language hints and optional filename from comments
+   * @param {string} response - Raw LLM response containing code blocks
+   * @returns {Array<{language: string, filename: string|null, code: string}>}
+   */
+  parseCodeBlocks(response) {
+    if (!response || typeof response !== 'string') {
+      return [];
+    }
+
+    const codeBlocks = [];
+    const regex = /```(\w+)?\s*\n([\s\S]*?)```/g;
+    let match;
+
+    while ((match = regex.exec(response)) !== null) {
+      const language = match[1] || 'txt';
+      const code = match[2].trim();
+
+      // Try to extract filename from first comment line
+      let filename = null;
+      const lines = code.split('\n');
+      const firstLine = lines[0] || '';
+
+      const filenamePatterns = [
+        /^#\s*(\S+\.\w+)/,
+        /^\/\/\s*(\S+\.\w+)/,
+        /^\/\*\s*(\S+\.\w+)/,
+        /^['"]?(\S+\.\w+)['"]?$/,
+        /^@file(?:name)?\s+(\S+\.\w+)/i
+      ];
+
+      for (const pattern of filenamePatterns) {
+        const filenameMatch = firstLine.match(pattern);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+          break;
+        }
+      }
+
+      if (!filename) {
+        const extensions = {
+          javascript: 'js', typescript: 'ts', python: 'py',
+          java: 'java', csharp: 'cs', cpp: 'cpp', c: 'c',
+          rust: 'rs', go: 'go', ruby: 'rb', php: 'php',
+          swift: 'swift', kotlin: 'kt', scala: 'scala',
+          html: 'html', css: 'css', scss: 'scss',
+          json: 'json', yaml: 'yaml', xml: 'xml',
+          sql: 'sql', bash: 'sh', shell: 'sh', sh: 'sh'
+        };
+        const ext = extensions[language.toLowerCase()] || language.toLowerCase() || 'txt';
+        filename = `generated_${codeBlocks.length + 1}.${ext}`;
+      }
+
+      codeBlocks.push({ language, filename, code });
+    }
+
+    return codeBlocks;
+  }
+
+  /**
+   * Write generated code blocks to files
+   * @param {Array} codeBlocks - Parsed code blocks
+   * @param {string} workDir - Work directory path
+   * @param {string} role - Role name for organizing files
+   * @returns {Array<{path: string, filename: string, language: string, bytes: number}>}
+   */
+  writeGeneratedFiles(codeBlocks, workDir, role) {
+    const writtenFiles = [];
+
+    // Ensure work directory exists
+    if (!existsSync(workDir)) {
+      mkdirSync(workDir, { recursive: true });
+    }
+
+    for (const block of codeBlocks) {
+      try {
+        const safeFilename = block.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        let filePath = path.join(workDir, safeFilename);
+
+        // Handle duplicates
+        if (existsSync(filePath)) {
+          const ext = path.extname(safeFilename);
+          const base = path.basename(safeFilename, ext);
+          filePath = path.join(workDir, `${base}_${Date.now()}${ext}`);
+        }
+
+        writeFileSync(filePath, block.code, 'utf8');
+
+        writtenFiles.push({
+          path: filePath,
+          filename: path.basename(filePath),
+          language: block.language,
+          bytes: Buffer.byteLength(block.code, 'utf8')
+        });
+
+        console.error(`[SubagentHandler] Wrote: ${filePath} (${block.language}, ${writtenFiles[writtenFiles.length - 1].bytes} bytes)`);
+
+      } catch (error) {
+        console.error(`[SubagentHandler] Failed to write ${block.filename}:`, error.message);
+      }
+    }
+
+    return writtenFiles;
   }
 }
 
