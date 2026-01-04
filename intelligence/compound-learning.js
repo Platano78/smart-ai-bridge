@@ -1,11 +1,13 @@
 /**
- * Smart AI Bridge v1.3.0 - Compound Learning Engine
- * 
+ * Smart AI Bridge v1.6.0 - Compound Learning Engine
+ *
  * Self-improving backend routing through outcome tracking:
  * 1. Outcome Tracking - Records success/failure of backend selections
  * 2. Confidence Adjustment - Updates backend weights using EMA
  * 3. Pattern Recognition - Identifies task patterns that predict success
  * 4. Adaptive Routing - Learns optimal backend for each pattern
+ * 5. Complexity Detection - Auto-detect task complexity from prompts (v1.6.0)
+ * 6. Pattern Decay - Old patterns lose weight over time (v1.6.0)
  *
  * Ported from MKG V2 compound-learning.js
  * Adapted for Smart AI Bridge's backend adapter architecture
@@ -13,6 +15,38 @@
 
 import fs from 'fs';
 import path from 'path';
+
+/**
+ * Complexity detection keywords
+ */
+const COMPLEXITY_SIGNALS = {
+  high: [
+    'implement', 'architect', 'refactor', 'optimize', 'migrate',
+    'security', 'performance', 'concurrent', 'distributed', 'async',
+    'database', 'authentication', 'authorization', 'encrypt', 'scale'
+  ],
+  medium: [
+    'create', 'add', 'update', 'modify', 'fix', 'bug', 'feature',
+    'test', 'validate', 'check', 'parse', 'format', 'convert'
+  ],
+  low: [
+    'explain', 'describe', 'list', 'show', 'print', 'log',
+    'simple', 'basic', 'hello', 'example', 'demo'
+  ]
+};
+
+/**
+ * Task type detection patterns
+ */
+const TASK_TYPE_PATTERNS = {
+  coding: /\b(code|function|class|method|implement|write|create|generate)\b/i,
+  debugging: /\b(bug|fix|error|issue|problem|crash|fail)\b/i,
+  review: /\b(review|check|audit|analyze|inspect|quality)\b/i,
+  documentation: /\b(document|readme|comment|explain|describe)\b/i,
+  testing: /\b(test|spec|unit|integration|e2e|coverage)\b/i,
+  refactoring: /\b(refactor|clean|improve|optimize|modernize)\b/i,
+  architecture: /\b(architect|design|pattern|structure|system)\b/i
+};
 
 /**
  * Feedback types for routing outcomes
@@ -36,6 +70,9 @@ class CompoundLearningEngine {
       emaAlpha: config.emaAlpha || 0.2,          // Exponential moving average factor
       minSamples: config.minSamples || 5,         // Min samples before recommending
       confidenceThreshold: config.confidenceThreshold || 0.6, // Min confidence for recommendation
+      decayEnabled: config.decayEnabled ?? true,  // Enable pattern decay (v1.6.0)
+      decayFactor: config.decayFactor || 0.95,    // Decay multiplier per day (v1.6.0)
+      maxPatternAge: config.maxPatternAge || 30,  // Max pattern age in days (v1.6.0)
       ...config
     };
 
@@ -43,12 +80,147 @@ class CompoundLearningEngine {
     this.backendMetrics = {};    // Per-backend performance metrics
     this.taskPatterns = {};      // Task pattern → outcome mapping
     this.routingHistory = [];    // Recent routing decisions
+    this.lastDecayTime = Date.now(); // Track last decay application
 
     // Ensure data directory exists
     this._ensureDataDir();
 
     // Load persisted state
     this._loadState();
+
+    // Apply decay on load if enabled
+    if (this.config.decayEnabled) {
+      this._applyPatternDecay();
+    }
+  }
+
+  /**
+   * Analyze a prompt to detect complexity and task type (v1.6.0)
+   * @param {string} prompt - The prompt text to analyze
+   * @returns {Object} Detected context {complexity, taskType, confidence}
+   */
+  analyzePrompt(prompt) {
+    if (!prompt || typeof prompt !== 'string') {
+      return { complexity: 'medium', taskType: 'general', confidence: 0.3 };
+    }
+
+    const normalizedPrompt = prompt.toLowerCase();
+    const complexity = this._detectComplexity(normalizedPrompt);
+    const taskType = this._detectTaskType(normalizedPrompt);
+
+    // Calculate confidence based on signal strength
+    const signalCount = this._countSignals(normalizedPrompt);
+    const confidence = Math.min(0.9, 0.4 + signalCount * 0.1);
+
+    return { complexity, taskType, confidence };
+  }
+
+  /**
+   * Detect complexity from prompt text (v1.6.0)
+   * @private
+   */
+  _detectComplexity(text) {
+    const scores = { high: 0, medium: 0, low: 0 };
+
+    for (const [level, keywords] of Object.entries(COMPLEXITY_SIGNALS)) {
+      for (const keyword of keywords) {
+        if (text.includes(keyword)) {
+          scores[level]++;
+        }
+      }
+    }
+
+    // Factor in prompt length
+    if (text.length > 1000) scores.high += 2;
+    else if (text.length > 500) scores.medium += 1;
+    else if (text.length < 100) scores.low += 1;
+
+    // Determine winner
+    if (scores.high >= scores.medium && scores.high >= scores.low) return 'high';
+    if (scores.low > scores.medium && scores.low > scores.high) return 'low';
+    return 'medium';
+  }
+
+  /**
+   * Detect task type from prompt text (v1.6.0)
+   * @private
+   */
+  _detectTaskType(text) {
+    const matches = {};
+
+    for (const [type, pattern] of Object.entries(TASK_TYPE_PATTERNS)) {
+      const matchCount = (text.match(pattern) || []).length;
+      if (matchCount > 0) {
+        matches[type] = matchCount;
+      }
+    }
+
+    // Find best match
+    let bestType = 'general';
+    let bestCount = 0;
+
+    for (const [type, count] of Object.entries(matches)) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestType = type;
+      }
+    }
+
+    return bestType;
+  }
+
+  /**
+   * Count complexity signals in text (v1.6.0)
+   * @private
+   */
+  _countSignals(text) {
+    let count = 0;
+    for (const keywords of Object.values(COMPLEXITY_SIGNALS)) {
+      for (const keyword of keywords) {
+        if (text.includes(keyword)) count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Apply decay to old patterns (v1.6.0)
+   * Patterns lose weight over time to adapt to changing conditions
+   * @private
+   */
+  _applyPatternDecay() {
+    const now = Date.now();
+    const daysSinceLastDecay = (now - this.lastDecayTime) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceLastDecay < 1) return; // Only apply once per day
+
+    const decayMultiplier = Math.pow(this.config.decayFactor, daysSinceLastDecay);
+    const maxAgeMs = this.config.maxPatternAge * 24 * 60 * 60 * 1000;
+    const patternsToRemove = [];
+
+    for (const [patternKey, pattern] of Object.entries(this.taskPatterns)) {
+      // Check if pattern is too old
+      if (pattern.lastUpdated && (now - pattern.lastUpdated) > maxAgeMs) {
+        patternsToRemove.push(patternKey);
+        continue;
+      }
+
+      // Apply decay to success sums
+      for (const backend of Object.keys(pattern.backendPerformance)) {
+        pattern.backendPerformance[backend].successSum *= decayMultiplier;
+      }
+    }
+
+    // Remove stale patterns
+    for (const key of patternsToRemove) {
+      delete this.taskPatterns[key];
+    }
+
+    this.lastDecayTime = now;
+
+    if (patternsToRemove.length > 0) {
+      console.error(`[CompoundLearning] Removed ${patternsToRemove.length} stale patterns`);
+    }
   }
 
   /**
@@ -182,12 +354,15 @@ class CompoundLearningEngine {
     if (!this.taskPatterns[patternKey]) {
       this.taskPatterns[patternKey] = {
         backendPerformance: {},
-        totalSamples: 0
+        totalSamples: 0,
+        createdAt: Date.now(),
+        lastUpdated: Date.now()
       };
     }
 
     const pattern = this.taskPatterns[patternKey];
     pattern.totalSamples++;
+    pattern.lastUpdated = Date.now(); // v1.6.0: Track last update for decay
 
     if (!pattern.backendPerformance[backend]) {
       pattern.backendPerformance[backend] = { calls: 0, successSum: 0 };

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Smart AI Bridge v1.3.0
+ * Smart AI Bridge v1.6.0
  * Intelligent Multi-Backend AI Router with Learning Capabilities
  *
  * FEATURES:
@@ -68,6 +68,18 @@ import {
 // v1.3.0 Features - Learning Engine & Subagent System
 import { CompoundLearningEngine } from './intelligence/compound-learning.js';
 import { SubagentHandler } from './handlers/subagent-handler.js';
+import { AnalyzeFileHandler } from './handlers/analyze-file-handler.js';
+import { ModifyFileHandler } from './handlers/modify-file-handler.js';
+import { BatchModifyHandler } from './handlers/batch-modify-handler.js';
+
+// v1.5.0 Features - Advanced Multi-AI Workflows
+import { CouncilHandler } from './handlers/council-handler.js';
+import { DualIterateHandler } from './handlers/dual-iterate-handler.js';
+import { ParallelAgentsHandler } from './handlers/parallel-agents-handler.js';
+
+// v1.6.0 Features - Intelligence Systems
+import { PatternRAGStore } from './intelligence/pattern-rag-store.js';
+import { PlaybookSystem } from './intelligence/playbook-system.js';
 
 /**
  * Sanitizes sensitive data from logs
@@ -261,65 +273,9 @@ class SmartAliasResolver {
    */
   initializeCoreTools() {
     const coreToolDefinitions = [
-      {
-        name: 'review',
-        description: '👀 Comprehensive code review - Security audit, performance analysis, best practices validation. Multi-file correlation analysis. Automated quality scoring and improvement suggestions.',
-        handler: 'handleReview',
-        schema: {
-          type: 'object',
-          properties: {
-            content: { type: 'string', description: 'Code content to review' },
-            file_path: { type: 'string', description: 'File path for context' },
-            language: { type: 'string', description: 'Programming language hint' },
-            review_type: {
-              type: 'string',
-              enum: ['security', 'performance', 'quality', 'comprehensive'],
-              default: 'comprehensive'
-            }
-          },
-          required: ['content']
-        }
-      },
-      {
-        name: 'read',
-        description: '📖 Intelligent file operations - Smart context management with automatic chunking. Multi-file reading with relationship detection. Project structure analysis. Enhanced with fuzzy matching verification for pre-flight edit validation.',
-        handler: 'handleRead',
-        schema: {
-          type: 'object',
-          properties: {
-            file_paths: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Array of file paths to read'
-            },
-            max_files: { type: 'number', default: 10 },
-            analysis_type: {
-              type: 'string',
-              enum: ['content', 'structure', 'relationships', 'summary'],
-              default: 'content'
-            },
-            verify_texts: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Optional array of text strings to verify existence in files for pre-flight edit validation'
-            },
-            verification_mode: {
-              type: 'string',
-              enum: ['basic', 'fuzzy', 'comprehensive'],
-              default: 'fuzzy',
-              description: 'Verification mode: basic (exact match only), fuzzy (includes similarity matching), comprehensive (fuzzy + suggestions)'
-            },
-            fuzzy_threshold: {
-              type: 'number',
-              default: 0.8,
-              minimum: 0.1,
-              maximum: 1.0,
-              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
-            }
-          },
-          required: ['file_paths']
-        }
-      },
+      // NOTE: 'review' and 'read' tools REMOVED in v1.6.0
+      // - review: Use 'ask' with review prompt instead
+      // - read: Use Claude's native Read tool instead
       {
         name: 'health',
         description: '🏥 System health and diagnostics - Differentiated health monitoring with optimized performance. Local endpoints get comprehensive inference testing (10s timeout), cloud endpoints get quick connectivity pings (3s timeout). Features performance metrics, NVIDIA cloud integration status, smart routing analytics, and FileModificationManager operation tracking.',
@@ -368,129 +324,10 @@ class SmartAliasResolver {
           required: ['file_operations']
         }
       },
-      {
-        name: 'edit_file',
-        description: '🔧 ENHANCED Intelligent file editing - FileModificationManager orchestrated operations with smart AI routing. AI-powered targeted modifications with validation, rollback capability, and complexity-based endpoint selection for optimal performance.',
-        handler: 'handleEditFile',
-        schema: {
-          type: 'object',
-          properties: {
-            file_path: { type: 'string' },
-            edits: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  find: { type: 'string' },
-                  replace: { type: 'string' },
-                  description: { type: 'string' }
-                },
-                required: ['find', 'replace']
-              }
-            },
-            language: { type: 'string' },
-            validation_mode: {
-              type: 'string',
-              enum: ['strict', 'lenient', 'dry_run'],
-              default: 'strict'
-            },
-            fuzzy_threshold: {
-              type: 'number',
-              minimum: 0.1,
-              maximum: 1.0,
-              default: 0.8,
-              description: 'Similarity threshold for fuzzy matching (0.1-1.0, higher = more strict)'
-            },
-            suggest_alternatives: {
-              type: 'boolean',
-              default: true,
-              description: 'Include fuzzy match suggestions in error messages'
-            },
-            max_suggestions: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 10,
-              default: 3,
-              description: 'Maximum number of fuzzy match suggestions to provide'
-            }
-          },
-          required: ['file_path', 'edits']
-        }
-      },
-      {
-        name: 'validate_changes',
-        description: '✅ Pre-flight validation for code changes - AI-powered syntax checking and impact analysis using DialoGPT-small. Validates proposed modifications before implementation.',
-        handler: 'handleValidateChanges',
-        schema: {
-          type: 'object',
-          properties: {
-            file_path: { type: 'string' },
-            proposed_changes: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  find: { type: 'string' },
-                  replace: { type: 'string' },
-                  line_number: { type: 'number' }
-                },
-                required: ['find', 'replace']
-              }
-            },
-            language: { type: 'string' },
-            validation_rules: {
-              type: 'array',
-              items: { type: 'string' },
-              default: ['syntax', 'logic', 'security', 'performance']
-            }
-          },
-          required: ['file_path', 'proposed_changes']
-        }
-      },
-      {
-        name: 'multi_edit',
-        description: '🔄 ENHANCED Atomic batch operations - FileModificationManager orchestrator with parallel processing and smart AI routing. Enterprise-grade multi-file editing with NVIDIA cloud escalation for complex operations, AI validation, and automatic rollback.',
-        handler: 'handleMultiEdit',
-        schema: {
-          type: 'object',
-          properties: {
-            file_operations: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  file_path: { type: 'string' },
-                  edits: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        find: { type: 'string' },
-                        replace: { type: 'string' },
-                        description: { type: 'string' }
-                      },
-                      required: ['find', 'replace']
-                    }
-                  }
-                },
-                required: ['file_path', 'edits']
-              }
-            },
-            transaction_mode: {
-              type: 'string',
-              enum: ['all_or_nothing', 'best_effort', 'dry_run'],
-              default: 'all_or_nothing'
-            },
-            validation_level: {
-              type: 'string',
-              enum: ['strict', 'lenient', 'none'],
-              default: 'strict'
-            },
-            parallel_processing: { type: 'boolean', default: true }
-          },
-          required: ['file_operations']
-        }
-      },
+      // NOTE: 'edit_file', 'validate_changes', 'multi_edit' tools REMOVED in v1.6.0
+      // - edit_file: Use Claude's native Edit tool instead
+      // - validate_changes: Use 'ask' with validation prompt instead
+      // - multi_edit: Use Claude's native Edit tool (multiple times) instead
       {
         name: 'backup_restore',
         description: '💾 Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
@@ -583,15 +420,15 @@ class SmartAliasResolver {
       },
       {
         name: 'spawn_subagent',
-        description: '🤖 Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+        description: '🤖 Spawn specialized AI subagent - Create subagents with predefined roles. v1.5.0 adds TDD roles: tdd-decomposer, tdd-test-writer, tdd-implementer, tdd-quality-reviewer.',
         handler: 'handleSpawnSubagent',
         schema: {
           type: 'object',
           properties: {
             role: {
               type: 'string',
-              enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
-              description: 'Subagent role: code-reviewer (quality review), security-auditor (vulnerability detection), planner (task breakdown), refactor-specialist (code improvement), test-generator (test creation), documentation-writer (docs generation)'
+              enum: ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer', 'tdd-decomposer', 'tdd-test-writer', 'tdd-implementer', 'tdd-quality-reviewer'],
+              description: 'Subagent role: code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer, tdd-decomposer (break into subtasks), tdd-test-writer (RED phase), tdd-implementer (GREEN phase), tdd-quality-reviewer (quality gate)'
             },
             task: {
               type: 'string',
@@ -614,6 +451,357 @@ class SmartAliasResolver {
             }
           },
           required: ['role', 'task']
+        }
+      },
+      // v1.5.0 - Advanced Multi-AI Workflow Tools
+      {
+        name: 'council',
+        description: '🏛️ Multi-AI Council - Get consensus from multiple AI backends on complex questions. Topic-based routing (coding/reasoning/architecture), configurable confidence levels.',
+        handler: 'handleCouncil',
+        schema: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              description: 'The question or topic for the council to deliberate on'
+            },
+            topic: {
+              type: 'string',
+              enum: ['coding', 'reasoning', 'architecture', 'security', 'performance', 'general', 'creative'],
+              default: 'general',
+              description: 'Topic category determines which backends are consulted'
+            },
+            confidence_needed: {
+              type: 'string',
+              enum: ['high', 'medium', 'low'],
+              default: 'medium',
+              description: 'Required confidence level: high (4 backends), medium (3), low (2)'
+            },
+            num_backends: {
+              type: 'number',
+              minimum: 2,
+              maximum: 6,
+              description: 'Override number of backends (optional)'
+            },
+            max_tokens: {
+              type: 'number',
+              default: 4000,
+              description: 'Max tokens per backend response'
+            }
+          },
+          required: ['prompt', 'topic']
+        }
+      },
+      {
+        name: 'dual_iterate',
+        description: '🔄 Dual Iterate - Generate→Review→Fix loop with dual backends. Coding backend generates, reasoning backend reviews, iterate until quality threshold met. Returns only final approved code.',
+        handler: 'handleDualIterate',
+        schema: {
+          type: 'object',
+          properties: {
+            task: {
+              type: 'string',
+              description: 'Code generation task description'
+            },
+            max_iterations: {
+              type: 'number',
+              minimum: 1,
+              maximum: 5,
+              default: 3,
+              description: 'Maximum review iterations'
+            },
+            quality_threshold: {
+              type: 'number',
+              minimum: 0.5,
+              maximum: 1.0,
+              default: 0.7,
+              description: 'Quality threshold for accepting code'
+            },
+            include_history: {
+              type: 'boolean',
+              default: false,
+              description: 'Include iteration history in response'
+            }
+          },
+          required: ['task']
+        }
+      },
+      {
+        name: 'parallel_agents',
+        description: '🚀 Parallel Agents - TDD workflow with parallel agent execution. Decomposes task into subtasks, runs RED/GREEN phases in parallel, quality gate iteration.',
+        handler: 'handleParallelAgents',
+        schema: {
+          type: 'object',
+          properties: {
+            task: {
+              type: 'string',
+              description: 'High-level task to decompose and execute via TDD'
+            },
+            max_parallel: {
+              type: 'number',
+              minimum: 1,
+              maximum: 6,
+              default: 2,
+              description: 'Maximum parallel agents'
+            },
+            max_iterations: {
+              type: 'number',
+              minimum: 1,
+              maximum: 5,
+              default: 3,
+              description: 'Maximum quality gate iterations'
+            },
+            iterate_until_quality: {
+              type: 'boolean',
+              default: true,
+              description: 'Iterate on failed quality checks'
+            },
+            work_directory: {
+              type: 'string',
+              description: 'Directory for generated files'
+            },
+            write_files: {
+              type: 'boolean',
+              default: true,
+              description: 'Write generated code to files'
+            }
+          },
+          required: ['task']
+        }
+      },
+      {
+        name: 'analyze_file',
+        description: '📊 AI File Analysis - Local LLM reads and analyzes files, returning structured findings. Claude never sees full file content. 90% token savings.',
+        handler: 'handleAnalyzeFile',
+        schema: {
+          type: 'object',
+          properties: {
+            filePath: { type: 'string', description: 'Path to the file to analyze' },
+            question: { type: 'string', description: 'Question about the file (e.g., "What are the security vulnerabilities?")' },
+            options: {
+              type: 'object',
+              properties: {
+                analysisType: {
+                  type: 'string',
+                  enum: ['general', 'bug', 'security', 'performance', 'architecture'],
+                  default: 'general',
+                  description: 'Type of analysis to perform'
+                },
+                backend: {
+                  type: 'string',
+                  enum: ['auto', 'local', 'deepseek3.1', 'qwen3', 'gemini'],
+                  default: 'auto',
+                  description: 'AI backend to use for analysis'
+                },
+                includeContext: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Related files to include for better analysis'
+                },
+                maxResponseTokens: {
+                  type: 'number',
+                  default: 2000,
+                  description: 'Maximum tokens for the analysis response'
+                }
+              }
+            }
+          },
+          required: ['filePath', 'question']
+        }
+      },
+      {
+        name: 'modify_file',
+        description: '✏️ Natural Language File Modification - Claude sends instructions, local LLM reads file and generates diff. 95% token savings.',
+        handler: 'handleModifyFile',
+        schema: {
+          type: 'object',
+          properties: {
+            filePath: { type: 'string', description: 'Path to the file to modify' },
+            instructions: { type: 'string', description: 'Natural language edit instructions (e.g., "Add rate limiting to the login function")' },
+            options: {
+              type: 'object',
+              properties: {
+                backend: {
+                  type: 'string',
+                  enum: ['auto', 'local', 'deepseek3.1', 'qwen3', 'gemini'],
+                  default: 'auto'
+                },
+                dryRun: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Show changes without writing'
+                },
+                review: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Return diff for approval (true) or write directly (false)'
+                },
+                backup: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Create backup before writing'
+                },
+                contextFiles: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Related files for understanding dependencies'
+                }
+              }
+            }
+          },
+          required: ['filePath', 'instructions']
+        }
+      },
+      {
+        name: 'batch_modify',
+        description: '📦 Batch File Modification - Apply same NL instructions to multiple files with atomic rollback. 95% token savings per file.',
+        handler: 'handleBatchModify',
+        schema: {
+          type: 'object',
+          properties: {
+            files: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'File paths or glob patterns to modify'
+            },
+            instructions: { type: 'string', description: 'Instructions to apply to each file' },
+            options: {
+              type: 'object',
+              properties: {
+                backend: {
+                  type: 'string',
+                  enum: ['auto', 'local', 'deepseek3.1', 'qwen3', 'gemini'],
+                  default: 'auto'
+                },
+                transactionMode: {
+                  type: 'string',
+                  enum: ['all_or_nothing', 'best_effort'],
+                  default: 'all_or_nothing',
+                  description: 'Transaction mode for atomic operations'
+                },
+                review: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Return all diffs for approval'
+                },
+                parallel: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Process files in parallel (false is safer)'
+                },
+                stopOnError: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Stop on first error'
+                }
+              }
+            }
+          },
+          required: ['files', 'instructions']
+        }
+      },
+      // v1.6.0 - Intelligence System Tools
+      {
+        name: 'pattern_search',
+        description: '🔍 Pattern Search - Search learned patterns using TF-IDF semantic similarity. Returns matching patterns with relevance scores.',
+        handler: 'handlePatternSearch',
+        schema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query for pattern matching' },
+            options: {
+              type: 'object',
+              properties: {
+                category: {
+                  type: 'string',
+                  enum: ['CODE', 'SOLUTION', 'WORKFLOW', 'CONFIG', 'ERROR_FIX', 'OPTIMIZATION'],
+                  description: 'Filter by pattern category'
+                },
+                limit: { type: 'number', default: 10, description: 'Maximum results to return' },
+                threshold: { type: 'number', default: 0.3, description: 'Minimum similarity threshold (0-1)' }
+              }
+            }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'pattern_add',
+        description: '➕ Pattern Add - Store a new pattern for future reference and learning.',
+        handler: 'handlePatternAdd',
+        schema: {
+          type: 'object',
+          properties: {
+            content: { type: 'string', description: 'Pattern content to store' },
+            category: {
+              type: 'string',
+              enum: ['CODE', 'SOLUTION', 'WORKFLOW', 'CONFIG', 'ERROR_FIX', 'OPTIMIZATION'],
+              description: 'Pattern category'
+            },
+            metadata: {
+              type: 'object',
+              properties: {
+                tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorization' },
+                source: { type: 'string', description: 'Source of the pattern' },
+                description: { type: 'string', description: 'Brief description' }
+              }
+            }
+          },
+          required: ['content', 'category']
+        }
+      },
+      {
+        name: 'playbook_list',
+        description: '📋 Playbook List - List all available playbooks (built-in and custom).',
+        handler: 'handlePlaybookList',
+        schema: {
+          type: 'object',
+          properties: {
+            includeBuiltin: { type: 'boolean', default: true, description: 'Include built-in playbooks' },
+            includeCustom: { type: 'boolean', default: true, description: 'Include custom playbooks' }
+          }
+        }
+      },
+      {
+        name: 'playbook_run',
+        description: '▶️ Playbook Run - Start executing a workflow playbook with given parameters.',
+        handler: 'handlePlaybookRun',
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Playbook name to execute' },
+            params: { type: 'object', description: 'Playbook-specific parameters' },
+            context: { type: 'object', description: 'Additional execution context' }
+          },
+          required: ['name', 'params']
+        }
+      },
+      {
+        name: 'playbook_step',
+        description: '⏭️ Playbook Step - Manage playbook execution: complete current step, pause, resume, or check status.',
+        handler: 'handlePlaybookStep',
+        schema: {
+          type: 'object',
+          properties: {
+            executionId: { type: 'string', description: 'Execution ID from playbook_run' },
+            action: {
+              type: 'string',
+              enum: ['complete', 'pause', 'resume', 'status'],
+              default: 'status',
+              description: 'Action to perform'
+            },
+            result: { type: 'object', description: 'Result data for step completion' }
+          },
+          required: ['executionId']
+        }
+      },
+      {
+        name: 'learning_summary',
+        description: '📊 Learning Summary - Get analytics on pattern store and playbook usage.',
+        handler: 'handleLearningSummary',
+        schema: {
+          type: 'object',
+          properties: {}
         }
       }
     ];
@@ -1874,10 +2062,15 @@ class SmartAIBridgeServer {
     this.router = new MultiAIRouter();
     this.fileManager = new FileModificationManager(this.router);
     this.aliasResolver = new SmartAliasResolver();
+
+    // v1.6.0 Intelligence Systems (opt-in via env var)
+    this.learningEnabled = process.env.ENABLE_LEARNING !== 'false';
+    this.patternStore = this.learningEnabled ? new PatternRAGStore() : null;
+    this.playbookSystem = new PlaybookSystem();
     this.server = new Server(
       {
         name: "Smart AI Bridge",
-        version: "1.3.0",
+        version: "1.6.0",
       },
       {
         capabilities: {
@@ -2113,57 +2306,7 @@ Generate appropriate code that fits between the before and after contexts. Focus
     };
   }
 
-  async handleReview(args) {
-    // 🔒 INPUT VALIDATION
-    const content = InputValidator.validateString(args.content, {
-      required: true,
-      maxLength: SECURITY_LIMITS.MAX_CONTENT_LENGTH,
-      name: 'content'
-    });
-    const file_path = InputValidator.validateString(args.file_path, {
-      required: false,
-      maxLength: 4096,
-      name: 'file_path'
-    });
-    const language = InputValidator.validateString(args.language, {
-      required: false,
-      maxLength: 50,
-      name: 'language'
-    });
-    const review_type = InputValidator.validateEnum(
-      args.review_type || 'comprehensive',
-      ['security', 'performance', 'quality', 'comprehensive'],
-      { name: 'review_type' }
-    ) || 'comprehensive';
-
-    const prompt = `Perform a ${review_type} code review of this ${language || 'unknown'} code:
-
-${content}
-
-Provide analysis covering:
-1. Code quality and maintainability
-2. Security vulnerabilities
-3. Performance considerations
-4. Best practices compliance
-5. Suggested improvements`;
-
-    const endpoint = await this.router.routeRequest(prompt, {
-      taskType: 'analysis',
-      language: language || this.router.detectLanguage(content)
-    });
-
-    const review = await this.router.makeRequest(prompt, endpoint);
-
-    return {
-      success: true,
-      file_path,
-      language: language || this.router.detectLanguage(content),
-      review_type,
-      review,
-      endpoint_used: endpoint,
-      timestamp: new Date().toISOString()
-    };
-  }
+  // NOTE: handleReview REMOVED in v1.6.0 - Use 'ask' with a review prompt instead
 
   // Token estimation utility (4 chars ≈ 1 token)
   estimateTokens(text) {
@@ -2420,173 +2563,7 @@ Provide analysis covering:
     return result;
   }
 
-  async handleRead(args) {
-    // 🔒 INPUT VALIDATION
-    const file_paths = InputValidator.validateArray(args.file_paths, {
-      required: true,
-      minLength: 1,
-      maxLength: SECURITY_LIMITS.MAX_BATCH_SIZE,
-      name: 'file_paths',
-      itemValidator: (item) => InputValidator.validateString(item, {
-        required: true,
-        maxLength: 4096,
-        name: 'file_path'
-      })
-    });
-    const max_files = InputValidator.validateInteger(args.max_files, {
-      required: false,
-      min: 1,
-      max: SECURITY_LIMITS.MAX_BATCH_SIZE,
-      name: 'max_files'
-    }) || 10;
-    const analysis_type = InputValidator.validateEnum(
-      args.analysis_type || 'content',
-      ['content', 'structure', 'relationships', 'summary'],
-      { name: 'analysis_type' }
-    ) || 'content';
-    const verify_texts = InputValidator.validateArray(args.verify_texts, {
-      required: false,
-      maxLength: 100,
-      name: 'verify_texts',
-      itemValidator: (item) => InputValidator.validateString(item, {
-        required: true,
-        maxLength: 10000,
-        name: 'verify_text'
-      })
-    }) || [];
-    const verification_mode = InputValidator.validateEnum(
-      args.verification_mode || 'fuzzy',
-      ['basic', 'fuzzy', 'comprehensive'],
-      { name: 'verification_mode' }
-    ) || 'fuzzy';
-    const fuzzy_threshold = InputValidator.validateInteger(args.fuzzy_threshold * 100, {
-      required: false,
-      min: 10,
-      max: 100,
-      name: 'fuzzy_threshold'
-    }) / 100 || 0.8;
-
-    // SECURITY: Validate all file paths before processing
-    try {
-      await validatePaths(file_paths);
-    } catch (error) {
-      return {
-        success: false,
-        error: `Path validation failed: ${error.message}`,
-        securityViolation: true
-      };
-    }
-
-    // Token budget configuration
-    const TOKEN_LIMIT = 24000; // 1000 token safety buffer from 25K MCP limit
-    const PER_FILE_TOKEN_LIMIT = Math.floor(TOKEN_LIMIT / Math.min(file_paths.length, max_files));
-
-    const results = [];
-    let totalTokensUsed = 0;
-    let responseMetadata = {
-      tokenBudget: TOKEN_LIMIT,
-      perFileLimit: PER_FILE_TOKEN_LIMIT,
-      truncationOccurred: false,
-      verifyTextsProcessed: verify_texts.length,
-      processingTimestamp: new Date().toISOString()
-    };
-
-    for (const filePath of file_paths.slice(0, max_files)) {
-      try {
-        // SECURITY: Validate path and check file exists
-        const validatedPath = await validatePath(filePath);
-        const fileExists = await validateFileExists(validatedPath);
-        if (!fileExists) {
-          results.push({
-            file_path: filePath,
-            error: 'File does not exist or is not a regular file',
-            success: false
-          });
-          continue;
-        }
-
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        const content = await fs.readFile(validatedPath, 'utf8');
-        const language = this.router?.detectLanguage?.(content) || path.extname(filePath).substring(1);
-
-        let fileResult = {
-          file_path: filePath,
-          size: content.length,
-          lines: content.split('\n').length,
-          language,
-          originalTokens: this.estimateTokens(content)
-        };
-
-        // Handle different analysis types with token awareness
-        switch (analysis_type) {
-          case 'summary':
-            fileResult.content = content.substring(0, 500) + (content.length > 500 ? '...' : '');
-            fileResult.finalTokens = this.estimateTokens(fileResult.content);
-            break;
-
-          case 'structure':
-            // For structure analysis, focus on key structural elements
-            const structureContent = this.extractStructuralElements(content, language);
-            const structureTruncation = this.truncateContentIntelligently(
-              structureContent,
-              PER_FILE_TOKEN_LIMIT,
-              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold, preserveContext: false }
-            );
-            fileResult = { ...fileResult, ...structureTruncation };
-            break;
-
-          case 'relationships':
-            // For relationship analysis, focus on imports/exports/dependencies
-            const relationshipContent = this.extractRelationships(content, language);
-            const relationshipTruncation = this.truncateContentIntelligently(
-              relationshipContent,
-              PER_FILE_TOKEN_LIMIT,
-              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold }
-            );
-            fileResult = { ...fileResult, ...relationshipTruncation };
-            break;
-
-          case 'content':
-          default:
-            // Full content analysis with intelligent truncation
-            const contentTruncation = this.truncateContentIntelligently(
-              content,
-              PER_FILE_TOKEN_LIMIT,
-              { language, verifyTexts: verify_texts, fuzzyThreshold: fuzzy_threshold, preserveContext: verification_mode !== 'basic' }
-            );
-            fileResult = { ...fileResult, ...contentTruncation };
-            break;
-        }
-
-        // Track global truncation status
-        if (fileResult.truncated) {
-          responseMetadata.truncationOccurred = true;
-        }
-
-        totalTokensUsed += fileResult.finalTokens || fileResult.originalTokens;
-        results.push(fileResult);
-
-      } catch (error) {
-        results.push({
-          file_path: filePath,
-          error: error.message,
-          finalTokens: 0
-        });
-      }
-    }
-
-    responseMetadata.totalTokensUsed = totalTokensUsed;
-    responseMetadata.tokenEfficiency = (totalTokensUsed / TOKEN_LIMIT * 100).toFixed(1) + '%';
-
-    return {
-      success: true,
-      analysis_type,
-      files_processed: results.length,
-      results,
-      metadata: responseMetadata
-    };
-  }
+  // NOTE: handleRead REMOVED in v1.6.0 - Use Claude's native Read tool instead
 
   // Extract structural elements (classes, functions, interfaces)
   extractStructuralElements(content, language) {
@@ -2832,329 +2809,10 @@ Provide analysis covering:
     };
   }
 
-  async handleEditFile(args) {
-    // 🔒 INPUT VALIDATION
-    const file_path = InputValidator.validateString(args.file_path, {
-      required: true,
-      maxLength: 4096,
-      name: 'file_path'
-    });
-    const edits = InputValidator.validateArray(args.edits, {
-      required: true,
-      minLength: 1,
-      maxLength: SECURITY_LIMITS.MAX_EDITS_PER_FILE,
-      name: 'edits'
-    });
-    const validation_mode = InputValidator.validateEnum(
-      args.validation_mode || 'strict',
-      ['strict', 'lenient', 'dry_run'],
-      { name: 'validation_mode' }
-    ) || 'strict';
-
-    // ⚡ FUZZY MATCHING PARAMETERS (v8.3.0+)
-    const fuzzy_threshold = validateFuzzyThreshold(args.fuzzy_threshold || 0.85);
-    const suggest_alternatives = args.suggest_alternatives !== false; // Default true
-    const max_suggestions = validateMaxSuggestions(args.max_suggestions || 3);
-
-    // Validate each edit operation
-    for (let i = 0; i < edits.length; i++) {
-      const edit = edits[i];
-      InputValidator.validateString(edit.find, {
-        required: true,
-        maxLength: 100000,
-        name: `edits[${i}].find`
-      });
-      InputValidator.validateString(edit.replace, {
-        required: true,
-        maxLength: 100000,
-        name: `edits[${i}].replace`
-      });
-    }
-
-    // 🔒 FUZZY MATCHING SECURITY: Validate complexity
-    const complexityValidation = validateFuzzyEditComplexity(edits, SECURITY_LIMITS);
-    if (!complexityValidation.valid) {
-      return {
-        success: false,
-        file_path,
-        error: `Complexity validation failed: ${complexityValidation.errors.join(', ')}`,
-        securityViolation: true
-      };
-    }
-
-    // SECURITY: Validate file path before any operations
-    try {
-      const validatedPath = await validatePath(file_path);
-      const fileExists = await validateFileExists(validatedPath);
-      if (!fileExists) {
-        return {
-          success: false,
-          file_path,
-          error: 'File does not exist or is not a regular file',
-          securityViolation: true
-        };
-      }
-
-      // Wrap in timeout protection
-      return await createFuzzyTimeoutWrapper(async () => {
-        const fs = await import('fs/promises');
-        let content = await fs.readFile(validatedPath, 'utf8');
-
-        // Detect line ending style for preservation
-        const originalLineEnding = content.includes('\r\n') ? '\r\n' : '\n';
-
-        const dry_run = validation_mode === 'dry_run';
-        const strict_mode = validation_mode === 'strict';
-        let edits_applied = 0;
-        const fuzzy_matches = [];
-        const suggestions = [];
-        const failed_edits = [];
-
-        // Process each edit
-        for (const edit of edits) {
-          let matchFound = false;
-          let matchInfo = null;
-
-          // === PHASE 1: EXACT MATCH (fastest path) ===
-          if (content.includes(edit.find)) {
-            content = content.replace(edit.find, edit.replace);
-            edits_applied++;
-            matchFound = true;
-            matchInfo = { type: 'exact', similarity: 1.0 };
-            trackFuzzyMetrics('EXACT_MATCH', { file_path });
-          }
-          // === PHASE 2: FUZZY MATCH (if exact fails and lenient mode) ===
-          else if (!strict_mode && fuzzy_threshold < 1.0) {
-            const normalizedFind = this.normalizeWhitespace(edit.find);
-            const contentLines = content.split(originalLineEnding);
-            const findLines = edit.find.split('\n');
-
-            let bestMatch = null;
-            let bestSimilarity = 0;
-            let bestPosition = -1;
-            let iterationCount = 0;
-            const maxIterations = Math.min(
-              contentLines.length - findLines.length + 1,
-              SECURITY_LIMITS.MAX_FUZZY_ITERATIONS
-            );
-
-            // Search for fuzzy matches
-            for (let i = 0; i <= contentLines.length - findLines.length; i++) {
-              if (++iterationCount > maxIterations) {
-                trackFuzzyMetrics('ITERATION_LIMIT_HIT', { file_path, iterations: iterationCount });
-                break;
-              }
-
-              const candidateBlock = contentLines.slice(i, i + findLines.length).join('\n');
-              const normalizedCandidate = this.normalizeWhitespace(candidateBlock);
-              const similarity = this.calculateStringSimilarity(normalizedFind, normalizedCandidate);
-
-              if (similarity >= fuzzy_threshold && similarity > bestSimilarity) {
-                bestSimilarity = similarity;
-                bestMatch = candidateBlock;
-                bestPosition = i;
-              }
-            }
-
-            if (bestMatch && bestSimilarity >= fuzzy_threshold) {
-              content = content.replace(bestMatch, edit.replace);
-              edits_applied++;
-              matchFound = true;
-              matchInfo = {
-                type: 'fuzzy',
-                similarity: bestSimilarity,
-                original_find: edit.find,
-                matched_content: bestMatch.substring(0, 100) + (bestMatch.length > 100 ? '...' : ''),
-                line_position: bestPosition
-              };
-              fuzzy_matches.push(matchInfo);
-              trackFuzzyMetrics('FUZZY_MATCH', { file_path, similarity: bestSimilarity });
-            }
-          }
-
-          // === PHASE 3: SUGGESTION GENERATION (if no match found) ===
-          if (!matchFound && suggest_alternatives) {
-            const normalizedFind = this.normalizeWhitespace(edit.find);
-            const contentLines = content.split(originalLineEnding);
-            const findLines = edit.find.split('\n');
-            const alternatives = [];
-
-            // Find top N similar blocks
-            for (let i = 0; i <= contentLines.length - findLines.length; i++) {
-              const candidateBlock = contentLines.slice(i, i + findLines.length).join('\n');
-              const normalizedCandidate = this.normalizeWhitespace(candidateBlock);
-              const similarity = this.calculateStringSimilarity(normalizedFind, normalizedCandidate);
-
-              if (similarity > 0.3) { // Minimum threshold for suggestions
-                alternatives.push({
-                  similarity,
-                  line_start: i,
-                  code: candidateBlock.substring(0, 100) + (candidateBlock.length > 100 ? '...' : '')
-                });
-              }
-            }
-
-            alternatives.sort((a, b) => b.similarity - a.similarity);
-            suggestions.push({
-              original_find: edit.find.substring(0, 100) + (edit.find.length > 100 ? '...' : ''),
-              threshold_needed: fuzzy_threshold,
-              alternatives: alternatives.slice(0, max_suggestions)
-            });
-
-            failed_edits.push(edit);
-            trackFuzzyMetrics('MATCH_FAILED', { file_path });
-          }
-        }
-
-        // Write changes if not in dry_run mode
-        if (!dry_run && edits_applied > 0) {
-          await fs.writeFile(validatedPath, content);
-        }
-
-        return {
-          success: edits_applied === edits.length,
-          file_path,
-          edits_applied,
-          total_edits: edits.length,
-          validation_mode,
-          dry_run,
-          strict_mode,
-          fuzzy_threshold,
-          fuzzy_matches,
-          suggestions,
-          failed_edits: failed_edits.length,
-          optimization_applied: !strict_mode && fuzzy_threshold < 1.0
-        };
-      }, SECURITY_LIMITS.FUZZY_TIMEOUT_MS);
-    } catch (error) {
-      return {
-        success: false,
-        file_path,
-        error: error.message,
-        securityViolation: error.message.includes('Path') || error.message.includes('Complexity')
-      };
-    }
-  }
-
-  async handleValidateChanges(args) {
-    const { file_path, proposed_changes, validation_rules = ['syntax'] } = args;
-
-    const validationResults = [];
-
-    for (const change of proposed_changes) {
-      const result = {
-        find: change.find,
-        replace: change.replace,
-        valid: true,
-        warnings: [],
-        suggestions: []
-      };
-
-      // Basic validation
-      if (validation_rules.includes('syntax')) {
-        if (change.replace.includes('undefined') || change.replace.includes('null')) {
-          result.warnings.push('Potential null/undefined values detected');
-        }
-      }
-
-      validationResults.push(result);
-    }
-
-    return {
-      success: true,
-      file_path,
-      total_changes: proposed_changes.length,
-      valid_changes: validationResults.filter(r => r.valid).length,
-      validation_results: validationResults
-    };
-  }
-
-  async handleMultiEdit(args) {
-    // 🔒 INPUT VALIDATION
-    const file_operations = InputValidator.validateArray(args.file_operations, {
-      required: true,
-      minLength: 1,
-      maxLength: SECURITY_LIMITS.MAX_FILES_IN_MULTI_EDIT,
-      name: 'file_operations'
-    });
-    const transaction_mode = InputValidator.validateEnum(
-      args.transaction_mode || 'all_or_nothing',
-      ['all_or_nothing', 'best_effort', 'dry_run'],
-      { name: 'transaction_mode' }
-    ) || 'all_or_nothing';
-
-    // Validate each file operation
-    for (let i = 0; i < file_operations.length; i++) {
-      const op = file_operations[i];
-      InputValidator.validateString(op.file_path, {
-        required: true,
-        maxLength: 4096,
-        name: `file_operations[${i}].file_path`
-      });
-      InputValidator.validateArray(op.edits, {
-        required: true,
-        minLength: 1,
-        maxLength: SECURITY_LIMITS.MAX_EDITS_PER_FILE,
-        name: `file_operations[${i}].edits`
-      });
-    }
-
-    const results = [];
-
-    // SECURITY: Pre-validate all file paths before processing any operations
-    const pathValidationErrors = [];
-    for (const operation of file_operations) {
-      try {
-        await validatePath(operation.file_path);
-      } catch (error) {
-        pathValidationErrors.push({
-          file_path: operation.file_path,
-          error: `Path validation failed: ${error.message}`,
-          securityViolation: true
-        });
-      }
-    }
-
-    // If any path validation failed and we're in all_or_nothing mode, fail early
-    if (pathValidationErrors.length > 0 && transaction_mode === 'all_or_nothing') {
-      return {
-        success: false,
-        transaction_mode,
-        operations_successful: 0,
-        operations_failed: file_operations.length,
-        results: pathValidationErrors,
-        earlyTermination: 'Path validation failed for one or more files'
-      };
-    }
-
-    for (const operation of file_operations) {
-      try {
-        const result = await this.handleEditFile({
-          file_path: operation.file_path,
-          edits: operation.edits,
-          validation_mode: 'strict'
-        });
-        results.push(result);
-      } catch (error) {
-        results.push({
-          success: false,
-          file_path: operation.file_path,
-          error: error.message
-        });
-      }
-    }
-
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.length - successCount;
-
-    return {
-      success: transaction_mode !== 'all_or_nothing' || failCount === 0,
-      transaction_mode,
-      operations_successful: successCount,
-      operations_failed: failCount,
-      results
-    };
-  }
+  // NOTE: handleEditFile, handleValidateChanges, handleMultiEdit REMOVED in v1.6.0
+  // - edit_file: Use Claude's native Edit tool instead
+  // - validate_changes: Use 'ask' with validation prompt instead
+  // - multi_edit: Use Claude's native Edit tool (multiple times) instead
 
   async handleBackupRestore(args) {
     const { action, file_path, backup_id } = args;
@@ -3591,7 +3249,7 @@ Provide analysis covering:
     // 🔒 INPUT VALIDATION
     const role = InputValidator.validateEnum(
       args.role,
-      ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer'],
+      ['code-reviewer', 'security-auditor', 'planner', 'refactor-specialist', 'test-generator', 'documentation-writer', 'tdd-decomposer', 'tdd-test-writer', 'tdd-implementer', 'tdd-quality-reviewer'],
       { name: 'role', required: true }
     );
     const task = InputValidator.validateString(args.task, {
@@ -3644,13 +3302,495 @@ Provide analysis covering:
       throw error;
     }
   }
+
+  /**
+   * 🏛️ COUNCIL HANDLER (v1.5.0)
+   * Multi-AI consensus with configurable backends
+   */
+  async handleCouncil(args) {
+    const prompt = InputValidator.validateString(args.prompt, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'prompt'
+    });
+    const topic = InputValidator.validateEnum(
+      args.topic || 'general',
+      ['coding', 'reasoning', 'architecture', 'security', 'performance', 'general', 'creative'],
+      { name: 'topic' }
+    );
+
+    console.error(`🏛️ Council deliberation on topic: ${topic}`);
+
+    try {
+      const handler = new CouncilHandler(this.router.registry);
+      const result = await handler.handle({
+        prompt,
+        topic,
+        confidence_needed: args.confidence_needed || 'medium',
+        num_backends: args.num_backends,
+        max_tokens: args.max_tokens || 4000
+      });
+
+      console.error(`✅ Council completed with ${result.synthesis.backends_succeeded} backends`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Council failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔄 DUAL ITERATE HANDLER (v1.5.0)
+   * Generate→Review→Fix loop with dual backends
+   */
+  async handleDualIterate(args) {
+    const task = InputValidator.validateString(args.task, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'task'
+    });
+
+    console.error(`🔄 Dual iterate workflow for: ${task.substring(0, 80)}...`);
+
+    try {
+      const handler = new DualIterateHandler(this.router.registry);
+      const result = await handler.handle({
+        task,
+        max_iterations: args.max_iterations || 3,
+        quality_threshold: args.quality_threshold || 0.7,
+        include_history: args.include_history || false
+      });
+
+      console.error(`✅ Dual iterate ${result.approved ? 'APPROVED' : 'COMPLETED'} in ${result.iterations} iterations`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Dual iterate failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚀 PARALLEL AGENTS HANDLER (v1.5.0)
+   * TDD workflow with parallel agent execution
+   */
+  async handleParallelAgents(args) {
+    const task = InputValidator.validateString(args.task, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'task'
+    });
+
+    console.error(`🚀 Parallel agents TDD for: ${task.substring(0, 80)}...`);
+
+    try {
+      const handler = new ParallelAgentsHandler(this.router.registry);
+      const result = await handler.handle({
+        task,
+        max_parallel: args.max_parallel || 2,
+        max_iterations: args.max_iterations || 3,
+        iterate_until_quality: args.iterate_until_quality !== false,
+        work_directory: args.work_directory,
+        write_files: args.write_files !== false
+      });
+
+      console.error(`✅ Parallel agents completed: ${result.subtasks.length} subtasks, ${result.iterations} iterations`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Parallel agents failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 📊 ANALYZE FILE HANDLER
+   * AI-powered file analysis with 90% token savings
+   */
+  async handleAnalyzeFile(args) {
+    // 🔒 INPUT VALIDATION
+    const filePath = InputValidator.validateString(args.filePath, {
+      required: true,
+      minLength: 1,
+      maxLength: 1000,
+      name: 'filePath'
+    });
+    const question = InputValidator.validateString(args.question, {
+      required: true,
+      minLength: 5,
+      maxLength: 5000,
+      name: 'question'
+    });
+
+    // 🔒 PATH SECURITY
+    const validatedPath = validatePath(filePath);
+
+    console.error(`📊 Analyzing file: ${validatedPath}`);
+
+    try {
+      const handler = new AnalyzeFileHandler(this.router);
+      const result = await handler.handle({
+        filePath: validatedPath,
+        question,
+        options: args.options || {}
+      });
+
+      console.error(`✅ Analysis complete for ${validatedPath}`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Analysis failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * ✏️ MODIFY FILE HANDLER
+   * Natural language file modifications with 95% token savings
+   */
+  async handleModifyFile(args) {
+    // 🔒 INPUT VALIDATION
+    const filePath = InputValidator.validateString(args.filePath, {
+      required: true,
+      minLength: 1,
+      maxLength: 1000,
+      name: 'filePath'
+    });
+    const instructions = InputValidator.validateString(args.instructions, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'instructions'
+    });
+
+    // 🔒 PATH SECURITY
+    const validatedPath = validatePath(filePath);
+
+    console.error(`✏️ Modifying file: ${validatedPath}`);
+    console.error(`📋 Instructions: ${instructions.substring(0, 100)}${instructions.length > 100 ? '...' : ''}`);
+
+    try {
+      const handler = new ModifyFileHandler(this.router);
+      const result = await handler.handle({
+        filePath: validatedPath,
+        instructions,
+        options: args.options || {}
+      });
+
+      console.error(`✅ Modification ${result.dryRun ? 'preview' : 'complete'} for ${validatedPath}`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Modification failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 📦 BATCH MODIFY HANDLER
+   * Multi-file NL modifications with atomic rollback
+   */
+  async handleBatchModify(args) {
+    // 🔒 INPUT VALIDATION
+    const files = InputValidator.validateArray(args.files, {
+      required: true,
+      minLength: 1,
+      maxLength: 50,
+      name: 'files'
+    });
+    const instructions = InputValidator.validateString(args.instructions, {
+      required: true,
+      minLength: 10,
+      maxLength: 10000,
+      name: 'instructions'
+    });
+
+    // 🔒 VALIDATE ALL PATHS
+    const validatedFiles = files.map(f => {
+      if (f.includes('*') || f.includes('?')) {
+        return f; // Glob pattern - validated during resolution
+      }
+      return validatePath(f);
+    });
+
+    console.error(`📦 Batch modifying ${validatedFiles.length} file(s)`);
+    console.error(`📋 Instructions: ${instructions.substring(0, 100)}${instructions.length > 100 ? '...' : ''}`);
+
+    try {
+      const handler = new BatchModifyHandler(this.router);
+      const result = await handler.handle({
+        files: validatedFiles,
+        instructions,
+        options: args.options || {}
+      });
+
+      console.error(`✅ Batch modification ${result.review ? 'preview' : 'complete'}`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Batch modification failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ============================================================
+  // v1.6.0 - INTELLIGENCE SYSTEM HANDLERS
+  // ============================================================
+
+  /**
+   * 🔍 Pattern Search Handler
+   * Search learned patterns using TF-IDF semantic similarity
+   */
+  async handlePatternSearch(args) {
+    if (!this.patternStore) {
+      return {
+        success: false,
+        error: 'Learning is disabled. Set ENABLE_LEARNING=true to enable pattern storage.',
+        patterns: []
+      };
+    }
+
+    const query = InputValidator.validateString(args.query, {
+      required: true,
+      minLength: 1,
+      maxLength: 1000,
+      name: 'query'
+    });
+
+    const options = args.options || {};
+    console.error(`🔍 Searching patterns: "${query.substring(0, 50)}${query.length > 50 ? '...' : ''}"`);
+
+    try {
+      const results = this.patternStore.search(query, {
+        category: options.category,
+        limit: options.limit || 10,
+        threshold: options.threshold || 0.3
+      });
+
+      console.error(`✅ Found ${results.length} matching patterns`);
+      return {
+        success: true,
+        query,
+        patterns: results,
+        count: results.length
+      };
+    } catch (error) {
+      console.error(`❌ Pattern search failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * ➕ Pattern Add Handler
+   * Store a new pattern for future reference
+   */
+  async handlePatternAdd(args) {
+    if (!this.patternStore) {
+      return {
+        success: false,
+        error: 'Learning is disabled. Set ENABLE_LEARNING=true to enable pattern storage.'
+      };
+    }
+
+    const content = InputValidator.validateString(args.content, {
+      required: true,
+      minLength: 10,
+      maxLength: 50000,
+      name: 'content'
+    });
+    const category = InputValidator.validateString(args.category, {
+      required: true,
+      name: 'category'
+    });
+
+    console.error(`➕ Adding pattern to category: ${category}`);
+
+    try {
+      const pattern = this.patternStore.addPattern(content, category, args.metadata || {});
+      console.error(`✅ Pattern added with ID: ${pattern.id}`);
+      return {
+        success: true,
+        pattern: {
+          id: pattern.id,
+          category: pattern.category,
+          createdAt: pattern.createdAt
+        }
+      };
+    } catch (error) {
+      console.error(`❌ Pattern add failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 📋 Playbook List Handler
+   * List all available playbooks
+   */
+  async handlePlaybookList(args) {
+    const includeBuiltin = args.includeBuiltin !== false;
+    const includeCustom = args.includeCustom !== false;
+
+    console.error(`📋 Listing playbooks (builtin: ${includeBuiltin}, custom: ${includeCustom})`);
+
+    try {
+      const playbooks = this.playbookSystem.listPlaybooks();
+
+      const filtered = playbooks.filter(p => {
+        if (p.isBuiltin && !includeBuiltin) return false;
+        if (!p.isBuiltin && !includeCustom) return false;
+        return true;
+      });
+
+      console.error(`✅ Found ${filtered.length} playbooks`);
+      return {
+        success: true,
+        playbooks: filtered,
+        count: filtered.length
+      };
+    } catch (error) {
+      console.error(`❌ Playbook list failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * ▶️ Playbook Run Handler
+   * Start executing a workflow playbook
+   */
+  async handlePlaybookRun(args) {
+    const name = InputValidator.validateString(args.name, {
+      required: true,
+      minLength: 1,
+      maxLength: 100,
+      name: 'name'
+    });
+
+    console.error(`▶️ Starting playbook: ${name}`);
+
+    try {
+      const execution = this.playbookSystem.startExecution(name, args.params || {}, args.context || {});
+      const currentStep = this.playbookSystem.getCurrentStep(execution.id);
+
+      console.error(`✅ Playbook started with execution ID: ${execution.id}`);
+      return {
+        success: true,
+        executionId: execution.id,
+        playbook: name,
+        status: execution.status,
+        currentStep: currentStep ? {
+          index: currentStep.index,
+          type: currentStep.step.type,
+          name: currentStep.step.name,
+          description: currentStep.step.description
+        } : null,
+        totalSteps: execution.playbook.steps.length
+      };
+    } catch (error) {
+      console.error(`❌ Playbook run failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * ⏭️ Playbook Step Handler
+   * Manage playbook execution: complete, pause, resume, or status
+   */
+  async handlePlaybookStep(args) {
+    const executionId = InputValidator.validateString(args.executionId, {
+      required: true,
+      name: 'executionId'
+    });
+    const action = args.action || 'status';
+
+    console.error(`⏭️ Playbook step action: ${action} for ${executionId}`);
+
+    try {
+      let result;
+
+      switch (action) {
+        case 'complete':
+          result = this.playbookSystem.completeStep(executionId, args.result || {});
+          break;
+        case 'pause':
+          result = this.playbookSystem.pauseExecution(executionId);
+          break;
+        case 'resume':
+          result = this.playbookSystem.resumeExecution(executionId);
+          break;
+        case 'status':
+        default:
+          result = this.playbookSystem.getExecutionStatus(executionId);
+          break;
+      }
+
+      const currentStep = this.playbookSystem.getCurrentStep(executionId);
+
+      console.error(`✅ Action ${action} completed`);
+      return {
+        success: true,
+        executionId,
+        action,
+        status: result.status || result,
+        currentStep: currentStep ? {
+          index: currentStep.index,
+          type: currentStep.step.type,
+          name: currentStep.step.name,
+          description: currentStep.step.description
+        } : null,
+        completedSteps: result.completedSteps || 0,
+        totalSteps: result.totalSteps || 0
+      };
+    } catch (error) {
+      console.error(`❌ Playbook step failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 📊 Learning Summary Handler
+   * Get analytics on pattern store and playbook usage
+   */
+  async handleLearningSummary(args) {
+    console.error('📊 Generating learning summary');
+
+    try {
+      const summary = {
+        learningEnabled: this.learningEnabled,
+        patterns: null,
+        playbooks: null
+      };
+
+      // Pattern store stats
+      if (this.patternStore) {
+        summary.patterns = this.patternStore.getStats();
+      }
+
+      // Playbook stats
+      const playbooks = this.playbookSystem.listPlaybooks();
+      const activeExecutions = this.playbookSystem.getActiveExecutions();
+
+      summary.playbooks = {
+        total: playbooks.length,
+        builtin: playbooks.filter(p => p.isBuiltin).length,
+        custom: playbooks.filter(p => !p.isBuiltin).length,
+        activeExecutions: activeExecutions.length
+      };
+
+      console.error(`✅ Learning summary generated`);
+      return {
+        success: true,
+        summary
+      };
+    } catch (error) {
+      console.error(`❌ Learning summary failed: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 async function main() {
   const server = new SmartAIBridgeServer();
   const transport = new StdioServerTransport();
 
-  console.error('🚀 Starting Smart AI Bridge v1.3.0...');
+  console.error('🚀 Starting Smart AI Bridge v1.6.0...');
   const stats = server.aliasResolver.getSystemStats();
   console.error(`⚡ ${stats.coreTools} core tools registered, ${stats.aliases} aliases available via SmartAliasResolver`);
   console.error('');
