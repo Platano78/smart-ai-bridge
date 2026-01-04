@@ -1,6 +1,6 @@
 # EXTENDING.md
 
-# Smart AI Bridge v1.0.0 - Extension Guide
+# Smart AI Bridge v1.6.0 - Extension Guide
 
 ## 🚀 Adding New AI Providers
 
@@ -276,46 +276,65 @@ Smart AI Bridge tools follow a consistent structure with schema definition and i
 }
 ```
 
+### Current Tool Categories (v1.6.0)
+
+| Category       | Tools                                                                                     | Version |
+|----------------|-------------------------------------------------------------------------------------------|---------|
+| Infrastructure | `health`, `backup_restore`, `write_files_atomic`, `rate_limit_status`, `system_metrics`   | v1.0+   |
+| AI Routing     | `ask`, `spawn_subagent`                                                                   | v1.3.0  |
+| Token-Saving   | `analyze_file`, `modify_file`, `batch_modify`                                             | v1.4.0  |
+| Workflows      | `council`, `dual_iterate`, `parallel_agents`                                              | v1.5.0  |
+| Intelligence   | `pattern_search`, `pattern_add`, `playbook_list`, `playbook_run`, `playbook_step`, `learning_summary` | v1.6.0  |
+
 ### Step 1: Define Tool Schema
+
+Example using the token-saving `analyze_file` tool pattern (v1.4.0+):
 
 ```javascript
 // Add to the tools array in the MCP server setup
 {
-  name: 'advanced_code_optimizer',
-  description: '⚡ Advanced code optimization tool - AI-powered performance analysis with optimization suggestions, memory profiling, and benchmark comparisons.',
+  name: 'analyze_file',
+  description: '📊 Local LLM File Analysis - Reads and analyzes files using local LLM. Claude never sees full file content, only structured findings. Token savings: 2000+ → ~150 tokens per file.',
   inputSchema: {
     type: 'object',
     properties: {
-      code_content: {
+      filePath: {
         type: 'string',
-        description: 'Source code to optimize'
+        description: 'Path to the file to analyze'
       },
-      language: {
+      question: {
         type: 'string',
-        description: 'Programming language (auto-detected if not provided)',
-        enum: ['javascript', 'python', 'java', 'cpp', 'rust', 'go']
+        description: 'Question about the file (e.g., "What are the security vulnerabilities?")'
       },
-      optimization_focus: {
-        type: 'string',
-        description: 'Optimization focus area',
-        enum: ['performance', 'memory', 'readability', 'maintainability', 'all'],
-        default: 'performance'
-      },
-      target_metrics: {
-        type: 'array',
-        description: 'Target metrics to improve',
-        items: {
-          type: 'string',
-          enum: ['execution_time', 'memory_usage', 'cpu_usage', 'io_operations']
+      options: {
+        type: 'object',
+        properties: {
+          analysisType: {
+            type: 'string',
+            description: 'Type of analysis to perform',
+            enum: ['general', 'bug', 'security', 'performance', 'architecture'],
+            default: 'general'
+          },
+          backend: {
+            type: 'string',
+            description: 'AI backend to use for analysis',
+            enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+            default: 'auto'
+          },
+          includeContext: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Related files to include for better analysis'
+          },
+          maxResponseTokens: {
+            type: 'number',
+            description: 'Maximum tokens for the analysis response',
+            default: 2000
+          }
         }
-      },
-      include_benchmarks: {
-        type: 'boolean',
-        description: 'Include performance benchmarks',
-        default: false
       }
     },
-    required: ['code_content']
+    required: ['filePath', 'question']
   }
 }
 ```
@@ -324,27 +343,36 @@ Smart AI Bridge tools follow a consistent structure with schema definition and i
 
 ```javascript
 // Add tool implementation to the callTool handler
-case 'advanced_code_optimizer':
+case 'analyze_file':
   try {
-    const optimizationResult = await this.performAdvancedOptimization(
-      args.code_content,
-      args.language,
-      args.optimization_focus || 'performance',
-      args.target_metrics || [],
-      args.include_benchmarks || false
-    );
+    // Read file content locally (never sent to Claude)
+    const fileContent = await fs.readFile(args.filePath, 'utf-8');
 
+    // Route to local LLM for analysis
+    const analysisResult = await this.routeToLocalLLM({
+      prompt: `Analyze this file and answer: ${args.question}\n\nFile content:\n${fileContent}`,
+      options: args.options || {}
+    });
+
+    // Return only structured findings (saves ~90% tokens)
     return {
       content: [{
         type: 'text',
-        text: `⚡ **ADVANCED CODE OPTIMIZATION RESULTS**\n\n${optimizationResult}`
+        text: JSON.stringify({
+          file: args.filePath,
+          question: args.question,
+          findings: analysisResult.findings,
+          recommendations: analysisResult.recommendations,
+          severity: analysisResult.severity,
+          backendUsed: analysisResult.backend
+        }, null, 2)
       }]
     };
   } catch (error) {
-    console.error('Code optimization error:', error);
+    console.error('File analysis error:', error);
     throw new McpError(
       ErrorCode.InternalError,
-      `Advanced code optimization failed: ${error.message}`
+      `File analysis failed: ${error.message}`
     );
   }
 ```
@@ -353,160 +381,132 @@ case 'advanced_code_optimizer':
 
 ```javascript
 // Add the implementation method to SmartAIBridgeRouter class
-async performAdvancedOptimization(codeContent, language, optimizationFocus, targetMetrics, includeBenchmarks) {
+async routeToLocalLLM(params) {
   try {
-    // 1. Detect language if not provided
-    const detectedLang = language || await this.detectLanguageWithAI(codeContent);
+    const { prompt, options = {} } = params;
 
-    // 2. Analyze code complexity and structure
-    const complexityAnalysis = await this.analyzeCodeComplexity(codeContent, detectedLang);
+    // 1. Select backend based on options or auto-routing
+    const backend = options.backend || 'auto';
+    const endpoint = await this.selectBackend(backend, prompt);
 
-    // 3. Generate optimization prompt
-    const optimizationPrompt = `
-Perform advanced ${optimizationFocus} optimization analysis for this ${detectedLang} code:
+    // 2. Prepare request for local LLM
+    const request = {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: options.maxResponseTokens || 2000,
+      temperature: 0.1
+    };
 
-\`\`\`${detectedLang}
-${codeContent}
-\`\`\`
+    // 3. Make request to selected backend
+    const startTime = performance.now();
+    const response = await fetch(endpoint.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${endpoint.apiKey}`
+      },
+      body: JSON.stringify(request)
+    });
 
-Analysis Requirements:
-- Focus: ${optimizationFocus}
-- Target Metrics: ${targetMetrics.join(', ') || 'All performance metrics'}
-- Language: ${detectedLang}
-- Include Benchmarks: ${includeBenchmarks}
+    const responseTime = performance.now() - startTime;
 
-Provide:
-1. **Performance Bottleneck Analysis**:
-   - Line-specific issues with exact line numbers
-   - Quantified impact estimates (time, memory, CPU)
-   - Algorithmic complexity assessment
+    // 4. Parse and structure the response
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
 
-2. **Optimization Recommendations**:
-   - Specific code improvements with before/after examples
-   - Alternative algorithms or data structures
-   - Compiler/runtime optimization hints
+    // 5. Parse structured findings from LLM response
+    const findings = this.parseFindings(content, options.analysisType);
 
-3. **Implementation Plan**:
-   - Priority order for optimizations
-   - Expected performance gains
-   - Risk assessment for each change
-
-${includeBenchmarks ? `
-4. **Benchmark Suggestions**:
-   - Performance test scenarios
-   - Metrics collection points
-   - Before/after measurement strategies
-` : ''}
-
-Focus on measurable, actionable improvements with concrete implementation examples.
-`;
-
-    // 4. Route to optimal endpoint based on complexity
-    const response = await this.routeRequest({
-      messages: [{ role: 'user', content: optimizationPrompt }],
-      max_tokens: this.calculateOptimalTokens(optimizationPrompt, 'analysis')
-    }, 'analysis');
-
-    // 5. Process and enhance response
-    const optimizationResult = response.choices[0]?.message?.content || 'Optimization analysis failed';
-
-    // 6. Add tool-specific enhancements
-    const enhancedResult = await this.enhanceOptimizationResult(
-      optimizationResult,
-      detectedLang,
-      complexityAnalysis,
-      targetMetrics
-    );
-
-    return enhancedResult;
+    return {
+      findings: findings.issues,
+      recommendations: findings.recommendations,
+      severity: findings.severity,
+      backend: endpoint.name,
+      responseTime: `${responseTime.toFixed(0)}ms`,
+      tokensUsed: data.usage?.total_tokens || 0
+    };
   } catch (error) {
-    console.error('Advanced optimization error:', error);
+    console.error('Local LLM routing error:', error);
     throw error;
   }
 }
 
-// Helper method for optimization result enhancement
-async enhanceOptimizationResult(result, language, complexity, targetMetrics) {
-  const enhancement = `
-## 📊 Code Analysis Summary
-- **Language**: ${language}
-- **Complexity Score**: ${complexity.score}/10
-- **Target Metrics**: ${targetMetrics.join(', ') || 'General performance'}
-- **Analysis Timestamp**: ${new Date().toISOString()}
+// Helper method to parse structured findings
+parseFindings(content, analysisType = 'general') {
+  // Extract issues, recommendations, and severity from LLM response
+  const lines = content.split('\n');
+  const issues = [];
+  const recommendations = [];
+  let severity = 'info';
 
-${result}
+  for (const line of lines) {
+    if (line.match(/error|critical|bug|vulnerability/i)) {
+      issues.push(line.trim());
+      severity = 'high';
+    } else if (line.match(/warning|concern|issue/i)) {
+      issues.push(line.trim());
+      if (severity === 'info') severity = 'medium';
+    } else if (line.match(/recommend|suggest|should|consider/i)) {
+      recommendations.push(line.trim());
+    }
+  }
 
-## 🛠️ Tool Integration Suggestions
-- Use with \`edit_file\` tool to apply optimizations
-- Validate changes with \`validate_changes\` tool
-- Monitor improvements with performance profiling
-`;
-
-  return enhancement;
+  return { issues, recommendations, severity };
 }
 ```
 
 ### Step 4: Add Tool Tests
 
-Create `tests/advanced-code-optimizer.test.js`:
+Create `tests/analyze-file.test.js`:
 ```javascript
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SmartAIBridgeRouter } from '../smart-ai-bridge.js';
 
-describe('Advanced Code Optimizer Tool', () => {
+describe('Analyze File Tool', () => {
   let router;
 
   beforeEach(() => {
     router = new SmartAIBridgeRouter();
   });
 
-  it('should optimize JavaScript code', async () => {
-    const testCode = `
-function inefficientSort(arr) {
-  for (let i = 0; i < arr.length; i++) {
-    for (let j = 0; j < arr.length - 1; j++) {
-      if (arr[j] > arr[j + 1]) {
-        let temp = arr[j];
-        arr[j] = arr[j + 1];
-        arr[j + 1] = temp;
-      }
-    }
-  }
-  return arr;
+  it('should analyze file and return structured findings', async () => {
+    // Mock file read and LLM response
+    const mockFileContent = `
+function processUserInput(input) {
+  eval(input); // Security vulnerability
+  return input;
 }`;
 
-    const result = await router.performAdvancedOptimization(
-      testCode,
-      'javascript',
-      'performance',
-      ['execution_time'],
-      true
-    );
+    const result = await router.routeToLocalLLM({
+      prompt: `Analyze this file for security issues:\n${mockFileContent}`,
+      options: { analysisType: 'security' }
+    });
 
-    expect(result).toContain('optimization');
-    expect(result).toContain('performance');
-    expect(result).toContain('JavaScript');
+    expect(result.findings).toBeDefined();
+    expect(result.severity).toBeDefined();
+    expect(result.backend).toBeDefined();
   });
 
-  it('should handle different optimization focuses', async () => {
-    const testCode = 'console.log("test");';
+  it('should route to correct backend based on options', async () => {
+    const result = await router.routeToLocalLLM({
+      prompt: 'Test prompt',
+      options: { backend: 'local' }
+    });
 
-    const performanceResult = await router.performAdvancedOptimization(
-      testCode,
-      'javascript',
-      'performance',
-      []
-    );
+    expect(result.backend).toContain('local');
+  });
 
-    const memoryResult = await router.performAdvancedOptimization(
-      testCode,
-      'javascript',
-      'memory',
-      []
-    );
+  it('should parse findings correctly', () => {
+    const content = `
+Found critical error in line 5: SQL injection vulnerability.
+Warning: Input not sanitized.
+Recommend using parameterized queries.
+`;
 
-    expect(performanceResult).toContain('performance');
-    expect(memoryResult).toContain('memory');
+    const findings = router.parseFindings(content, 'security');
+
+    expect(findings.issues.length).toBeGreaterThan(0);
+    expect(findings.recommendations.length).toBeGreaterThan(0);
+    expect(findings.severity).toBe('high');
   });
 });
 ```
@@ -744,4 +744,6 @@ class PluginManager {
 }
 ```
 
-This extension guide provides a comprehensive framework for extending the Smart AI Bridge with new providers, tools, routing strategies, and plugins. Each section includes practical examples and test cases to ensure reliable implementation.
+This extension guide provides a comprehensive framework for extending Smart AI Bridge v1.6.0 with new providers, tools, routing strategies, and plugins. Each section includes practical examples and test cases to ensure reliable implementation.
+
+**Deprecated tools removed in v1.6.0:** `review`, `read`, `edit_file`, `validate_changes`, `multi_edit`. Use `analyze_file`, `modify_file`, and `batch_modify` instead for token-efficient operations.

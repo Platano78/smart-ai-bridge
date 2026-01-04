@@ -1,14 +1,14 @@
-# Smart AI Bridge
+# Smart AI Bridge v1.6.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
 </a>
 
-**Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, dynamic token scaling, intelligent routing, advanced fuzzy matching, and comprehensive security.**
+**Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, token-saving operations, intelligent routing, workflow automation, and comprehensive security.**
 
 ## 🎯 Overview
 
-Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that orchestrates AI-powered development operations across multiple backends with automatic failover, smart routing, and advanced error prevention capabilities.
+Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that orchestrates AI-powered development operations across multiple backends with automatic failover, smart routing, and advanced AI workflow capabilities.
 
 ### Key Features
 
@@ -21,19 +21,20 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 
 **🎨 Bring Your Own Backends**: The system ships with example configuration using local LM Studio and NVIDIA cloud APIs, but supports ANY AI providers - OpenAI, Anthropic, Azure OpenAI, AWS Bedrock, custom APIs, or local models via Ollama/vLLM/etc. See [EXTENDING.md](EXTENDING.md) for integration guide.
 
-### 🎯 Advanced Fuzzy Matching
-- **Three-Phase Matching**: Exact (<5ms) → Fuzzy (<50ms) → Suggestions (<100ms)
-- **Error Prevention**: 80% reduction in "text not found" errors
-- **Levenshtein Distance**: Industry-standard similarity calculation
-- **Security Hardened**: 9.7/10 security score with DoS protection
-- **Cross-Platform**: Automatic Windows/Unix line ending handling
+### 💰 Token-Saving AI Operations (v1.4.0+)
+- **analyze_file**: 90% token savings - Local LLM reads file, returns findings only
+- **modify_file**: 95% token savings - Local LLM applies natural language edits
+- **batch_modify**: 95% token savings per file - Multi-file NL modifications
+- **Smart Offloading**: Claude sends instructions, local LLMs do the heavy lifting
 
-### 🛠️ Comprehensive Toolset
-- **19 Total Tools**: 9 core tools + 10 intelligent aliases
-- **Code Review**: AI-powered analysis with security auditing
-- **File Operations**: Advanced read, edit, write with atomic transactions
-- **Multi-Edit**: Batch operations with automatic rollback
-- **Validation**: Pre-flight checks with fuzzy matching support
+### 🛠️ 19 Production Tools
+| Category | Tools | Version |
+|----------|-------|---------|
+| **Infrastructure** | health, backup_restore, write_files_atomic, rate_limit_status, system_metrics | v1.0+ |
+| **AI Routing** | ask, spawn_subagent | v1.3.0 |
+| **Token-Saving** | analyze_file, modify_file, batch_modify | v1.4.0 |
+| **Workflows** | council, dual_iterate, parallel_agents | v1.5.0 |
+| **Intelligence** | pattern_search, pattern_add, playbook_list, playbook_run, playbook_step, learning_summary | v1.6.0 |
 
 ### 🔒 Enterprise Security
 - **Security Score**: 8.7/10 - [Certified Production Ready](security/SECURITY-CERTIFICATION-v1.3.0.md)
@@ -45,6 +46,97 @@ Smart AI Bridge is a production-ready Model Context Protocol (MCP) server that o
 - **CI/CD Security**: GitHub Actions validation workflow
 
 **🏆 Production Ready**: 100% test coverage, enterprise-grade reliability, MIT licensed
+
+## ✨ New in v1.6.0
+
+### 🧠 Intelligence Layer
+Complete pattern learning and workflow automation system:
+- **Pattern Store**: TF-IDF semantic search for learned patterns
+- **5 Built-in Playbooks**: tdd-feature, bug-fix, code-review, refactor, documentation
+- **Learning Summary**: Analytics on patterns, playbooks, and usage trends
+- **Adaptive Routing**: Learns optimal backend selection over time
+
+### 🛠️ New Tools
+| Tool | Purpose |
+|------|---------|
+| `pattern_search` | TF-IDF semantic pattern search |
+| `pattern_add` | Store patterns for learning |
+| `playbook_list` | List available workflow playbooks |
+| `playbook_run` | Start playbook execution |
+| `playbook_step` | Manage playbook execution |
+| `learning_summary` | Pattern/playbook analytics |
+
+### 🧹 Breaking Change: Removed Tools
+These tools were removed because they duplicated Claude's native capabilities without adding value:
+
+| Removed Tool | Replacement | Reason |
+|--------------|-------------|--------|
+| `review` | Use `ask` with review prompt | Just a wrapper around `ask` |
+| `read` | Claude's native `Read` tool | Passthrough, no token savings |
+| `edit_file` | Claude's native `Edit` tool | Passthrough, no token savings |
+| `validate_changes` | Use `ask` with validation prompt | Just a wrapper around `ask` |
+| `multi_edit` | Claude's native `Edit` (multiple) | Passthrough, no token savings |
+
+---
+
+## ✨ New in v1.5.0
+
+### 🤝 Multi-AI Council
+Get consensus from multiple AI backends on complex decisions:
+- **Topic-Based Routing**: coding, reasoning, architecture, security, performance
+- **Confidence Levels**: high (4 backends), medium (3), low (2)
+- **Synthesis**: Claude combines diverse perspectives into final answer
+
+### 🔄 Dual Iterate Workflow
+Internal generate→review→fix loop using dual backends:
+- **Coding Backend**: Generates code (e.g., Seed-Coder)
+- **Reasoning Backend**: Reviews and validates (e.g., DeepSeek-R1)
+- **Quality Threshold**: Iterates until quality score met
+- **Token Savings**: Entire workflow runs in MKG, returns only final code
+
+### 🚀 Parallel Agents (TDD Workflow)
+Execute multiple TDD agents with quality gate iteration:
+- **Decomposition**: Breaks high-level tasks into atomic subtasks
+- **Parallel Execution**: RED phase tests before GREEN implementation
+- **Quality Gates**: Iterates based on quality review
+- **File Organization**: Output organized by phase (red/green/refactor)
+
+### 👥 TDD Subagent Roles (v1.5.0)
+| Role | Purpose |
+|------|---------|
+| `tdd-decomposer` | Break task into TDD subtasks |
+| `tdd-test-writer` | RED phase - write failing tests |
+| `tdd-implementer` | GREEN phase - implement to pass |
+| `tdd-quality-reviewer` | Quality gate validation |
+
+---
+
+## ✨ New in v1.4.0
+
+### 💰 Token-Saving Tools
+Tools that offload work to local LLMs, providing massive token savings:
+
+| Tool | Token Savings | How It Works |
+|------|---------------|--------------|
+| `analyze_file` | 90% | Local LLM reads file, returns structured findings |
+| `modify_file` | 95% | Local LLM applies natural language edits |
+| `batch_modify` | 95% per file | Multi-file NL modifications |
+
+### 📊 Example: modify_file Workflow
+```
+Claude → "Add error handling to fetchUser()" → MKG
+                                                ↓
+                                    Local LLM reads file
+                                    Applies changes
+                                    Returns diff
+                                                ↓
+Claude ← reviews small diff (~100 tokens vs 2000+)
+   ↓
+   ├─ Approve → changes applied
+   └─ Reject → retry with feedback
+```
+
+---
 
 ## ✨ New in v1.3.0
 
@@ -63,16 +155,20 @@ Self-improving routing that learns optimal backend selection:
 - **Persistent State**: Saves learning to `data/learning/learning-state.json`
 
 ### 🤖 Specialized Subagent System
-Six AI roles with tailored prompts and structured outputs:
+Ten AI roles with tailored prompts and structured outputs:
 
-| Role | Purpose |
-|------|---------|
-| `code-reviewer` | Quality review, best practices |
-| `security-auditor` | Vulnerability detection, OWASP |
-| `planner` | Task breakdown, dependencies |
-| `refactor-specialist` | Code improvement suggestions |
-| `test-generator` | Test suite generation |
-| `documentation-writer` | Documentation creation |
+| Role | Category | Purpose |
+|------|----------|---------|
+| `code-reviewer` | Quality | Code quality review |
+| `security-auditor` | Security | Vulnerability detection |
+| `planner` | Planning | Task breakdown |
+| `refactor-specialist` | Refactoring | Code improvement |
+| `test-generator` | Testing | Test creation |
+| `documentation-writer` | Docs | Documentation generation |
+| `tdd-decomposer` | TDD | Break into TDD subtasks |
+| `tdd-test-writer` | TDD | RED phase - failing tests |
+| `tdd-implementer` | TDD | GREEN phase - implementation |
+| `tdd-quality-reviewer` | TDD | Quality gate validation |
 
 **Backend Configuration**: Subagent backends are user-configurable via environment variables:
 ```bash
@@ -84,7 +180,7 @@ SUBAGENT_SECURITY_AUDITOR_BACKEND=local
 SUBAGENT_DEFAULT_BACKEND=qwen3
 ```
 
-**New Tool**: `spawn_subagent` with structured verdict outputs
+**Tool**: `spawn_subagent` with structured verdict outputs
 
 ### 🔒 Security Certification (8.7/10)
 - **Security Score**: 8.7/10 - Production Ready with Monitoring
@@ -94,24 +190,6 @@ SUBAGENT_DEFAULT_BACKEND=qwen3
 - **Automated Testing**: 125+ security tests with 95% pass rate
 - **CI/CD Integration**: GitHub Actions workflow for continuous validation
 - **Certification ID**: SAB-SEC-2025-1209-v130 (Valid until March 9, 2026)
-
-### 📦 New Files in v1.3.0
-```
-backends/           # Backend adapter system (6 files)
-intelligence/       # Compound learning engine
-handlers/           # Subagent orchestration
-config/             # Role templates
-utils/              # Verdict parser, role validator
-security/           # Security validation framework (17 files)
-.github/workflows/  # CI/CD security pipeline
-```
-
-### 🧪 Test Coverage
-- Backend Adapters: 12/12 tests passing
-- Learning Integration: 12/12 tests passing
-- Subagent System: 14/14 tests passing
-- Security Tests: 125+ tests at 95% pass rate
-- **Total**: 163+ tests passing
 
 ## ✨ New in v1.2.2
 
@@ -249,150 +327,166 @@ npm test
 
 ### 4. Restart Claude Code
 
-## 🛠️ Available Tools
+## 🛠️ Available Tools (19 Total)
 
-### 🎯 Smart Edit Prevention Features
+### 💰 Token-Saving Tools (v1.4.0+)
 
-#### Enhanced `edit_file` Tool with Fuzzy Matching
-Revolutionary file editing with intelligent error prevention and automatic correction capabilities.
-
-**New Features:**
-- **Smart Validation Modes**: `strict` (exact), `lenient` (fuzzy), `dry_run` (validation-only)
-- **Fuzzy Matching Engine**: Configurable similarity threshold (0.1-1.0) for typo tolerance
-- **Intelligent Suggestions**: Up to 10 alternative matches with similarity scores
-- **Performance Optimized**: <50ms fuzzy matching for real-time applications
+#### `analyze_file` - **90% Token Savings**
+Local LLM reads and analyzes files, returning only structured findings to Claude.
 
 **Example:**
 ```javascript
-@edit_file({
-  file_path: "/src/user.js",
-  validation_mode: "lenient",     // Enable fuzzy matching
-  fuzzy_threshold: 0.8,           // 80% similarity required
-  suggest_alternatives: true,      // Get helpful suggestions
-  edits: [
-    {
-      find: "const userName = 'alice'",  // Will match even with minor typos
-      replace: "const userName = 'bob'",
-      description: "Update username with smart matching"
-    }
-  ]
+@analyze_file({
+  filePath: "/src/auth.js",
+  question: "What are the security vulnerabilities?",
+  options: { analysisType: "security" }
+})
+// Returns: Structured findings, not the file content
+```
+
+#### `modify_file` - **95% Token Savings**
+Local LLM applies natural language edits. Claude never sees the full file.
+
+**Example:**
+```javascript
+@modify_file({
+  filePath: "/src/api.js",
+  instructions: "Add rate limiting to all API endpoints",
+  options: { review: true }  // Returns diff for approval
 })
 ```
 
-#### Enhanced `read` Tool with Verification
-Advanced file reading with pre-flight validation capabilities for edit operations.
-
-**New Features:**
-- **Text Verification**: Verify text patterns exist before editing
-- **Multiple Verification Modes**: `basic`, `fuzzy`, `comprehensive`
-- **Batch Verification**: Validate multiple text patterns in single operation
-- **Detailed Results**: Match locations, similarity scores, and suggestions
+#### `batch_modify` - **95% Token Savings Per File**
+Apply the same natural language instructions across multiple files.
 
 **Example:**
 ```javascript
-@read({
-  file_paths: ["/src/user.js"],
-  verify_texts: [
-    "function processUserData",
-    "const userName = 'alice'",
-    "return userData.score"
-  ],
-  verification_mode: "fuzzy",     // Smart pattern matching
-  fuzzy_threshold: 0.8
+@batch_modify({
+  files: ["src/**/*.js"],
+  instructions: "Add error handling to all async functions"
 })
 ```
 
-### Primary AI Query Tools
+### 🤝 Multi-AI Workflow Tools (v1.5.0+)
 
-#### `query_deepseek` - **Smart Multi-Backend Routing**
-Revolutionary AI query system with automatic backend selection based on task specialization.
-
-**Features:**
-- **Intelligent Routing**: Automatic endpoint selection based on content analysis
-- **Capability Messaging**: Transparent feedback on which AI handled your request  
-- **Fallback Protection**: Automatic failover to backup endpoints
-- **Task Specialization**: Optimized routing for coding, analysis, and large context tasks
+#### `council` - **Multi-AI Consensus**
+Get consensus from multiple AI backends on complex decisions.
 
 **Example:**
 ```javascript
-@query_deepseek(
-  prompt="Implement a complete game inventory system with drag-and-drop, item stacking, and persistence",
-  task_type="coding",  // Routes to Qwen 3 Coder automatically
-  context="Building RPG game with React and Node.js"
-)
+@council({
+  prompt: "What's the best architecture for this microservices system?",
+  topic: "architecture",
+  confidence_needed: "high"  // Uses 4 backends
+})
 ```
 
-#### `route_to_endpoint` - **Direct Endpoint Control**
-Force queries to specific AI endpoints for comparison or specialized tasks.
+#### `dual_iterate` - **Generate→Review→Fix Loop**
+Internal iteration between coding and reasoning models.
 
 **Example:**
 ```javascript
-@route_to_endpoint(
-  endpoint="cloud_backend_1",  // or "cloud_backend_2", "local_backend"
-  prompt="Optimize this React component for performance"
-)
+@dual_iterate({
+  task: "Write a function that validates email addresses",
+  quality_threshold: 0.7,
+  max_iterations: 3
+})
+// Returns only final approved code
 ```
 
-#### `compare_endpoints` - **Multi-AI Comparison**
-Run the same query across multiple endpoints to compare responses and capabilities.
+#### `parallel_agents` - **TDD Workflow**
+Execute multiple TDD agents with quality gates.
 
 **Example:**
 ```javascript
-@compare_endpoints(
-  prompt="Design a player progression system for an RPG",
-  endpoints=["cloud_backend_1", "cloud_backend_2", "local_backend"]
-)
+@parallel_agents({
+  task: "Implement OAuth2 authentication",
+  max_parallel: 2,
+  iterate_until_quality: true
+})
 ```
 
-### System Monitoring Tools
+### 🤖 AI Routing Tools (v1.3.0+)
 
-#### `check_deepseek_status` - **Multi-Backend Health Check**
-Monitor status and capabilities of all configured AI backends.
+#### `ask` - **Smart Multi-Backend Routing**
+AI query with automatic backend selection based on task.
 
 **Example:**
 ```javascript
-@check_deepseek_status()
-// Returns: Status of all backends, routing statistics, performance metrics
+@ask({
+  prompt: "Implement a game inventory system",
+  model: "auto"  // Let MKG route intelligently
+})
 ```
 
-### Advanced File Analysis Tools
+#### `spawn_subagent` - **Specialized AI Roles**
+Spawn specialized AI agents for specific tasks.
 
-#### `analyze_files` - **Blazing Fast File Analysis**
-Enterprise-grade file analysis with concurrent processing, security validation, and intelligent content transmission.
-
-**Features:**
-- **Concurrent Processing**: 300% faster multi-file analysis
-- **Smart Routing**: >100KB files automatically route to Local Backend (unlimited tokens)
-- **Security Validation**: Built-in malicious content detection
-- **Cross-Platform**: Windows/WSL/Linux path normalization
-- **Pattern Filtering**: Intelligent file selection with glob patterns
+**Available Roles:**
+| Role | Purpose |
+|------|---------|
+| `code-reviewer` | Quality review, best practices |
+| `security-auditor` | Vulnerability detection, OWASP |
+| `planner` | Task breakdown, dependencies |
+| `refactor-specialist` | Code improvement suggestions |
+| `test-generator` | Test suite generation |
+| `documentation-writer` | Documentation creation |
+| `tdd-decomposer` | Break into TDD subtasks |
+| `tdd-test-writer` | RED phase - failing tests |
+| `tdd-implementer` | GREEN phase - implementation |
+| `tdd-quality-reviewer` | Quality gate validation |
 
 **Example:**
 ```javascript
-@analyze_files(
-  files=["src/**/*.js", "config/*.json"],
-  analysis_type="security_audit",
-  output_format="detailed"
-)
+@spawn_subagent({
+  role: "security-auditor",
+  task: "Audit the authentication module for vulnerabilities"
+})
 ```
 
-#### `youtu_agent_analyze_files` - **Large File Chunking System**
-Advanced chunking system for processing files >32KB with semantic boundary preservation.
+### 🧠 Intelligence Tools (v1.6.0+)
 
-**Features:**
-- **Semantic Chunking**: Preserves code structure across chunks
-- **95% Content Preservation**: Minimal information loss
-- **Cross-Chunk Relationships**: Maintains context between file sections
-- **TDD-Developed**: Extensively tested file processing system
+#### `pattern_search` - **TF-IDF Semantic Search**
+Search learned patterns using semantic similarity.
 
 **Example:**
 ```javascript
-@youtu_agent_analyze_files(
-  files=["large_codebase/**/*.js"],
-  chunk_strategy="semantic",
-  preserve_boundaries=true
-)
+@pattern_search({ query: "authentication error handling" })
 ```
+
+#### `playbook_run` - **Workflow Automation**
+Run predefined workflow playbooks.
+
+**Built-in Playbooks:**
+| Playbook | Steps | Purpose |
+|----------|-------|---------|
+| `tdd-feature` | 6 | Full TDD cycle for new features |
+| `bug-fix` | 5 | Systematic bug resolution |
+| `code-review` | 4 | Comprehensive code review |
+| `refactor` | 5 | Safe code refactoring |
+| `documentation` | 4 | Documentation generation |
+
+**Example:**
+```javascript
+@playbook_run({ playbook: "tdd-feature", context: { feature: "OAuth2" } })
+```
+
+### 🔧 Infrastructure Tools
+
+#### `health` - **Backend Health Monitoring**
+Check status of all AI backends with circuit breaker status.
+
+**Example:**
+```javascript
+@health()
+// Returns: Backend status, circuit breaker state, response times
+```
+
+#### `system_metrics` - **Performance Statistics**
+Get comprehensive system metrics and usage analytics.
+
+#### `write_files_atomic` - **Atomic File Writes**
+Write multiple files atomically with automatic backup.
 
 ## 📋 Task Types & Smart Routing
 
@@ -846,71 +940,83 @@ curl -H "Authorization: Bearer $CLOUD_API_KEY_1" \
 ## 📁 Project Architecture
 
 ```
-smart-ai-bridge/
-├── smart-ai-bridge.js                     # Main MCP server with multi-backend routing
-├── fuzzy-matching-security.js             # Advanced fuzzy matching engine
-├── circuit-breaker.js                     # Health monitoring and failover
-├── config.js                              # Configuration management
-├── Security Components/
-│   ├── auth-manager.js                    # Authentication and authorization
-│   ├── error-sanitizer.js                 # Error message sanitization
-│   ├── input-validator.js                 # Input validation and type checking
-│   ├── metrics-collector.js               # Performance and security metrics
-│   ├── path-security.js                   # Path traversal protection
-│   └── rate-limiter.js                    # Rate limiting and DoS protection
-├── tests/
-│   ├── fuzzy-matching/                    # Fuzzy matching test suite
-│   ├── fuzzy-matching-functional.test.js  # Core functionality tests
-│   ├── fuzzy-matching-integration.test.js # Integration tests
-│   └── fuzzy-matching-security.test.js    # Security validation tests
-├── scripts/
-│   ├── deploy-hybrid.sh                   # Deployment automation
-│   ├── deploy-ucm-v8.sh                   # UCM deployment
-│   └── validate-hybrid-server.js          # Server validation
-├── Documentation/
-│   ├── README.md                          # This comprehensive guide
-│   ├── EXTENDING.md                       # Guide to adding backends
-│   ├── FUZZY_MATCHING_INTEGRATION.md      # Fuzzy matching technical reference
-│   ├── CONFIGURATION.md                   # Configuration guide
-│   ├── SMART-EDIT-PREVENTION-GUIDE.md     # Error prevention guide
-│   └── TROUBLESHOOTING-GUIDE.md           # Troubleshooting reference
-└── package.json                           # Dependencies and scripts
+smart-ai-bridge v1.6.0/
+├── Core Server
+│   ├── smart-ai-bridge.js          # Main MCP server (19 tools)
+│   ├── path-security.js            # Path validation
+│   ├── circuit-breaker.js          # Health monitoring and failover
+│   └── config.js                   # Configuration management
+│
+├── Security Modules
+│   ├── auth-manager.js             # Authentication and authorization
+│   ├── input-validator.js          # Input validation and type checking
+│   ├── rate-limiter.js             # Rate limiting and DoS protection
+│   ├── error-sanitizer.js          # Error message sanitization
+│   └── metrics-collector.js        # Performance and security metrics
+│
+├── Handlers (v1.4.0-v1.5.0)
+│   ├── subagent-handler.js         # 10 specialized roles
+│   ├── analyze-file-handler.js     # 90% token savings
+│   ├── modify-file-handler.js      # 95% token savings
+│   ├── batch-modify-handler.js     # 95% token savings
+│   ├── council-handler.js          # Multi-AI consensus
+│   ├── dual-iterate-handler.js     # Generate→Review→Fix
+│   └── parallel-agents-handler.js  # TDD workflow
+│
+├── Intelligence (v1.6.0)
+│   ├── compound-learning.js        # Enhanced with decay, complexity
+│   ├── pattern-rag-store.js        # TF-IDF pattern memory
+│   └── playbook-system.js          # 5 built-in workflows
+│
+├── Config
+│   └── role-templates.js           # 10 subagent roles (incl. TDD)
+│
+├── Backends
+│   └── backend-adapters.js         # Circuit breakers, health checks
+│
+├── Tests
+│   ├── test-v1.4.0-handlers.js
+│   └── test-v1.5.0-handlers.js
+│
+└── Documentation
+    ├── README.md                   # This guide
+    ├── EXTENDING.md                # Backend integration guide
+    ├── CONFIGURATION.md            # Configuration reference
+    └── CHANGELOG.md                # Version history
 ```
 
 ### Key Components
 
 #### **Core Server**
-- **`smart-ai-bridge.js`**: Main MCP server with multi-backend orchestration and intelligent routing
-- **`fuzzy-matching-security.js`**: Advanced fuzzy matching with 80% error reduction
+- **`smart-ai-bridge.js`**: Main MCP server with 19 production tools
 - **`circuit-breaker.js`**: Health monitoring, automatic failover, and endpoint management
 - **`config.js`**: Centralized configuration with environment variable support
 
-#### **Security Layer** (9.7/10 Security Score)
+#### **Handlers (Token-Saving)**
+- **`analyze-file-handler.js`**: 90% token savings - local LLM reads files
+- **`modify-file-handler.js`**: 95% token savings - local LLM applies NL edits
+- **`batch-modify-handler.js`**: 95% savings per file for multi-file edits
+- **`council-handler.js`**: Multi-AI consensus from 2-4 backends
+- **`dual-iterate-handler.js`**: Internal generate→review→fix loop
+- **`parallel-agents-handler.js`**: TDD workflow with quality gates
+
+#### **Intelligence Layer (v1.6.0)**
+- **`pattern-rag-store.js`**: TF-IDF semantic search for learned patterns
+- **`playbook-system.js`**: 5 built-in workflow playbooks
+- **`compound-learning.js`**: Adaptive routing with decay and complexity scoring
+
+#### **Security Layer** (8.7/10 Security Score)
 - **`auth-manager.js`**: Authentication and authorization controls
-- **`error-sanitizer.js`**: Secure error handling and message sanitization
 - **`input-validator.js`**: Comprehensive input validation and type checking
+- **`rate-limiter.js`**: DoS protection (60/min, 500/hr, 5000/day)
+- **`error-sanitizer.js`**: Secure error handling and message sanitization
 - **`metrics-collector.js`**: Performance monitoring and abuse detection
-- **`path-security.js`**: Path traversal and directory escape protection
-- **`rate-limiter.js`**: DoS protection with request rate limiting
-
-#### **Backend Management**
-- **Local Backend**: Unlimited token processing via LM Studio/Ollama/vLLM
-- **Cloud Backend 1**: Coding specialist (example: OpenAI, Anthropic, NVIDIA Qwen, etc.)
-- **Cloud Backend 2**: Analysis specialist (example: DeepSeek, Claude, GPT-4, etc.)
-- **Cloud Backend 3**: General purpose (example: Gemini, Azure, AWS Bedrock, etc.)
-- **Fully Expandable**: Add unlimited backends via [EXTENDING.md](EXTENDING.md)
-
-#### **Testing & Validation**
-- **100% Test Coverage**: Comprehensive test suite with fuzzy matching focus
-- **Security Hardening Tests**: 9.7/10 security score validation
-- **Integration Tests**: End-to-end MCP functionality verification
-- **Deployment Validation**: Automated server health checks
 
 ## 📚 Documentation Resources
 
-### 🎯 Advanced Documentation
+### 🎯 Core Documentation
 
-#### [Extending the Backend System](EXTENDING.md) 🆕
+#### [Extending the Backend System](EXTENDING.md)
 **Guide to adding custom AI backends**:
 - How to add new AI providers (OpenAI, Anthropic, custom APIs)
 - Backend configuration and integration patterns
@@ -918,61 +1024,24 @@ smart-ai-bridge/
 - Smart routing configuration for new backends
 - Best practices for multi-backend orchestration
 
-#### [Fuzzy Matching Integration Guide](FUZZY_MATCHING_INTEGRATION.md) 🆕
-**Complete technical reference for fuzzy matching**:
-- Feature overview and use cases
-- Security controls and threat model (9.7/10 security score)
-- Technical architecture with Levenshtein algorithm details
-- Comprehensive API reference with TypeScript types
-- Integration examples (Unity, JavaScript, cross-platform)
-- Testing guide with 70+ test coverage
-- Performance optimization and troubleshooting
-- Migration guide from exact matching
-
-#### [Fuzzy Matching Configuration](CONFIGURATION.md#-fuzzy-matching-configuration) 🆕
-**Production configuration guide**:
-- Environment variables and security limits
-- Validation modes (strict, lenient, dry_run)
-- Threshold recommendations by language (Unity C#, JavaScript, Python)
-- Performance tuning (memory, timeout, iterations)
-- Monitoring and metrics integration
-- Best practices and advanced configuration
-
-#### [Smart Edit Prevention Guide](SMART-EDIT-PREVENTION-GUIDE.md)
-Comprehensive guide to the fuzzy matching and validation features:
-- How to use fuzzy matching for error prevention
-- Validation mode explanations (`strict`, `lenient`, `dry_run`)
-- Error recovery strategies and best practices
-- Performance optimization tips and real-world examples
+#### [Configuration Reference](CONFIGURATION.md)
+**Complete configuration guide**:
+- Environment variables for all features
+- Security and rate limiting configuration
+- Intelligence layer settings (v1.6.0)
+- Multi-backend setup options
+#### [Changelog](CHANGELOG.md)
+Version history with detailed release notes:
+- v1.6.0: Intelligence layer, pattern learning, playbooks
+- v1.5.0: Multi-AI workflows (council, dual_iterate, parallel_agents)
+- v1.4.0: Token-saving tools (analyze_file, modify_file, batch_modify)
+- v1.3.0: Backend adapters, learning engine, subagent system
 
 #### [Troubleshooting Guide](TROUBLESHOOTING-GUIDE.md)
-Comprehensive troubleshooting for Smart Edit Prevention features:
-- "Text not found" error resolution with fuzzy matching
-- Performance optimization guidance
-- Common error patterns and solutions
-- Best practices for large files and complex operations
-
-#### [Changelog](CHANGELOG.md)
-Detailed changelog:
-- Smart Edit Prevention Strategy implementation
-- SmartAliasResolver system improvements
-- Performance optimizations and new capabilities
-
-### 🏗️ Development Documentation
-
-#### [Optimization Pipeline Template](docs/optimization-pipeline-template.md)
-Complete reusable workflow for Discovery→Implementation→Validation optimization cycles. Includes:
-- Template prompts for each phase
-- Code implementation patterns
-- Validation metrics and success criteria
-- ProfilerMarker integration examples
-
-#### [DeepSeek Quality Examples](docs/deepseek-quality-examples.md)
-Learn to identify high-quality vs poor DeepSeek responses. Includes:
-- Side-by-side good vs bad examples
-- Quality assessment checklists
-- Prompt engineering patterns
-- Response validation techniques
+Common issues and solutions:
+- Backend connection issues
+- Performance optimization
+- Common error patterns
 
 ## 🎯 Deployment & Success Criteria
 
@@ -996,7 +1065,7 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
    ```
 4. **Update Claude Code Config**: Use production configuration from above (smart-ai-bridge.js)
 5. **Restart Claude Code**: Full restart required for new tools
-6. **Verify Deployment**: `@check_deepseek_status()`
+6. **Verify Deployment**: `@health()`
 
 ### Success Verification
 
@@ -1100,45 +1169,37 @@ Learn to identify high-quality vs poor DeepSeek responses. Includes:
 
 ---
 
-## 🏆 System Status: PRODUCTION READY v1.3.0
+## 🏆 System Status: PRODUCTION READY v1.6.0
 
-**Smart AI Bridge v1.3.0** represents an enterprise-grade AI development platform with **Security Certification (8.7/10)** with Dynamic Token Scaling, Smart Edit Prevention Strategy, TDD methodology, and production-ready reliability. The system provides:
+**Smart AI Bridge v1.6.0** is a lean, value-focused MCP server with **Security Certification (8.7/10)**, token-saving AI operations, multi-AI workflows, and intelligent pattern learning. The system provides:
 
-### 🎯 Dynamic Token Scaling (v1.2.0)
-- **Intelligent Resource Allocation**: Automatic token limits based on request complexity
-- **Unity Optimization**: 16K tokens for large game development scripts
-- **Efficiency Gains**: 75% reduction in token usage for simple queries
-- **Backend-Aware**: Respects individual AI model maximum capacities
-- **Zero Configuration**: Works automatically with full backward compatibility
+### 💰 Token-Saving Operations (v1.4.0+)
+- **90-95% Token Savings**: Local LLM offloading via analyze_file, modify_file, batch_modify
+- **Natural Language Edits**: Describe changes, local LLM applies them
+- **Claude Reviews Diffs**: Small diffs instead of full file content
 
-### 🎯 Smart Edit Prevention Strategy
-- **Fuzzy Matching Engine**: Eliminates "text not found" errors with intelligent pattern matching
-- **Multiple Validation Modes**: `strict`, `lenient`, and `dry_run` for every use case
-- **Enhanced Error Recovery**: Automatic suggestions and fallback mechanisms
-- **Performance Optimized**: <50ms fuzzy matching meets real-time application demands
+### 🤝 Multi-AI Workflows (v1.5.0+)
+- **Council**: Multi-AI consensus on complex decisions
+- **Dual Iterate**: Internal generate→review→fix loop
+- **Parallel Agents**: TDD workflow with quality gates
 
-### ⚡ SmartAliasResolver System
-- **Optimized Architecture**: Reduced from 19 to 9 core tools + intelligent aliases
-- **100% Backward Compatibility**: All existing tool calls work unchanged
-- **60% Performance Boost**: Faster tool resolution and reduced memory footprint
-- **Zero Redundancy**: Smart registration with dynamic tool mapping
+### 🧠 Intelligence Layer (v1.6.0)
+- **Pattern Learning**: TF-IDF semantic search for learned patterns
+- **Workflow Playbooks**: 5 built-in automation playbooks
+- **Adaptive Routing**: Learns optimal backend selection over time
+
+### 🧹 Lean Tool Design
+- **19 Production Tools**: Removed 5 bloat tools, added 9 value tools
+- **No Passthrough**: Every tool adds value beyond Claude's native capabilities
+- **Focused Scope**: Token-saving, workflows, and intelligence
 
 ### 🛡️ Enterprise-Grade Reliability
-- **Zero-Downtime Deployment**: Additive enhancement with automatic backups
-- **Intelligent AI Routing**: Task-specialized endpoints with automatic fallback
-- **Advanced File Processing**: Cross-platform compatibility with security validation
-- **Comprehensive Testing**: 100% test pass rate across all enhanced features
-- **Enterprise Security**: Malicious content detection and path validation
+- **Security Score**: 8.7/10 with comprehensive validation
+- **Circuit Breakers**: Automatic failover with health monitoring
+- **Rate Limiting**: 60/min, 500/hr, 5000/day with IP tracking
 
-### 📊 Performance Excellence
-- **<5ms**: Exact text matching
-- **<50ms**: Fuzzy matching operations
-- **<100ms**: Comprehensive verification
-- **<16ms**: Real-time application response targets
-- **3-10s**: Smart differentiated health checks (optimized by endpoint type)
-
-*Built using Test-Driven Development (TDD) with atomic task breakdown - Zero technical debt, maximum reliability, revolutionary user experience.*
+*Built using Test-Driven Development (TDD) with atomic task breakdown - Zero technical debt, maximum reliability.*
 
 ---
 
-**🎯 Smart Edit Prevention** | **🎮 Optimized for Game Development** | **🔐 Enterprise Security** | **⚡ Blazing Fast Performance** | **🛡️ Battle-Tested Reliability**
+**💰 Token-Saving** | **🤝 Multi-AI Workflows** | **🧠 Intelligent Learning** | **🔐 Enterprise Security** | **🛡️ Battle-Tested Reliability**

@@ -5,7 +5,117 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.1.0] - 2025-09-22
+## [1.6.0] - 2026-01-04
+
+### Added - Intelligence Layer
+
+#### 🧠 Pattern Learning System
+- **TF-IDF Pattern Store**: Semantic search for learned patterns
+- **Pattern Persistence**: Patterns saved to `data/patterns/`
+- **Decay Scoring**: Pattern relevance decreases over time
+- **Complexity Weighting**: Patterns scored by task complexity
+
+#### 📋 Workflow Playbooks
+- **5 Built-in Playbooks**: tdd-feature, bug-fix, code-review, refactor, documentation
+- **Step Management**: Start, pause, resume, complete playbook steps
+- **Context Tracking**: Maintains state across playbook execution
+- **Analytics**: Usage tracking and success metrics
+
+#### 🛠️ New Tools (6)
+| Tool | Purpose |
+|------|---------|
+| `pattern_search` | TF-IDF semantic pattern search |
+| `pattern_add` | Store patterns for learning |
+| `playbook_list` | List available workflow playbooks |
+| `playbook_run` | Start playbook execution |
+| `playbook_step` | Manage playbook execution |
+| `learning_summary` | Pattern/playbook analytics |
+
+### Removed - Deprecated Tools
+
+**BREAKING CHANGE**: 5 tools removed that duplicated Claude's native capabilities:
+
+| Removed Tool | Replacement | Reason |
+|--------------|-------------|--------|
+| `review` | Use `ask` with review prompt | Just a wrapper around `ask` |
+| `read` | Claude's native `Read` tool | Passthrough, no token savings |
+| `edit_file` | Claude's native `Edit` tool | Passthrough, no token savings |
+| `validate_changes` | Use `ask` with validation prompt | Just a wrapper around `ask` |
+| `multi_edit` | Claude's native `Edit` (multiple) | Passthrough, no token savings |
+
+### Changed
+- Tool count: 24 → 19 (removed 5 bloat, added 6 intelligence)
+- Updated documentation to reflect current tool inventory
+- Enhanced compound learning with decay and complexity scoring
+
+---
+
+## [1.5.0] - 2025-12-XX
+
+### Added - Multi-AI Workflow Tools
+
+#### 🤝 Multi-AI Council
+- **Topic-Based Routing**: coding, reasoning, architecture, security, performance
+- **Confidence Levels**: high (4 backends), medium (3 backends), low (2 backends)
+- **Synthesis**: Claude combines diverse perspectives into final answer
+
+#### 🔄 Dual Iterate Workflow
+- **Coding Backend**: Generates code (e.g., Seed-Coder)
+- **Reasoning Backend**: Reviews and validates (e.g., DeepSeek-R1)
+- **Quality Threshold**: Iterates until quality score met (0.5-1.0)
+- **Token Savings**: Entire workflow runs in MKG, returns only final code
+
+#### 🚀 Parallel Agents (TDD Workflow)
+- **Decomposition**: Breaks high-level tasks into atomic subtasks
+- **Parallel Execution**: RED phase tests before GREEN implementation
+- **Quality Gates**: Iterates based on quality review (up to 5 iterations)
+- **File Organization**: Output organized by phase (red/green/refactor)
+
+#### 👥 TDD Subagent Roles (4 new roles)
+| Role | Purpose |
+|------|---------|
+| `tdd-decomposer` | Break task into TDD subtasks |
+| `tdd-test-writer` | RED phase - write failing tests |
+| `tdd-implementer` | GREEN phase - implement to pass |
+| `tdd-quality-reviewer` | Quality gate validation |
+
+### Changed
+- Total subagent roles: 6 → 10 (added 4 TDD roles)
+- Enhanced role-templates.js with TDD prompts
+
+---
+
+## [1.4.0] - 2025-12-XX
+
+### Added - Token-Saving Tools
+
+#### 💰 Local LLM Offloading
+Tools that offload work to local LLMs, providing massive token savings:
+
+| Tool | Token Savings | How It Works |
+|------|---------------|--------------|
+| `analyze_file` | 90% | Local LLM reads file, returns structured findings |
+| `modify_file` | 95% | Local LLM applies natural language edits |
+| `batch_modify` | 95% per file | Multi-file NL modifications |
+
+#### 📊 Workflow
+```
+Claude → NL instructions → MKG → Local LLM → diff → Claude reviews → approve/reject
+```
+
+- Claude sends only instructions (not file content)
+- Local LLM reads file and applies changes
+- Claude reviews small diff (~100 tokens vs 2000+)
+- Massive token savings per operation
+
+### Added
+- `handlers/analyze-file-handler.js` - File analysis handler
+- `handlers/modify-file-handler.js` - File modification handler
+- `handlers/batch-modify-handler.js` - Batch modification handler
+
+---
+
+## [1.3.0] - 2025-12-09
 
 ### Added - Smart Edit Prevention Strategy Implementation
 
