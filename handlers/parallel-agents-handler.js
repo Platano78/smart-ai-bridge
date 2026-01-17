@@ -1,14 +1,16 @@
 /**
- * Smart AI Bridge v1.5.0 - Parallel Agents Handler
+ * Smart AI Bridge v1.6.0 - Parallel Agents Handler
  *
  * TDD workflow with parallel agent execution:
  * 1. Decompose high-level task into atomic subtasks
  * 2. Run RED phase agents in parallel (write failing tests)
  * 3. Run GREEN phase agents (implement to pass tests)
- * 4. Quality gate review
- * 5. Iterate if quality not met
+ * 4. Run REFACTOR phase agents (simplify and improve code)
+ * 5. Quality gate review
+ * 6. Iterate if quality not met
  *
  * Uses SubagentHandler roles for specialized work.
+ * REFACTOR phase uses code-reviewer role for code simplification.
  */
 
 import { SubagentHandler } from './subagent-handler.js';
@@ -33,6 +35,7 @@ const PHASE_ROLES = {
   decompose: 'tdd-decomposer',
   red: 'tdd-test-writer',
   green: 'tdd-implementer',
+  refactor: 'code-reviewer',  // Code simplification pass
   quality: 'tdd-quality-reviewer'
 };
 
@@ -79,6 +82,7 @@ export class ParallelAgentsHandler {
       await this._ensureDirectory(workDir);
       await this._ensureDirectory(path.join(workDir, 'red'));
       await this._ensureDirectory(path.join(workDir, 'green'));
+      await this._ensureDirectory(path.join(workDir, 'refactor'));
     }
 
     console.error(`\n========================================`);
@@ -95,6 +99,7 @@ export class ParallelAgentsHandler {
       subtasks: [],
       red_phase: [],
       green_phase: [],
+      refactor_phase: [],
       quality_reviews: [],
       files_written: []
     };
@@ -151,13 +156,36 @@ export class ParallelAgentsHandler {
         }
       }
 
-      // Step 4: Quality gate review
+      // Step 4: REFACTOR phase - simplify and improve code
+      console.error(`\n--- PHASE: REFACTOR (Simplify) ---\n`);
+      const refactorResults = await this._runPhaseParallel(
+        'refactor',
+        subtasks.map((st, i) => ({
+          ...st,
+          test_code: redResults[i]?.code || redResults[i]?.content,
+          impl_code: greenResults[i]?.code || greenResults[i]?.content
+        })),
+        max_parallel,
+        { work_directory: workDir, iteration }
+      );
+      results.refactor_phase.push({ iteration, results: refactorResults });
+
+      if (write_files) {
+        for (const r of refactorResults.filter(r => r.success)) {
+          const filePath = path.join(workDir, 'refactor', `${r.subtask.id}_refactored.js`);
+          await this._writeFile(filePath, r.code || r.content);
+          results.files_written.push(filePath);
+        }
+      }
+
+      // Step 5: Quality gate review
       console.error(`\n--- PHASE: QUALITY GATE ---\n`);
       const qualityReview = await this._qualityGate(
         task,
         subtasks,
         redResults,
-        greenResults
+        greenResults,
+        refactorResults
       );
       results.quality_reviews.push({ iteration, review: qualityReview });
 
@@ -274,7 +302,9 @@ Each subtask should be:
         try {
           const taskPrompt = phase === 'red'
             ? this._buildRedPrompt(subtask)
-            : this._buildGreenPrompt(subtask);
+            : phase === 'green'
+              ? this._buildGreenPrompt(subtask)
+              : this._buildRefactorPrompt(subtask);
 
           const result = await this.subagentHandler.handle({
             role,
@@ -356,15 +386,61 @@ OUTPUT: Only the implementation code, no explanations.`;
   }
 
   /**
+   * Build REFACTOR phase prompt (simplify and improve code)
+   * @param {Object} subtask - Subtask with test and implementation code
+   * @returns {string} Prompt
+   */
+  _buildRefactorPrompt(subtask) {
+    return `Review and refactor this implementation for clarity, simplicity, and maintainability (TDD REFACTOR phase):
+
+SUBTASK: ${subtask.description}
+TYPE: ${subtask.type}
+
+TEST CODE (must still pass):
+\`\`\`
+${subtask.test_code || 'No test provided'}
+\`\`\`
+
+IMPLEMENTATION TO REFACTOR:
+\`\`\`
+${subtask.impl_code || 'No implementation provided'}
+\`\`\`
+
+REFACTORING RULES:
+1. PRESERVE ALL FUNCTIONALITY - tests must still pass
+2. Simplify nested conditionals (flatten with early returns/guard clauses)
+3. Improve naming for clarity
+4. Remove redundant code
+5. Apply consistent formatting
+6. Replace magic numbers with named constants
+7. Consolidate duplicate logic
+
+DON'T:
+- Add new features or behavior
+- Remove defensive checks at boundaries
+- Over-abstract (don't create helpers for one-time operations)
+- Sacrifice type safety for brevity
+
+OUTPUT FORMAT:
+\`\`\`
+[Refactored code only, no explanations]
+\`\`\`
+
+SIMPLIFICATION_SCORE: [1-10] (include as comment at end)`;
+  }
+
+  /**
    * Run quality gate review
    * @param {string} originalTask - Original task description
    * @param {Object[]} subtasks - All subtasks
    * @param {Object[]} redResults - RED phase results
    * @param {Object[]} greenResults - GREEN phase results
+   * @param {Object[]} refactorResults - REFACTOR phase results
    * @returns {Promise<Object>} Quality review
    */
-  async _qualityGate(originalTask, subtasks, redResults, greenResults) {
+  async _qualityGate(originalTask, subtasks, redResults, greenResults, refactorResults = []) {
     const succeeded = greenResults.filter(r => r.success);
+    const refactorSucceeded = refactorResults.filter(r => r.success);
     const failureRate = 1 - (succeeded.length / subtasks.length);
 
     // Quick fail if too many failures
@@ -377,6 +453,9 @@ OUTPUT: Only the implementation code, no explanations.`;
       };
     }
 
+    // Use refactored code if available, otherwise fall back to green
+    const finalCode = refactorSucceeded.length > 0 ? refactorResults : greenResults;
+
     // Run quality reviewer
     const result = await this.subagentHandler.handle({
       role: PHASE_ROLES.quality,
@@ -385,16 +464,18 @@ OUTPUT: Only the implementation code, no explanations.`;
 ORIGINAL TASK: ${originalTask}
 
 SUBTASKS COMPLETED: ${succeeded.length}/${subtasks.length}
+REFACTORED: ${refactorSucceeded.length}/${subtasks.length}
 
 TESTS (samples):
 ${redResults.slice(0, 2).map(r => r.code?.substring(0, 500) || 'N/A').join('\n---\n')}
 
-IMPLEMENTATIONS (samples):
-${greenResults.slice(0, 2).map(r => r.code?.substring(0, 500) || 'N/A').join('\n---\n')}
+FINAL IMPLEMENTATIONS (samples):
+${finalCode.slice(0, 2).map(r => r.code?.substring(0, 500) || 'N/A').join('\n---\n')}
 
 SCORE (0.0-1.0) and list any ISSUES.
-OUTPUT JSON: {"score": 0.X, "passed": true/false, "issues": [...], "feedback": [...]}`,
-      context: { subtasks, red_count: redResults.length, green_count: greenResults.length }
+Consider both correctness AND code quality/simplicity.
+OUTPUT JSON: {"score": 0.X, "passed": true/false, "issues": [...], "feedback": [...], "simplification_quality": "good|fair|poor"}`,
+      context: { subtasks, red_count: redResults.length, green_count: greenResults.length, refactor_count: refactorSucceeded.length }
     });
 
     try {
