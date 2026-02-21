@@ -12,11 +12,11 @@ import { BackendRegistry } from '../backends/backend-registry.js';
 const MODEL_ALIASES = {
   'auto': { backend: null, description: 'Auto-route to best backend' },
   'local': { backend: 'local', description: 'Local LLM (currently loaded model)' },
-  'gemini': { backend: 'gemini', description: 'Google Gemini 2.5 Flash' },
-  'deepseek': { backend: 'nvidia_deepseek', description: 'NVIDIA DeepSeek V3.2' },
-  'qwen3': { backend: 'nvidia_qwen', description: 'NVIDIA Qwen3 480B' },
-  'chatgpt': { backend: 'openai_chatgpt', description: 'OpenAI GPT-5.2' },
-  'openai': { backend: 'openai_chatgpt', description: 'OpenAI GPT-5.2 (alias)' },
+  'gemini': { backend: 'gemini', description: 'Google Gemini' },
+  'deepseek': { backend: 'nvidia_deepseek', description: 'NVIDIA NVIDIA DeepSeek' },
+  'qwen3': { backend: 'nvidia_qwen', description: 'NVIDIA NVIDIA Qwen' },
+  'chatgpt': { backend: 'openai_chatgpt', description: 'OpenAI' },
+  'openai': { backend: 'openai_chatgpt', description: 'OpenAI (alias)' },
   'groq': { backend: 'groq_llama', description: 'Groq Llama 3.3 70B' },
   'llama': { backend: 'groq_llama', description: 'Groq Llama (alias)' }
 };
@@ -176,10 +176,10 @@ export class DashboardServer {
         types: this.backendRegistry.getAvailableTypes(),
         descriptions: {
           'local': 'Local LLM (OpenAI-compatible endpoint)',
-          'nvidia_deepseek': 'NVIDIA DeepSeek V3.2',
-          'nvidia_qwen': 'NVIDIA Qwen3 Coder 480B',
-          'gemini': 'Google Gemini 2.5 Flash',
-          'openai': 'OpenAI GPT-5.2',
+          'nvidia_deepseek': 'NVIDIA NVIDIA DeepSeek',
+          'nvidia_qwen': 'NVIDIA NVIDIA Qwen',
+          'gemini': 'Google Gemini',
+          'openai': 'OpenAI',
           'groq': 'Groq Llama 3.3 70B'
         }
       });

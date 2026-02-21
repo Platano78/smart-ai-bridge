@@ -3,7 +3,7 @@
  * @module backends/nvidia-adapter
  *
  * Adapters for NVIDIA cloud backends:
- * - DeepSeek V3.2 (reasoning)
+ * - NVIDIA DeepSeek (reasoning)
  * - Qwen3 Coder 480B (coding)
  *
  * Smart AI Bridge v2.0.0
@@ -26,7 +26,7 @@ function calculateDynamicTimeout(maxTokens, thinking = false) {
 }
 
 /**
- * DeepSeek V3.2 adapter (reasoning model)
+ * NVIDIA DeepSeek adapter (reasoning model)
  */
 class NvidiaDeepSeekAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -58,7 +58,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
 
       if (isTimeout || isServerError) {
         const reason = isTimeout ? 'timed out' : 'server error';
-        console.error(`[SAB] DeepSeek V3.2 ${reason}, falling back to V3.1-terminus...`);
+        console.error(`[SAB] NVIDIA DeepSeek ${reason}, falling back to V3.1-terminus...`);
         return await this._executeRequest(prompt, this.fallbackModel, options, true);
       }
       throw error;

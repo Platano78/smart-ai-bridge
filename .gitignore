@@ -53,10 +53,9 @@ temp/
 .file-modification-backups/
 
 # Development artifacts
-monitoring/
+/monitoring/
 protos/
-archive*/
-**/archive*/
+/archive/
 public-repo/
 
 # Test artifacts

@@ -21,7 +21,7 @@
       "type": "nvidia_deepseek",
       "enabled": true,
       "priority": 2,
-      "description": "NVIDIA DeepSeek V3.2 (reasoning, 8K tokens)",
+      "description": "NVIDIA DeepSeek (reasoning, 8K tokens)",
       "capabilities": [
         "deep_reasoning",
         "security_focus"
@@ -39,7 +39,7 @@
       "type": "nvidia_qwen",
       "enabled": true,
       "priority": 3,
-      "description": "NVIDIA Qwen3 Coder 480B (coding, 32K tokens)",
+      "description": "NVIDIA Qwen (coding, 32K tokens)",
       "capabilities": [
         "code_specialized",
         "deep_reasoning"
@@ -55,7 +55,7 @@
       "type": "gemini",
       "enabled": true,
       "priority": 4,
-      "description": "Google Gemini 2.5 Flash (fast, 32K tokens)",
+      "description": "Google Gemini (fast, 32K tokens)",
       "capabilities": [
         "fast_generation",
         "documentation"

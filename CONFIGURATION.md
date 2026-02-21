@@ -30,7 +30,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "nvidia_deepseek",
       "enabled": true,
       "priority": 2,
-      "description": "NVIDIA DeepSeek V3.2 (reasoning, 8K tokens)",
+      "description": "NVIDIA DeepSeek (reasoning, 8K tokens)",
       "capabilities": ["deep_reasoning", "security_focus"],
       "context_limit": 8192,
       "strengths": "Complex reasoning, security analysis",
@@ -45,7 +45,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "nvidia_qwen",
       "enabled": true,
       "priority": 3,
-      "description": "NVIDIA Qwen3 Coder 480B (coding, 32K tokens)",
+      "description": "NVIDIA Qwen (coding, 32K tokens)",
       "capabilities": ["code_specialized", "deep_reasoning"],
       "context_limit": 32768,
       "config": {
@@ -57,7 +57,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "gemini",
       "enabled": true,
       "priority": 4,
-      "description": "Google Gemini 2.5 Flash (fast, 32K tokens)",
+      "description": "Google Gemini (fast, 32K tokens)",
       "config": {
         "maxTokens": 32768,
         "timeout": 60000

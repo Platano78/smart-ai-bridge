@@ -186,9 +186,9 @@ All backends are configured in `src/config/backends.json` and managed by the `Ba
 | Backend | Type | Model | Context | Priority | Description |
 |---------|------|-------|---------|----------|-------------|
 | `local` | local | Dynamic (auto-discovery) | 65K | 1 | Local model via vLLM/LM Studio/Ollama |
-| `nvidia_deepseek` | nvidia_deepseek | DeepSeek V3.2 | 8K | 2 | NVIDIA API - reasoning and security analysis |
-| `nvidia_qwen` | nvidia_qwen | Qwen3 Coder 480B | 32K | 3 | NVIDIA API - code review and refactoring |
-| `gemini` | gemini | Gemini 2.5 Flash | 32K | 4 | Google - fast docs and quick responses |
+| `nvidia_deepseek` | nvidia_deepseek | NVIDIA DeepSeek | 8K | 2 | NVIDIA API - reasoning and security analysis |
+| `nvidia_qwen` | nvidia_qwen | NVIDIA Qwen | 32K | 3 | NVIDIA API - code review and refactoring |
+| `gemini` | gemini | Gemini | 32K | 4 | Google - fast docs and quick responses |
 | `openai_chatgpt` | openai | GPT-5.2 | 128K | 5 | OpenAI - premium reasoning |
 | `groq_llama` | groq | Llama 3.3 70B | 32K | 6 | Groq - ultra-fast 500+ t/s |
 

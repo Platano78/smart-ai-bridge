@@ -13,7 +13,7 @@ NVIDIA_API_KEY="nvapi-YOUR-KEY-HERE"
 ```
 
 **Endpoints**:
-- NVIDIA DeepSeek V3.1: For complex reasoning tasks
+- NVIDIA NVIDIA DeepSeek: For complex reasoning tasks
 - NVIDIA Qwen 3 Coder 480B: For advanced coding tasks
 
 **Features**:
