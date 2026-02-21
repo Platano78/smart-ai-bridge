@@ -29,7 +29,7 @@ Complete migration from monolithic architecture to modular `src/` directory stru
 
 | Backend | Model | Description |
 |---------|-------|-------------|
-| `openai_chatgpt` | GPT-4.1 | Premium reasoning with 128K context |
+| `openai_chatgpt` | GPT-5.2 | Premium reasoning with 128K context |
 | `groq_llama` | Llama 3.3 70B | Ultra-fast inference at 500+ tokens/sec |
 
 ### Added - Intelligence Layer

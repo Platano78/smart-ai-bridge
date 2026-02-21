@@ -21,7 +21,7 @@ The following items from the v1.0.0 roadmap have been implemented:
 - **Learning engine** -- In-memory learning engine, compound learning, pattern RAG store for routing optimization
 - **Intelligence layer** -- Dual-iterate executor, diff-context optimizer, enhanced self-review, playbook system, background analysis queue
 - **Expanded tool set** -- 20 tools (up from 11): explore, generate_file, refactor, write_files_atomic, validate_changes, backup_restore, batch_analyze, check_backend_health, read, plus original tools
-- **New backends** -- OpenAI (GPT-4.1) and Groq (Llama 3.3 70B) added alongside local, NVIDIA DeepSeek, NVIDIA Qwen, Gemini
+- **New backends** -- OpenAI (GPT-5.2) and Groq (Llama 3.3 70B) added alongside local, NVIDIA DeepSeek, NVIDIA Qwen, Gemini
 - **Real-time monitoring dashboard** -- Express-based dashboard with health monitoring and spawn metrics
 - **Advanced content analysis** -- Smart context system, capability matcher, model discovery
 - **Custom routing rules** -- Complexity thresholds, backend priorities, per-tool backend forcing

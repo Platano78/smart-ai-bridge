@@ -137,7 +137,7 @@ const CORE_TOOL_DEFINITIONS = [
         model: {
           type: 'string',
           enum: ['auto', 'local', 'gemini', 'nvidia_deepseek', 'nvidia_qwen', 'openai', 'groq'],
-          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_qwen (NVIDIA Qwen3 Coder 480B, 32K tokens), openai (OpenAI GPT-4.1, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s)'
+          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_qwen (NVIDIA Qwen3 Coder 480B, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s)'
         },
         prompt: {
           type: 'string',

@@ -67,9 +67,9 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "openai",
       "enabled": true,
       "priority": 5,
-      "description": "OpenAI GPT-4.1 (premium reasoning, 128K context)",
+      "description": "OpenAI GPT-5.2 (premium reasoning, 128K context)",
       "config": {
-        "model": "gpt-4.1-2025-04-14",
+        "model": "gpt-5.2",
         "maxTokens": 128000,
         "timeout": 120000
       }

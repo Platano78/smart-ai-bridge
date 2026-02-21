@@ -189,7 +189,7 @@ All backends are configured in `src/config/backends.json` and managed by the `Ba
 | `nvidia_deepseek` | nvidia_deepseek | DeepSeek V3.2 | 8K | 2 | NVIDIA API - reasoning and security analysis |
 | `nvidia_qwen` | nvidia_qwen | Qwen3 Coder 480B | 32K | 3 | NVIDIA API - code review and refactoring |
 | `gemini` | gemini | Gemini 2.5 Flash | 32K | 4 | Google - fast docs and quick responses |
-| `openai_chatgpt` | openai | GPT-4.1 | 128K | 5 | OpenAI - premium reasoning |
+| `openai_chatgpt` | openai | GPT-5.2 | 128K | 5 | OpenAI - premium reasoning |
 | `groq_llama` | groq | Llama 3.3 70B | 32K | 6 | Groq - ultra-fast 500+ t/s |
 
 ### Fallback Chain

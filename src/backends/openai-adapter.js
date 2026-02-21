@@ -2,7 +2,7 @@
  * @fileoverview OpenAIAdapter - OpenAI GPT backend adapter
  * @module backends/openai-adapter
  *
- * Adapter for OpenAI GPT-4.1 (premium reasoning)
+ * Adapter for OpenAI GPT-5.2 (premium reasoning)
  * 128K context window
  *
  * Smart AI Bridge v2.0.0
@@ -23,7 +23,7 @@ class OpenAIAdapter extends BackendAdapter {
       ...config
     });
 
-    this.model = config.model || 'gpt-4.1-2025-04-14';
+    this.model = config.model || 'gpt-5.2';
   }
 
   async makeRequest(prompt, options = {}) {

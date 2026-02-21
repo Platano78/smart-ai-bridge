@@ -154,7 +154,7 @@ Error: Connection refused to api.openai.com
    export OPENAI_API_KEY="sk-xxxxx"
    ```
 
-2. **Verify the model exists** -- backends.json specifies `gpt-4.1-2025-04-14`. If this model is not available on your OpenAI plan, update the model field in backends.json.
+2. **Verify the model exists** -- backends.json specifies `gpt-5.2`. If this model is not available on your OpenAI plan, update the model field in backends.json.
 
 3. **Network access** -- Ensure your environment can reach `api.openai.com`:
    ```bash
