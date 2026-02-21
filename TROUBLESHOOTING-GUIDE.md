@@ -1,700 +1,519 @@
-# Troubleshooting Guide
+# Smart AI Bridge v2.0.0 - Troubleshooting Guide
 
 ## Overview
 
-This comprehensive troubleshooting guide covers common issues with Smart AI Bridge v1.0.0, focusing on the Smart Edit Prevention Strategy features, fuzzy matching capabilities, and performance optimization.
+This guide covers common issues when running Smart AI Bridge v2.0.0, the modular MCP server with 20 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
-## 🔧 Smart Edit Prevention Issues
+## Server Startup Issues
 
-### "Text not found" Errors
-
-#### Problem: Exact text not found despite being visible in file
+### Server Won't Start
 
 **Symptoms:**
 ```
-Error: Text not found in file: "function processUserData(userData) {"
+SyntaxError: Cannot use import statement outside a module
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 ```
 
-**Diagnosis Steps:**
+**Diagnosis and Solutions:**
 
-1. **Check for hidden characters:**
-```javascript
-// Use read tool with verification first
-@read({
-  file_paths: ["/path/to/file.js"],
-  verify_texts: ["function processUserData"],
-  verification_mode: "comprehensive"
-})
+1. **Check Node.js version** -- v2.0.0 requires Node.js 18.0.0 or later (ESM support).
+   ```bash
+   node --version
+   # Must be >= 18.0.0
+   ```
+
+2. **Verify package.json has `"type": "module"`** -- The project uses ESM imports throughout. If this field is missing, Node will treat .js files as CommonJS and fail on `import` statements.
+
+3. **Run npm install** -- Missing dependencies cause module resolution failures.
+   ```bash
+   cd /home/platano/project/smart-ai-bridge
+   npm install
+   ```
+
+4. **Check the entry point path** -- The v2.0.0 entry point is `src/server.js`, not the legacy monolithic file.
+   ```bash
+   # Correct
+   node src/server.js
+
+   # Also correct (uses package.json "start" script)
+   npm start
+   ```
+
+5. **Verify all source files exist** -- The modular architecture requires ~53 files in src/. If files are missing (incomplete clone or checkout), the server will fail on import.
+   ```bash
+   # Quick check: count source files
+   find src -name '*.js' | wc -l
+   # Expected: approximately 53
+   ```
+
+### Server Starts But No Tools Available
+
+**Symptoms:**
 ```
-
-2. **Try fuzzy matching:**
-```javascript
-@edit_file({
-  file_path: "/path/to/file.js",
-  validation_mode: "lenient",
-  fuzzy_threshold: 0.7,
-  suggest_alternatives: true,
-  edits: [...]
-})
+[SAB] ListTools: 0 tools available
 ```
 
 **Solutions:**
 
-**A. Use Fuzzy Matching (Recommended)**
-```javascript
-@edit_file({
-  file_path: "/path/to/file.js",
-  validation_mode: "lenient",     // Enable fuzzy matching
-  fuzzy_threshold: 0.8,           // Adjust sensitivity
-  suggest_alternatives: true,      // Get helpful suggestions
-  edits: [
-    {
-      find: "function processUserData",  // Simplified pattern
-      replace: "function processUserData",
-      description: "Match with fuzzy logic"
-    }
-  ]
-})
-```
+1. **Check tool-definitions.js** -- The file `src/tools/tool-definitions.js` exports `CORE_TOOL_DEFINITIONS`. If this file has a syntax error or missing export, no tools will register.
 
-**B. Check Encoding and Whitespace**
-```javascript
-// Copy exact text from file, including whitespace
-find: "function processUserData(userData) {    " // Note trailing spaces
-```
+2. **Check handler registration** -- The HandlerFactory at `src/handlers/index.js` must map every handler name referenced in tool definitions. A mismatch between `def.handler` and the factory's registry causes "Unknown tool" errors at call time, but tools will still list.
 
-**C. Use Dry Run for Investigation**
-```javascript
-@edit_file({
-  validation_mode: "dry_run",      // No changes, just validation
-  fuzzy_threshold: 0.6,            // More permissive
-  suggest_alternatives: true,
-  max_suggestions: 10,             // Get more alternatives
-  edits: [...]
-})
-```
-
-**D. Break Down Complex Patterns**
-```javascript
-// Instead of complex multi-line finds:
-edits: [
-  { find: "function processUserData", replace: "function processUserData" },
-  { find: "(userData) {", replace: "(userData, options = {}) {" }
-]
-```
-
-### Fuzzy Matching Too Permissive
-
-#### Problem: Fuzzy matching finds incorrect text
-
-**Symptoms:**
-```
-Warning: Fuzzy match found with low similarity (0.65): "function processOrderData"
-Expected: "function processUserData"
-```
-
-**Solutions:**
-
-**A. Increase Fuzzy Threshold**
-```javascript
-@edit_file({
-  validation_mode: "lenient",
-  fuzzy_threshold: 0.9,           // More strict (was 0.8)
-  edits: [...]
-})
-```
-
-**B. Use More Specific Patterns**
-```javascript
-// Instead of:
-find: "function process"
-
-// Use:
-find: "function processUserData(userData)"
-```
-
-**C. Add Context for Better Matching**
-```javascript
-{
-  find: "function processUserData(userData) {\n  const processed =",
-  replace: "function processUserData(userData, options = {}) {\n  const processed =",
-  description: "Add options parameter with more context"
-}
-```
-
-**D. Use Strict Mode for Critical Changes**
-```javascript
-@edit_file({
-  validation_mode: "strict",      // Exact matching only
-  edits: [...]
-})
-```
-
-### Fuzzy Matching Too Strict
-
-#### Problem: Fuzzy matching fails on minor differences
-
-**Symptoms:**
-```
-Error: No matches found even with fuzzy matching
-Attempted: "const userName = 'alice';"
-File contains: "const userName = 'alice'"  // Missing semicolon
-```
-
-**Solutions:**
-
-**A. Lower Fuzzy Threshold**
-```javascript
-@edit_file({
-  validation_mode: "lenient",
-  fuzzy_threshold: 0.7,           // More permissive (was 0.8)
-  edits: [...]
-})
-```
-
-**B. Use Comprehensive Mode**
-```javascript
-@edit_file({
-  validation_mode: "comprehensive", // Maximum fuzzy matching
-  fuzzy_threshold: 0.6,
-  suggest_alternatives: true,
-  max_suggestions: 10,
-  edits: [...]
-})
-```
-
-**C. Remove Punctuation from Patterns**
-```javascript
-// Instead of:
-find: "const userName = 'alice';"
-
-// Use:
-find: "const userName = 'alice'"
-```
-
-**D. Use Core Text Only**
-```javascript
-// Focus on the essential part
-find: "userName = 'alice'"
-```
+3. **Check stderr output** -- The server logs to stderr. Look for initialization errors:
+   ```bash
+   node src/server.js 2>server.log
+   cat server.log
+   ```
 
 ---
 
-## 📖 Enhanced Read Tool Issues
+## Backend Connection Failures
 
-### Verification Failures
-
-#### Problem: Text verification fails unexpectedly
+### Local LLM Not Detected
 
 **Symptoms:**
 ```
-Verification failed for: "function calculateScore"
-File: "/src/user.js"
-Mode: fuzzy
+Error: connect ECONNREFUSED 127.0.0.1:8081
+Error: Local backend health check failed
+```
+
+The local backend expects an OpenAI-compatible API at `http://127.0.0.1:8081/v1/chat/completions` (configured in `src/config/backends.json`).
+
+**Solutions:**
+
+1. **Verify your local LLM server is running** -- Smart AI Bridge supports any OpenAI-compatible server:
+   - **LM Studio**: Start the server, check the port in LM Studio settings
+   - **llama.cpp server**: `./llama-server -m model.gguf --port 8081`
+   - **vLLM**: `python -m vllm.entrypoints.openai.api_server --port 8081`
+   - **Ollama**: `ollama serve` (default port 11434, update backends.json accordingly)
+
+2. **Check the port** -- The default in backends.json is 8081. If your LLM server runs on a different port, update the config:
+   ```json
+   // src/config/backends.json -> backends.local.config.url
+   "url": "http://127.0.0.1:YOUR_PORT/v1/chat/completions"
+   ```
+
+3. **Test the endpoint directly:**
+   ```bash
+   curl http://127.0.0.1:8081/v1/models
+   ```
+
+4. **WSL networking** -- If running the LLM server on Windows and Smart AI Bridge in WSL, use the Windows host IP instead of 127.0.0.1:
+   ```bash
+   # Find your Windows host IP
+   cat /etc/resolv.conf | grep nameserver
+   # Update backends.json with that IP
+   ```
+
+5. **Model discovery** -- The local backend uses dynamic model discovery (`src/utils/model-discovery.js`). If the `/v1/models` endpoint is not available on your LLM server, the backend may fail even if `/v1/chat/completions` works. Check that your server exposes the models endpoint.
+
+### NVIDIA API Errors
+
+**Symptoms:**
+```
+Error: 401 Unauthorized
+Error: 429 Too Many Requests
+Error: Model not found: deepseek-ai/deepseek-v3.2
 ```
 
 **Solutions:**
 
-**A. Use Comprehensive Verification**
-```javascript
-@read({
-  file_paths: ["/src/user.js"],
-  verify_texts: ["function calculateScore"],
-  verification_mode: "comprehensive",  // Maximum analysis
-  fuzzy_threshold: 0.7
-})
-```
+1. **Check API key** -- The NVIDIA backends require `NVIDIA_API_KEY` in your environment:
+   ```bash
+   echo $NVIDIA_API_KEY
+   # Should output your key. If empty:
+   export NVIDIA_API_KEY="nvapi-xxxxx"
+   ```
 
-**B. Check Multiple Variations**
-```javascript
-@read({
-  verify_texts: [
-    "function calculateScore",      // Basic form
-    "calculateScore",              // Just function name
-    "function calculate_score",     // Alternative naming
-    "calculateScore(userData)"      // With parameters
-  ],
-  verification_mode: "fuzzy"
-})
-```
+2. **Rate limits** -- NVIDIA's free tier has strict rate limits. If you hit 429 errors, the circuit breaker will trip (threshold: 5 failures, reset: 30 seconds per backends.json). Wait for the reset or reduce request frequency.
 
-**C. Use Basic Mode for Exact Checks**
-```javascript
-@read({
-  verify_texts: ["function calculateScore(userData, weights) {"],
-  verification_mode: "basic"        // Exact matching only
-})
-```
+3. **Model availability** -- Model names change. If `deepseek-ai/deepseek-v3.2` or the Qwen model is unavailable, check the NVIDIA API catalog for current model IDs and update backends.json:
+   ```bash
+   curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
+        https://integrate.api.nvidia.com/v1/models
+   ```
 
-### Performance Issues with Large Text Arrays
+4. **Token limits** -- nvidia_deepseek is configured for 8192 max tokens, nvidia_qwen for 32768. Requests exceeding these limits will be rejected by the API. The router should handle this, but forced backend selection can bypass routing limits.
 
-#### Problem: Verification slow with many texts
+### OpenAI Connection Issues
 
 **Symptoms:**
 ```
-Warning: Verification taking >100ms for 20 text patterns
-Performance target: <50ms
+Error: 401 Invalid API key
+Error: Connection refused to api.openai.com
 ```
 
 **Solutions:**
 
-**A. Limit Text Array Size**
-```javascript
-@read({
-  verify_texts: ["text1", "text2", "text3"], // Max 5-10 items
-  verification_mode: "fuzzy"
-})
+1. **Check API key:**
+   ```bash
+   echo $OPENAI_API_KEY
+   # Must be set. If empty:
+   export OPENAI_API_KEY="sk-xxxxx"
+   ```
+
+2. **Verify the model exists** -- backends.json specifies `gpt-4.1-2025-04-14`. If this model is not available on your OpenAI plan, update the model field in backends.json.
+
+3. **Network access** -- Ensure your environment can reach `api.openai.com`:
+   ```bash
+   curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+   ```
+
+4. **Billing** -- OpenAI API requires an active billing account. A valid API key with no credits will return 429 or 402 errors.
+
+### Groq Connection Issues
+
+**Symptoms:**
+```
+Error: 401 Unauthorized (Groq)
+Error: Model not available on Groq
 ```
 
-**B. Use Basic Mode for Large Arrays**
-```javascript
-@read({
-  verify_texts: ["text1", "text2", ...], // Many items
-  verification_mode: "basic"              // Faster exact matching
-})
+**Solutions:**
+
+1. **Check API key:**
+   ```bash
+   echo $GROQ_API_KEY
+   # Must be set. If empty:
+   export GROQ_API_KEY="gsk_xxxxx"
+   ```
+
+2. **Model availability** -- backends.json specifies `llama-3.3-70b-versatile`. Groq periodically rotates available models. Check https://console.groq.com/docs/models for current options and update backends.json if needed.
+
+3. **Rate limits** -- Groq's free tier has aggressive rate limits (requests per minute and tokens per minute). The circuit breaker will trip after 5 consecutive failures.
+
+### Gemini Rate Limiting
+
+**Symptoms:**
+```
+Error: 429 Resource exhausted
+Error: Gemini rate limit exceeded
 ```
 
-**C. Batch Process in Chunks**
-```javascript
-// Process in smaller batches
-const batch1 = await read({ verify_texts: texts.slice(0, 5) });
-const batch2 = await read({ verify_texts: texts.slice(5, 10) });
-```
+**Solutions:**
 
-**D. Optimize Fuzzy Threshold**
-```javascript
-@read({
-  verification_mode: "fuzzy",
-  fuzzy_threshold: 0.85,          // Higher threshold = faster
-  verify_texts: [...]
-})
-```
+1. **Check API key:**
+   ```bash
+   echo $GEMINI_API_KEY
+   # or
+   echo $GOOGLE_API_KEY
+   ```
+
+2. **Built-in rate limiter** -- Smart AI Bridge includes a Gemini-specific rate limiter at `src/utils/gemini-rate-limiter.js`. If you are hitting limits despite this, the configured rate may be too aggressive for your API tier. The rate limiter parameters can be adjusted in the Gemini adapter.
+
+3. **Quota** -- The Gemini free tier has daily request limits. Check your Google AI Studio dashboard for current quota usage.
 
 ---
 
-## ⚡ Performance Optimization Issues
+## Tool Errors
 
-### Slow Response Times
-
-#### Problem: Operations exceeding performance targets
-
-**Target Performance:**
-- Exact matching: <5ms
-- Fuzzy matching: <50ms
-- Comprehensive verification: <100ms
-
-**Diagnosis:**
-
-Check performance metrics in response:
-```javascript
-{
-  "performance": {
-    "total_time": 150,              // Target: <50ms
-    "fuzzy_match_time": 140,        // Too slow
-    "exact_match_time": 5
-  }
-}
-```
-
-**Solutions:**
-
-**A. Optimize Fuzzy Threshold**
-```javascript
-// Increase threshold for faster matching
-fuzzy_threshold: 0.85,           // Up from 0.7
-max_suggestions: 1               // Reduce suggestion generation
-```
-
-**B. Disable Suggestions in Production**
-```javascript
-@edit_file({
-  validation_mode: "lenient",
-  suggest_alternatives: false,    // Faster without suggestions
-  edits: [...]
-})
-```
-
-**C. Use Strict Mode for Known Patterns**
-```javascript
-@edit_file({
-  validation_mode: "strict",      // Fastest mode
-  edits: [...]
-})
-```
-
-**D. Optimize Edit Patterns**
-```javascript
-// Use shorter, more specific patterns
-edits: [
-  { find: "userName", replace: "userName" },  // Shorter
-  { find: "= 'alice'", replace: "= 'bob'" }   // Specific
-]
-```
-
-### Memory Usage Spikes
-
-#### Problem: High memory consumption during fuzzy matching
+### "Unknown tool" Error
 
 **Symptoms:**
 ```
-Warning: Memory usage spike detected: 15MB delta
-Operation: fuzzy_matching_comprehensive
-Target: <10MB
+McpError: Unknown tool: my_tool. Available: ask, review, analyze_file, ...
 ```
 
 **Solutions:**
 
-**A. Limit Suggestion Generation**
-```javascript
-@edit_file({
-  max_suggestions: 1,             // Reduce memory footprint
-  suggest_alternatives: false,     // Disable if not needed
-  edits: [...]
-})
+1. **Check tool name** -- v2.0.0 has 20 tools. The complete list:
+   - `ask`, `review`, `analyze_file`, `modify_file`, `batch_modify`
+   - `explore`, `generate_file`, `refactor`, `write_files_atomic`, `validate_changes`
+   - `backup_restore`, `batch_analyze`, `check_backend_health`, `read`
+   - `dual_iterate`, `council`, `spawn_subagent`, `parallel_agents`
+   - `health`, `clear_all_caches`
+
+2. **Tool names are exact** -- No aliases, no prefixes. Use exactly the names listed above.
+
+### Handler Not Found
+
+**Symptoms:**
+```
+Error: No handler registered for: someHandler
 ```
 
-**B. Process Files Sequentially**
-```javascript
-// Instead of batch processing
-for (const file of files) {
-  await edit_file({ file_path: file, ... });
-}
+This means the tool definition references a handler name that the HandlerFactory does not recognize.
+
+**Solutions:**
+
+1. Check `src/tools/tool-definitions.js` for the tool's `handler` field.
+2. Check `src/handlers/index.js` to confirm that handler name is registered in the factory.
+3. If you added a custom tool, ensure both the tool definition and handler registration are in sync.
+
+### Backend Unavailable for Tool
+
+**Symptoms:**
+```
+Error: No available backend for this request
+Error: All backends failed
 ```
 
-**C. Use Basic Verification Mode**
-```javascript
-@read({
-  verification_mode: "basic",     // Lower memory usage
-  verify_texts: [...]
-})
-```
+**Solutions:**
 
-**D. Optimize Text Patterns**
-```javascript
-// Use shorter find patterns
-find: "function calc",            // Instead of long multi-line patterns
-replace: "function calculate"
-```
+1. **Check backend health:**
+   ```
+   Use the check_backend_health tool to see which backends are online.
+   ```
+
+2. **Circuit breaker tripped** -- If a backend has failed 5 consecutive times (configurable in backends.json `fallbackPolicy.circuitBreakerThreshold`), it enters an open state for 30 seconds (`circuitBreakerResetMs`). Wait for the reset or fix the underlying backend issue.
+
+3. **All cloud backends down** -- If your local LLM is not running and all API keys are missing/invalid, no backends will be available. Ensure at least one backend is properly configured.
+
+4. **Forced backend unavailable** -- If a request forces a specific backend (e.g., `backend: "groq"`) and that backend is down, routing cannot fall back. Remove the forced backend or fix the backend.
 
 ---
 
-## 🛠️ Configuration Issues
+## Module and Import Errors
 
-### SmartAliasResolver Problems
-
-#### Problem: Tool not found or alias resolution failing
+### ESM Import Failures
 
 **Symptoms:**
 ```
-Error: Tool not found: Smart AI Bridge_analyze
-Available tools: review, read, health, write_files_atomic, edit_file, ...
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/path/to/src/handlers/index'
+SyntaxError: The requested module does not provide an export named 'X'
 ```
 
 **Solutions:**
 
-**A. Check Tool Registration**
-```javascript
-// Use the health tool to verify all tools are registered
-@health({ check_type: "comprehensive" })
+1. **File extensions required** -- ESM requires explicit `.js` extensions in import paths. All internal imports should use full paths like `./handlers/index.js`, not `./handlers/index`.
+
+2. **Check for missing files** -- If a git operation or file move left a file missing, imports will fail. Verify the file exists at the expected path.
+
+3. **Circular imports** -- The modular architecture has many cross-references. If you see "Cannot access 'X' before initialization", there may be a circular import. Check the import chain between the affected modules.
+
+### Missing Dependencies
+
+**Symptoms:**
+```
+Error: Cannot find package '@modelcontextprotocol/sdk'
+Error: Cannot find package 'openai'
 ```
 
-**B. Use Core Tool Names**
-```javascript
-// Instead of alias:
-@Smart AI Bridge_analyze(...)
+**Solutions:**
 
-// Use core tool:
-@review(...)
-```
-
-**C. Restart MCP Server**
 ```bash
-# Restart Claude Code completely to reload MCP servers
+cd /home/platano/project/smart-ai-bridge
+npm install
 ```
 
-**D. Verify Server Configuration**
+Key dependencies and their purposes:
+- `@modelcontextprotocol/sdk` -- MCP protocol server and transport
+- `openai` -- OpenAI and Groq API client (Groq uses OpenAI-compatible SDK)
+- `express` -- Dashboard web server
+- `ws` -- WebSocket support
+- `diff` -- Diff generation for modify/refactor operations
+- `glob` -- File pattern matching for explore/batch tools
+- `string-similarity` -- Fuzzy matching in routing and tool resolution
+- `tiktoken` -- Token counting for context management
+- `acorn` -- JavaScript AST parsing for code analysis
+
+---
+
+## Dashboard Issues
+
+### Dashboard Not Loading
+
+**Symptoms:**
+```
+Error: listen EADDRINUSE :::3000
+Error: Cannot find module 'express'
+```
+
+**Solutions:**
+
+1. **Port conflict** -- The dashboard (src/dashboard/dashboard-server.js) binds to a port (default 3000). If another process is using that port:
+   ```bash
+   # Find what's using the port
+   lsof -i :3000
+   # Kill it or change the dashboard port
+   ```
+
+2. **Express not installed:**
+   ```bash
+   npm install
+   # express is in package.json dependencies
+   ```
+
+3. **Dashboard is separate from MCP server** -- The MCP server runs on stdio. The dashboard is an optional Express HTTP server. They are independent processes. Starting the MCP server via `npm start` does not automatically start the dashboard.
+
+---
+
+## Configuration Issues
+
+### backends.json Format Errors
+
+**Symptoms:**
+```
+SyntaxError: Unexpected token in JSON
+Error: Invalid backend configuration
+```
+
+**Solutions:**
+
+1. **Validate JSON** -- backends.json must be valid JSON. Common mistakes: trailing commas, unquoted keys, comments (JSON does not support comments).
+   ```bash
+   node -e "JSON.parse(require('fs').readFileSync('src/config/backends.json'))"
+   ```
+
+2. **Required fields per backend:**
+   ```json
+   {
+     "type": "string",       // Backend type identifier
+     "enabled": true,        // Must be true to be used
+     "priority": 1,          // Lower = higher priority
+     "config": {
+       "timeout": 60000      // Milliseconds
+     }
+   }
+   ```
+
+3. **Adding a custom backend** -- Add a new entry to `backends.backends` in backends.json, create a corresponding adapter class extending BackendAdapter (`src/backends/backend-adapter.js`), and register it in the BackendRegistry.
+
+### Fallback Policy Tuning
+
+The `fallbackPolicy` section in backends.json controls retry and circuit breaker behavior:
+
 ```json
 {
-  "mcpServers": {
-    "mkg-server": {
-      "command": "node",
-      "args": ["smart-ai-bridge.js"],
-      "cwd": "."
-    }
+  "fallbackPolicy": {
+    "maxRetries": 3,                  // Retries per backend before moving to next
+    "retryDelayMs": 1000,             // Delay between retries
+    "circuitBreakerThreshold": 5,     // Failures before circuit opens
+    "circuitBreakerResetMs": 30000    // Time before circuit half-opens
   }
 }
 ```
 
-### Health Check Failures
+If you experience cascading failures (one backend down causing slow responses as all retries exhaust), reduce `maxRetries` or `retryDelayMs`. If backends are flapping (briefly failing then recovering), increase `circuitBreakerThreshold`.
 
-#### Problem: Endpoint health checks failing or timing out
+---
+
+## Performance Issues
+
+### Slow Tool Responses
 
 **Symptoms:**
-```
-Error: Health check timeout for local endpoint (>10s)
-Error: NVIDIA API connectivity failed (>3s)
-```
+- Tool calls taking >30 seconds
+- Timeouts on specific backends
 
 **Solutions:**
 
-**A. Force IP Rediscovery**
-```javascript
-@health({
-  check_type: "comprehensive",
-  force_ip_rediscovery: true      // Invalidate cache and rediscover
-})
-```
+1. **Check which backend is being used** -- Use `check_backend_health` to see latency per backend. The router may be sending requests to a slow or overloaded backend.
 
-**B. Check Local Endpoint Configuration**
+2. **Timeout tuning** -- Each backend has a configurable timeout in backends.json:
+   ```json
+   "config": {
+     "timeout": 60000    // 60 seconds for local
+   }
+   ```
+   Reduce timeouts for backends that should be fast (groq: 30s is already set) and increase for backends that handle large contexts (local: 120s, openai: 120s).
+
+3. **Local LLM performance** -- If the local backend is slow, check GPU utilization. Large models on insufficient VRAM will offload to CPU and become very slow.
+   ```bash
+   nvidia-smi   # Check GPU memory usage and utilization
+   ```
+
+4. **Circuit breaker stuck open** -- If a backend's circuit breaker is open, requests skip it entirely. This can concentrate load on remaining backends. Check health status and wait for reset.
+
+### High Memory Usage
+
+**Solutions:**
+
+1. **Learning engine accumulation** -- The in-memory learning engine, pattern RAG store, and compound learning system accumulate data over time. Restart the server to clear in-memory state.
+
+2. **Conversation threading** -- Long sessions accumulate thread context. The `clear_all_caches` tool can help reset in-memory state.
+
+3. **Background analysis queue** -- The background analysis queue (`src/intelligence/background-analysis-queue.js`) may accumulate pending work. Monitor queue depth and consider rate-limiting background analysis.
+
+---
+
+## Routing Issues
+
+### Wrong Backend Selected
+
+**Symptoms:**
+- Simple requests going to expensive cloud backends
+- Complex requests routed to local when it cannot handle them
+
+**Solutions:**
+
+1. **Understand the 4-tier routing:**
+   - **Forced** -- If the request specifies `backend: "name"`, that backend is used directly
+   - **Learning** -- The learning engine suggests a backend based on past success patterns
+   - **Rules** -- Complexity thresholds and capability matching determine the backend
+   - **Fallback** -- The default backend (local) is used as last resort
+
+2. **Check complexity thresholds** in backends.json:
+   ```json
+   "routing": {
+     "complexityThresholds": {
+       "simple": 0.3,
+       "medium": 0.6,
+       "complex": 0.8
+     }
+   }
+   ```
+
+3. **Force a specific backend** -- For testing, pass `backend: "groq"` (or any backend name) in the tool arguments to bypass routing.
+
+4. **Learning engine interference** -- If the learning engine has learned incorrect patterns (e.g., always preferring a specific backend), restart the server to clear learned data. Persistent learning (planned future feature) will need explicit reset commands.
+
+---
+
+## Environment Variable Reference
+
+All API keys the server may need, depending on which backends are enabled:
+
 ```bash
-# Verify local DeepSeek endpoint is running
-curl http://172.23.16.1:1234/v1/models
+# NVIDIA backends (nvidia_deepseek, nvidia_qwen)
+export NVIDIA_API_KEY="nvapi-xxxxx"
 
-# Check if bound to correct interface
-netstat -an | grep 1234
+# OpenAI backend
+export OPENAI_API_KEY="sk-xxxxx"
+
+# Groq backend
+export GROQ_API_KEY="gsk_xxxxx"
+
+# Gemini backend
+export GEMINI_API_KEY="xxxxx"
+# or
+export GOOGLE_API_KEY="xxxxx"
 ```
 
-**C. Verify NVIDIA API Access**
-```bash
-# Test NVIDIA API directly
-curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
-     https://integrate.api.nvidia.com/v1/models
-```
+The local backend requires no API key -- it connects to a local HTTP endpoint.
 
-**D. Check Network Connectivity**
-```bash
-# Test WSL to Windows host connectivity
-ping 172.23.16.1
-
-# Test internet connectivity
-ping 8.8.8.8
-```
+If a backend's API key is missing, that backend will fail on first use and the circuit breaker will eventually open. The router will then skip it and use other available backends.
 
 ---
 
-## 🔍 Debugging Strategies
+## Diagnostic Checklist
 
-### Systematic Troubleshooting Process
+When something is not working, run through this checklist:
 
-#### 1. **Use Dry Run Mode**
-```javascript
-// Always start with dry run for complex operations
-@edit_file({
-  validation_mode: "dry_run",
-  suggest_alternatives: true,
-  max_suggestions: 5,
-  edits: [...]
-})
-```
-
-#### 2. **Enable Comprehensive Logging**
-```javascript
-@health({ check_type: "comprehensive" })  // Get full system status
-```
-
-#### 3. **Test with Simple Patterns First**
-```javascript
-// Start with simple patterns
-find: "function",
-replace: "function"
-
-// Then gradually increase complexity
-find: "function processUserData",
-replace: "function processUserData"
-```
-
-#### 4. **Use Verification Before Editing**
-```javascript
-// Step 1: Verify text exists
-const verification = await read({
-  file_paths: ["/path/to/file.js"],
-  verify_texts: ["target text"],
-  verification_mode: "comprehensive"
-});
-
-// Step 2: Edit if verification successful
-if (verification.success) {
-  await edit_file({...});
-}
-```
-
-### Debug Mode Configuration
-
-#### Enable Detailed Logging
-```javascript
-// Maximum debugging information
-@edit_file({
-  validation_mode: "comprehensive",
-  fuzzy_threshold: 0.6,
-  suggest_alternatives: true,
-  max_suggestions: 10,
-  edits: [...]
-})
-```
-
-#### Performance Profiling
-```javascript
-// Monitor performance metrics
-const start = Date.now();
-const result = await edit_file({...});
-const duration = Date.now() - start;
-
-console.log(`Operation took ${duration}ms`);
-console.log(`Performance data:`, result.performance);
-```
+1. **Node.js version** -- `node --version` must be >= 18.0.0
+2. **Dependencies installed** -- `npm install` in the project root
+3. **Entry point** -- `node src/server.js` (not legacy file)
+4. **Environment variables** -- Set API keys for the backends you want to use
+5. **Local LLM** -- If using local backend, verify the server is running and accessible
+6. **stderr output** -- Run `node src/server.js 2>debug.log` and check debug.log for errors
+7. **Backend health** -- Use the `check_backend_health` tool to see per-backend status
+8. **Config syntax** -- Validate `src/config/backends.json` is valid JSON
+9. **File completeness** -- Verify all src/ files are present (`find src -name '*.js' | wc -l`)
+10. **Port conflicts** -- If using dashboard, check port availability with `lsof -i :3000`
 
 ---
 
-## 📊 Common Error Patterns and Solutions
+## Getting Help
 
-### Error Pattern Matrix
-
-| Error Type | Symptoms | Solution | Prevention |
-|------------|----------|----------|------------|
-| **Exact Match Failure** | "Text not found" despite visible | Use `lenient` mode | Start with `dry_run` |
-| **False Positive Fuzzy** | Wrong text matched | Increase `fuzzy_threshold` | Use more specific patterns |
-| **Performance Timeout** | >50ms fuzzy matching | Reduce `max_suggestions` | Optimize pattern length |
-| **Memory Spike** | >10MB delta | Disable suggestions | Process files sequentially |
-| **Tool Not Found** | Alias resolution failed | Use core tool names | Check server registration |
-| **Health Check Fail** | Endpoint timeout | Force IP rediscovery | Verify network connectivity |
-
-### Quick Fix Commands
-
-#### Reset and Rediscover
-```javascript
-// Full system health check with cache reset
-@health({
-  check_type: "comprehensive",
-  force_ip_rediscovery: true
-})
-```
-
-#### Safe Pattern Testing
-```javascript
-// Test pattern without making changes
-@edit_file({
-  validation_mode: "dry_run",
-  fuzzy_threshold: 0.7,
-  suggest_alternatives: true,
-  max_suggestions: 5,
-  edits: [{ find: "your-pattern", replace: "replacement" }]
-})
-```
-
-#### Performance Optimization
-```javascript
-// Optimize for speed
-@edit_file({
-  validation_mode: "lenient",
-  fuzzy_threshold: 0.85,
-  suggest_alternatives: false,
-  max_suggestions: 1,
-  edits: [...]
-})
-```
-
-#### Maximum Debugging
-```javascript
-// Get all available information
-@edit_file({
-  validation_mode: "comprehensive",
-  fuzzy_threshold: 0.6,
-  suggest_alternatives: true,
-  max_suggestions: 10,
-  edits: [...]
-})
-```
+- Check stderr output -- the server logs all tool calls, backend selections, and errors to stderr
+- Use `check_backend_health` tool for real-time backend status
+- Use `health` tool for overall system status
+- Review `src/config/backends.json` for all configurable parameters
+- Check the project README and CHANGELOG for version-specific notes
 
 ---
 
-## 🎯 Best Practices for Troubleshooting
-
-### 1. **Progressive Complexity**
-Start simple and gradually increase complexity:
-
-```javascript
-// Step 1: Test basic pattern
-find: "function"
-
-// Step 2: Add function name
-find: "function processUserData"
-
-// Step 3: Add parameters
-find: "function processUserData(userData)"
-
-// Step 4: Add full signature
-find: "function processUserData(userData) {"
-```
-
-### 2. **Use Appropriate Modes**
-Match validation mode to use case:
-
-```javascript
-// Development/testing
-validation_mode: "comprehensive"
-
-// Production/known patterns
-validation_mode: "lenient"
-
-// Critical operations
-validation_mode: "strict"
-```
-
-### 3. **Monitor Performance**
-Track and optimize performance metrics:
-
-```javascript
-// Set reasonable thresholds
-fuzzy_threshold: 0.8,     // Balance accuracy and performance
-max_suggestions: 3,       // Limit for faster response
-suggest_alternatives: true // Only when needed
-```
-
-### 4. **Implement Fallback Strategies**
-```javascript
-// Try strict first, then lenient
-try {
-  await edit_file({ validation_mode: "strict", ... });
-} catch (error) {
-  await edit_file({ validation_mode: "lenient", ... });
-}
-```
-
-### 5. **Use Health Checks Proactively**
-```javascript
-// Regular health monitoring
-const health = await health({ check_type: "system" });
-if (!health.all_endpoints_healthy) {
-  // Handle degraded performance
-}
-```
-
----
-
-## 📞 Support Resources
-
-### Log Analysis
-- Check Claude Code logs: `~/.claude-code/logs/`
-- Monitor MCP server output for error details
-- Use browser developer tools for client-side issues
-
-### Performance Monitoring
-- Track response times with performance metrics
-- Monitor memory usage patterns
-- Analyze fuzzy matching effectiveness
-
-### Community Support
-- Review test suite examples in `/tests` directory
-- Check existing issues and solutions in project documentation
-- Reference the Smart Edit Prevention Guide for detailed usage patterns
-
-### Escalation Process
-1. **Try dry_run mode** to understand the issue
-2. **Use comprehensive verification** to get detailed analysis
-3. **Check health status** to rule out system issues
-4. **Review performance metrics** to identify bottlenecks
-5. **Implement fallback strategies** for resilient operation
-
-This troubleshooting guide covers the most common issues and provides systematic approaches to resolution. For additional support, refer to the [Smart Edit Prevention Guide](SMART-EDIT-PREVENTION-GUIDE.md) and the comprehensive test suite examples.
+*Last Updated: February 2026*
+*System Version: v2.0.0*

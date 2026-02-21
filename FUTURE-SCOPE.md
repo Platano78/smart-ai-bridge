@@ -1,287 +1,236 @@
-# 🚀 Smart AI Bridge - Future Scope & Advanced Features
+# Smart AI Bridge - Future Scope & Roadmap
 
-## 📋 Project Status
+## Project Status
 
-**Current Version:** v1.0.0 - Production Release
-**Phase Completed:** Public Release ✅
+**Current Version:** v2.0.0
+**Architecture:** Modular (53 source files in src/)
 **Status:** Production-Ready
-**Next Phase:** Feature Development (Based on Usage)
+**Last Updated:** February 2026
 
 ---
 
-## 🎯 TDD REFACTOR Phase - Advanced Features Roadmap
+## Completed in v2.0.0 (Previously Planned)
 
-### 🧠 AI-Powered Intelligence Enhancements
+The following items from the v1.0.0 roadmap have been implemented:
 
-#### **1. Predictive Routing & Learning**
-- **Content Analysis ML**: Train models to predict optimal endpoints based on file content patterns
-- **User Preference Learning**: Remember user's preferred routing for specific file types/projects
-- **Performance-Based Optimization**: Automatically adjust routing based on endpoint response times
-- **Seasonal Load Balancing**: Route based on real-time endpoint availability and performance
-
-**Implementation Complexity:** High  
-**Business Impact:** High  
-**Priority:** Tier 2  
-
-#### **2. Advanced File Understanding**
-- **Semantic File Classification**: Beyond extension-based routing - understand actual content purpose
-- **Project Context Awareness**: Recognize related files in a codebase/project for better routing
-- **Dependency Analysis**: Understand file relationships for batch processing optimization
-- **Code Quality Prediction**: Pre-analyze complexity to choose optimal processing endpoints
-
-**Implementation Complexity:** Medium-High  
-**Business Impact:** High  
-**Priority:** Tier 1  
+- **Modular architecture** -- Monolithic server replaced with 53-file src/ layout (handlers, backends, intelligence, utils, config, monitoring, tools)
+- **Handler registry pattern** -- HandlerFactory with 17 handler classes, base-handler inheritance, dynamic dispatch via tool-definitions mapping
+- **Backend adapter pattern** -- BackendAdapter base class with 6 concrete adapters (local, nvidia_deepseek, nvidia_qwen, gemini, openai, groq)
+- **Config-driven backends** -- src/config/backends.json defines all backend properties, priorities, timeouts, and models declaratively
+- **Intelligent routing** -- 4-tier routing (forced, learning, rules, fallback) in MultiAIRouter
+- **Learning engine** -- In-memory learning engine, compound learning, pattern RAG store for routing optimization
+- **Intelligence layer** -- Dual-iterate executor, diff-context optimizer, enhanced self-review, playbook system, background analysis queue
+- **Expanded tool set** -- 20 tools (up from 11): explore, generate_file, refactor, write_files_atomic, validate_changes, backup_restore, batch_analyze, check_backend_health, read, plus original tools
+- **New backends** -- OpenAI (GPT-4.1) and Groq (Llama 3.3 70B) added alongside local, NVIDIA DeepSeek, NVIDIA Qwen, Gemini
+- **Real-time monitoring dashboard** -- Express-based dashboard with health monitoring and spawn metrics
+- **Advanced content analysis** -- Smart context system, capability matcher, model discovery
+- **Custom routing rules** -- Complexity thresholds, backend priorities, per-tool backend forcing
+- **Council and multi-agent** -- Council handler, parallel agents, subagent spawning with role templates
+- **Gemini rate limiter** -- Built-in rate limiting for Gemini backend
+- **Circuit breaker** -- Configurable circuit breaker threshold and reset in fallback policy
+- **Quality gates** -- Quality gates system for output validation
+- **Conversation threading** -- Thread-aware context management
 
 ---
 
-### 📊 Performance & Scalability Features
+## Roadmap
 
-#### **3. Intelligent Caching & Optimization**
-- **Content-Based Caching**: Cache analysis results for similar files/content patterns
-- **Incremental Processing**: Only process changed portions of files for faster updates
-- **Parallel Pipeline Processing**: Process multiple files simultaneously across endpoints
-- **Smart Batching**: Group similar files for more efficient endpoint utilization
+### Tier 1: High Impact, Medium Effort
 
-**Implementation Complexity:** Medium  
-**Business Impact:** High  
-**Priority:** Tier 1 🏆 **RECOMMENDED FIRST**
+#### 1. TypeScript Migration
 
-#### **4. Advanced Monitoring & Analytics**
-- **Real-Time Performance Dashboards**: Live metrics, routing patterns, endpoint health
-- **Usage Pattern Analysis**: Identify optimization opportunities from usage data
-- **Predictive Endpoint Scaling**: Anticipate high-load periods and pre-optimize
-- **Cost Optimization Analytics**: Track and optimize API usage costs across endpoints
+Migrate the entire src/ codebase from JavaScript to TypeScript.
 
-**Implementation Complexity:** Medium  
-**Business Impact:** Medium-High  
-**Priority:** Tier 1 🏆 **RECOMMENDED FIRST**
+- Add strict type definitions for all handler interfaces, backend adapters, and router contracts
+- Generate type declarations for external consumers
+- Enable incremental adoption (start with core interfaces, expand outward)
+- Catch routing bugs at compile time (e.g., invalid backend names, malformed tool args)
 
----
+**Effort:** 2-3 weeks
+**Impact:** Eliminates a class of runtime errors, improves IDE support, makes handler/backend contracts explicit
 
-### 🔧 Developer Experience Enhancements
+#### 2. Persistent Learning Engine
 
-#### **5. Advanced Development Tools**
-- **File Operation Replay**: Record and replay complex file processing workflows
-- **A/B Testing Framework**: Compare routing strategies and endpoint performance
-- **Custom Routing Rules**: User-defined routing logic for specific use cases
-- **Workflow Automation**: Chain file operations with conditional logic
+The current learning engine (src/intelligence/learning-engine.js) and pattern RAG store are in-memory only. Data is lost on server restart.
 
-**Implementation Complexity:** Medium  
-**Business Impact:** Medium-High  
-**Priority:** Tier 1 🏆 **RECOMMENDED FIRST**
+- Add SQLite or JSON-file persistence for routing decisions, pattern scores, and compound learning data
+- Implement import/export for learning data (backup, transfer between environments)
+- Add decay/pruning for stale patterns
+- Track per-backend success rates over time with persistent counters
 
-#### **6. Integration & Extensibility**
-- **Plugin Architecture**: Allow custom endpoint integrations and processing modules
-- **Webhook Integration**: Trigger external systems based on file processing events
-- **API Gateway Features**: Rate limiting, authentication, request transformation
-- **Multi-Tenant Support**: Isolated routing and processing for different users/organizations
+**Effort:** 1-2 weeks
+**Impact:** Routing intelligence survives restarts and accumulates across sessions
 
-**Implementation Complexity:** High  
-**Business Impact:** High  
-**Priority:** Tier 2
+#### 3. Test Coverage Expansion
 
----
+Current test infrastructure is minimal (validate-hybrid-server.js, feature tests).
 
-### 🛡️ Security & Compliance Features
+- Add unit tests for every handler class (18 handlers)
+- Add integration tests for each backend adapter with mock responses
+- Add router tests covering all 4 tiers (forced, learning, rules, fallback)
+- Add intelligence layer tests (learning engine, diff-context optimizer, self-review)
+- Target 80%+ line coverage
+- Integrate with CI (GitHub Actions or similar)
 
-#### **7. Advanced Security**
-- **Content Anomaly Detection**: ML-based detection of suspicious file patterns
-- **Privacy-Preserving Processing**: Selective content masking for sensitive data
-- **Audit Trail System**: Comprehensive logging for compliance and debugging
-- **Zero-Trust File Validation**: Multi-layer security checks before processing
+**Effort:** 2-3 weeks
+**Impact:** Enables confident refactoring and feature development
 
-**Implementation Complexity:** Medium-High  
-**Business Impact:** Medium  
-**Priority:** Tier 2
+#### 4. Streaming Responses
 
-#### **8. Enterprise Features**
-- **Role-Based Access Control**: Different routing rules based on user permissions
-- **Data Residency Control**: Ensure data stays in specific geographic regions
-- **Compliance Reporting**: Automated reports for security and usage compliance
-- **Backup & Recovery**: Automatic backup of processing results and configurations
+Currently all tool calls return complete responses. Large outputs (code generation, batch analysis) would benefit from streaming.
 
-**Implementation Complexity:** High  
-**Business Impact:** Medium (Enterprise-specific)  
-**Priority:** Tier 3
+- Implement SSE or chunked response support in the MCP transport layer
+- Add streaming option to ask, review, generate_file, and dual_iterate handlers
+- Stream partial results during long-running council and parallel_agents operations
+- Maintain backward compatibility for non-streaming clients
+
+**Effort:** 2-3 weeks
+**Impact:** Better UX for long-running operations, reduced perceived latency
 
 ---
 
-### 🎮 Specialized Domain Features
+### Tier 2: High Impact, High Effort
 
-#### **9. Game Development Optimization**
-- **Unity/Unreal Integration**: Direct integration with game development workflows
-- **Asset Processing Pipeline**: Specialized routing for textures, models, scripts
-- **Performance Profiling**: Game-specific performance analysis and optimization
-- **Build System Integration**: Automated file processing during game builds
+#### 5. Plugin System for Third-Party Handlers
 
-**Implementation Complexity:** Medium-High  
-**Business Impact:** High (Game Dev specific)  
-**Priority:** Tier 3 (Specialized)
+Allow external packages to register new handlers and tools without modifying core source.
 
-#### **10. Creative Content Enhancement**
-- **YouTube Workflow Automation**: End-to-end content creation pipeline
-- **Multi-Media Processing**: Handle video, audio, and image files with appropriate endpoints
-- **Content Optimization**: Automatic SEO and engagement optimization
-- **Collaboration Features**: Multi-user project support with conflict resolution
+- Define a plugin manifest format (tool definition + handler class + optional backend requirements)
+- Plugin discovery from a configurable directory (e.g., plugins/)
+- Hot-reload support for plugin development
+- Plugin isolation (sandboxed execution, resource limits)
+- Plugin API versioning tied to HandlerFactory interface stability
 
-**Implementation Complexity:** High  
-**Business Impact:** High (Content Creation specific)  
-**Priority:** Tier 3 (Specialized)
+**Effort:** 3-4 weeks
+**Impact:** Extensibility without forking; community contributions possible
 
----
+#### 6. WebSocket Transport
 
-## 🎯 Implementation Priority Matrix
+The server currently supports stdio transport only. WebSocket transport enables remote and multi-client usage.
 
-### 🏆 **Tier 1: High-Impact, Medium Effort (Recommended Next)**
-1. **Intelligent Caching System** - Dramatically improve performance for repeated operations
-2. **Advanced Content Analysis** - Better routing decisions through deeper file understanding  
-3. **Real-Time Monitoring Dashboard** - Operations visibility and optimization insights
-4. **Custom Routing Rules** - User-defined logic for specialized use cases
+- Add WebSocket server alongside stdio in src/server.js
+- Support multiple concurrent client connections with session isolation
+- Implement authentication for WebSocket connections (API key or token-based)
+- Maintain stdio as the default for Claude Code integration
 
-**Estimated Timeline:** 2-4 weeks  
-**Prerequisites:** Current v1.0.0 system in production use  
-**Success Metrics:** 50%+ performance improvement, user satisfaction increase
+**Effort:** 2-3 weeks
+**Impact:** Enables remote access, web dashboard live interaction, multi-client scenarios
 
-### 🎯 **Tier 2: High-Impact, High Effort**
-1. **Predictive Routing ML** - Self-optimizing system that learns from usage patterns
-2. **Plugin Architecture** - Extensibility for custom endpoints and processing modules
-3. **Multi-Tenant Support** - Scale to serve multiple users/organizations
-4. **Advanced Security Suite** - Enterprise-grade security and compliance features
+#### 7. Benchmarking Suite
 
-**Estimated Timeline:** 4-8 weeks  
-**Prerequisites:** Tier 1 features implemented, user feedback collected  
-**Success Metrics:** System scalability, security compliance, extensibility
+Systematic performance measurement across backends, tools, and routing decisions.
 
-### 🎯 **Tier 3: Specialized Features**
-1. **Game Development Integration** - Unity/Unreal specialized workflows
-2. **Creative Content Automation** - YouTube/multimedia processing pipelines
-3. **Enterprise Compliance Suite** - Audit trails, data residency, RBAC
-4. **Advanced Analytics Platform** - Comprehensive usage and performance analytics
+- Automated benchmark harness that runs each tool against each backend with standardized prompts
+- Latency, throughput, and token-efficiency metrics per backend per tool
+- Regression detection (compare current run against baseline)
+- Generate benchmark reports (Markdown or HTML)
+- Integrate with CI for performance regression gates
 
-**Estimated Timeline:** 6-12 weeks  
-**Prerequisites:** Core platform maturity, specific domain requirements  
-**Success Metrics:** Domain-specific user adoption, specialized workflow efficiency
+**Effort:** 2-3 weeks
+**Impact:** Data-driven backend selection, performance regression prevention
+
+#### 8. Multi-Tenant Support
+
+Isolate routing rules, learning data, and backend access per user or organization.
+
+- Tenant context passed through handler pipeline
+- Per-tenant backend configuration overrides
+- Per-tenant learning engine instances
+- Rate limiting and quota management per tenant
+- Tenant-scoped dashboard views
+
+**Effort:** 4-6 weeks
+**Impact:** Enables shared deployments across teams or organizations
 
 ---
 
-## 📊 Current Architecture Strengths
+### Tier 3: Specialized / Long-Term
 
-### ✅ **Solid Foundation (v1.0.0)**
-- **Triple-Endpoint Architecture**: Local DeepSeek R1 + NVIDIA DeepSeek V3 + NVIDIA Qwen 3 Coder 480B
-- **Smart File-Size Routing**: >100KB→Local (unlimited), 10-100KB→intelligent, <10KB→smart
-- **4-Tier Performance System**: Instant, Fast, Standard, Chunked processing
-- **Cross-Platform Compatibility**: Windows/WSL/Linux path handling
-- **Production Security**: Malicious content detection, path traversal protection
-- **Enhanced Capability Messaging**: Complete routing transparency
+#### 9. Dashboard Real-Time Monitoring Improvements
 
-### 📈 **Ready for Advanced Features**
-- **Modular Architecture**: Clean separation allows easy feature addition
-- **Robust Error Handling**: Solid foundation for complex feature development
-- **Performance Monitoring**: Basic metrics in place for enhancement
-- **Documentation**: Comprehensive guides support feature development
+The current Express dashboard provides basic health and metrics. Expand it significantly.
 
----
+- WebSocket-based live metric streaming (requests/sec, backend latency, error rates)
+- Per-tool and per-backend breakdown charts
+- Learning engine visualization (routing decision history, pattern confidence scores)
+- Circuit breaker state dashboard (open/closed/half-open per backend)
+- Alert configuration (threshold-based notifications)
 
-## 🔄 Usage-Driven Development Approach
+**Effort:** 3-4 weeks
+**Impact:** Operational visibility for production deployments
 
-### **Phase 1: Real-World Usage (Current)**
-- **Goal**: Use the system extensively to identify pain points and optimization opportunities
-- **Duration**: 2-4 weeks of active usage
-- **Success Criteria**: 
-  - System stability confirmed
-  - Performance bottlenecks identified
-  - User workflow patterns understood
-  - Feature priorities validated
+#### 10. Database-Backed Analytics
 
-### **Phase 2: Data-Driven Enhancement Selection**
-- **Goal**: Choose Tier 1 features based on actual usage patterns
-- **Approach**: Analyze metrics, user feedback, and performance data
-- **Decision Criteria**:
-  - Most frequently used operations → Cache optimization
-  - Performance bottlenecks → Monitoring and analytics
-  - User requests → Custom routing rules
-  - System insights → Advanced content analysis
+Move beyond in-memory metrics to persistent analytics.
 
-### **Phase 3: Iterative Feature Development**
-- **Methodology**: Continue TDD approach with REFACTOR phase
-- **Process**: Feature design → TDD implementation → User testing → Refinement
-- **Quality Gates**: Maintain production stability while adding features
+- Store all tool invocations with timing, backend used, success/failure, token counts
+- Query interface for usage patterns (most-used tools, busiest backends, error trends)
+- Cost estimation per backend per time period
+- Data retention policies and archival
 
----
+**Effort:** 3-4 weeks
+**Impact:** Long-term operational intelligence and cost management
 
-## 💡 Innovation Opportunities
+#### 11. Container Deployment
 
-### **AI/ML Integration Points**
-- **Content Pattern Recognition**: Learn from successful routing decisions
-- **Performance Prediction**: Anticipate system load and optimize proactively
-- **User Behavior Analysis**: Understand workflow patterns for better UX
-- **Quality Assessment**: Automatically evaluate file processing results
+Package Smart AI Bridge for containerized deployment.
 
-### **Developer Ecosystem Growth**
-- **Community Plugins**: Open architecture for community contributions
-- **Integration Marketplace**: Pre-built integrations for popular tools
-- **API Ecosystem**: Rich APIs for third-party tool development
-- **Documentation Platform**: Interactive guides and examples
+- Dockerfile with multi-stage build
+- Docker Compose for server + dashboard + local LLM backend
+- Kubernetes Helm chart for production deployments
+- Health check endpoints compatible with container orchestration probes
 
-### **Enterprise Platform Evolution**
-- **Multi-Cloud Support**: Expand beyond NVIDIA to AWS/Azure/GCP
-- **Hybrid Deployments**: On-premise + cloud flexibility
-- **Compliance Framework**: Built-in support for industry standards
-- **Enterprise SSO**: Integration with corporate identity systems
+**Effort:** 1-2 weeks
+**Impact:** Simplified deployment, reproducible environments
+
+#### 12. OpenAPI / Schema Generation
+
+Auto-generate API documentation from tool definitions.
+
+- Generate OpenAPI 3.1 spec from CORE_TOOL_DEFINITIONS
+- Include request/response examples from actual tool usage
+- Serve interactive docs from the dashboard
+- Keep spec synchronized with tool-definitions.js via CI check
+
+**Effort:** 1-2 weeks
+**Impact:** Improved developer onboarding, external tool integration
 
 ---
 
-## 🎮 Game Development Specialization Potential
+## Architecture Considerations
 
-Given your game development background, the system has strong potential for game-specific enhancements:
-
-### **Game Asset Processing Pipeline**
-- **Texture Optimization**: Smart routing based on texture size/format
-- **Model Analysis**: 3D model complexity routing to appropriate endpoints  
-- **Script Processing**: Game logic analysis with specialized AI models
-- **Build Integration**: Seamless integration with Unity/Unreal build systems
-
-### **Performance Analysis Tools**
-- **Frame Rate Analysis**: Game performance profiling and optimization
-- **Memory Usage Optimization**: Asset loading and memory management analysis
-- **Cross-Platform Compatibility**: Multi-platform game deployment support
-- **Balance Analysis**: Game mechanics balance using mathematical reasoning
+- The HandlerFactory and BackendAdapter patterns are stable extension points. New features should integrate through these rather than modifying server.js.
+- The intelligence layer (11 modules) is the most complex subsystem. Persistence and testing should be prioritized before adding new intelligence features.
+- The 4-tier routing system is powerful but currently lacks observability. Any routing changes should include logging and dashboard integration.
+- Backend configuration via backends.json is clean and declarative. The plugin system should follow this pattern for plugin configuration.
 
 ---
 
-## 📝 Notes for Future Development
+## Technology Stack Evolution
 
-### **Architecture Considerations**
-- Current modular design supports advanced features well
-- Plugin architecture should maintain security boundaries
-- Performance optimizations should not compromise system stability
-- User experience should remain simple despite advanced capabilities
-
-### **Technology Stack Evolution**
-- Consider TypeScript migration for better type safety
-- Database integration for persistent caching and analytics
-- Message queue system for high-throughput scenarios  
-- Container deployment for scalability
-
-### **Community & Ecosystem**
-- Open source potential for core routing logic
-- Plugin development guidelines and standards
-- Community contribution frameworks
-- User feedback and feature request systems
+| Area | Current | Proposed |
+|------|---------|----------|
+| Language | JavaScript (ESM) | TypeScript |
+| Persistence | In-memory | SQLite or LevelDB |
+| Transport | stdio only | stdio + WebSocket |
+| Testing | Ad-hoc scripts | Jest/Vitest with 80%+ coverage |
+| Deployment | Manual node start | Docker + Helm |
+| Docs | Static Markdown | Auto-generated OpenAPI + Markdown |
 
 ---
 
-## 🏁 Decision Point
+## Decision Framework
 
-**Current Status**: Production-ready v1.0.0 public release
-**Next Decision**: Gather community feedback to prioritize Tier 1 features
-**Future Vision**: Evolve from file processing tool to comprehensive AI-powered development platform
+When prioritizing future work, evaluate against:
 
-**Recommendation**: Focus on real-world usage patterns and community feedback to guide feature prioritization. The solid foundation enables rapid development of high-impact features when the time is right.
+1. **Does it reduce production incidents?** (Testing, persistence, monitoring)
+2. **Does it enable new use cases?** (WebSocket, plugins, multi-tenant)
+3. **Does it improve developer velocity?** (TypeScript, benchmarks, docs)
+4. **Does it compound over time?** (Persistent learning, analytics)
+
+Items that score high on multiple criteria should be prioritized first.
 
 ---
 
-*Last Updated: September 2025*
-*System Version: v1.0.0 - Public Release*
-*Phase: Public Release Complete → Community Feedback → Feature Development*
+*Last Updated: February 2026*
+*System Version: v2.0.0*
