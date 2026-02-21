@@ -3,7 +3,7 @@
 ## Project Status
 
 **Current Version:** v2.0.0
-**Architecture:** Modular (53 source files in src/)
+**Architecture:** Modular (61 source files in src/)
 **Status:** Production-Ready
 **Last Updated:** February 2026
 
@@ -13,7 +13,7 @@
 
 The following items from the v1.0.0 roadmap have been implemented:
 
-- **Modular architecture** -- Monolithic server replaced with 53-file src/ layout (handlers, backends, intelligence, utils, config, monitoring, tools)
+- **Modular architecture** -- Monolithic server replaced with 61-file src/ layout (handlers, backends, intelligence, utils, config, monitoring, tools)
 - **Handler registry pattern** -- HandlerFactory with 17 handler classes, base-handler inheritance, dynamic dispatch via tool-definitions mapping
 - **Backend adapter pattern** -- BackendAdapter base class with 6 concrete adapters (local, nvidia_deepseek, nvidia_qwen, gemini, openai, groq)
 - **Config-driven backends** -- src/config/backends.json defines all backend properties, priorities, timeouts, and models declaratively
@@ -91,20 +91,7 @@ Currently all tool calls return complete responses. Large outputs (code generati
 
 ### Tier 2: High Impact, High Effort
 
-#### 5. Plugin System for Third-Party Handlers
-
-Allow external packages to register new handlers and tools without modifying core source.
-
-- Define a plugin manifest format (tool definition + handler class + optional backend requirements)
-- Plugin discovery from a configurable directory (e.g., plugins/)
-- Hot-reload support for plugin development
-- Plugin isolation (sandboxed execution, resource limits)
-- Plugin API versioning tied to HandlerFactory interface stability
-
-**Effort:** 3-4 weeks
-**Impact:** Extensibility without forking; community contributions possible
-
-#### 6. WebSocket Transport
+#### 5. WebSocket Transport
 
 The server currently supports stdio transport only. WebSocket transport enables remote and multi-client usage.
 
@@ -116,7 +103,7 @@ The server currently supports stdio transport only. WebSocket transport enables 
 **Effort:** 2-3 weeks
 **Impact:** Enables remote access, web dashboard live interaction, multi-client scenarios
 
-#### 7. Benchmarking Suite
+#### 6. Benchmarking Suite
 
 Systematic performance measurement across backends, tools, and routing decisions.
 
@@ -129,7 +116,7 @@ Systematic performance measurement across backends, tools, and routing decisions
 **Effort:** 2-3 weeks
 **Impact:** Data-driven backend selection, performance regression prevention
 
-#### 8. Multi-Tenant Support
+#### 7. Multi-Tenant Support
 
 Isolate routing rules, learning data, and backend access per user or organization.
 
@@ -146,7 +133,7 @@ Isolate routing rules, learning data, and backend access per user or organizatio
 
 ### Tier 3: Specialized / Long-Term
 
-#### 9. Dashboard Real-Time Monitoring Improvements
+#### 8. Dashboard Real-Time Monitoring Improvements
 
 The current Express dashboard provides basic health and metrics. Expand it significantly.
 
@@ -159,7 +146,7 @@ The current Express dashboard provides basic health and metrics. Expand it signi
 **Effort:** 3-4 weeks
 **Impact:** Operational visibility for production deployments
 
-#### 10. Database-Backed Analytics
+#### 9. Database-Backed Analytics
 
 Move beyond in-memory metrics to persistent analytics.
 
@@ -171,7 +158,7 @@ Move beyond in-memory metrics to persistent analytics.
 **Effort:** 3-4 weeks
 **Impact:** Long-term operational intelligence and cost management
 
-#### 11. Container Deployment
+#### 10. Container Deployment
 
 Package Smart AI Bridge for containerized deployment.
 
@@ -183,7 +170,7 @@ Package Smart AI Bridge for containerized deployment.
 **Effort:** 1-2 weeks
 **Impact:** Simplified deployment, reproducible environments
 
-#### 12. OpenAPI / Schema Generation
+#### 11. OpenAPI / Schema Generation
 
 Auto-generate API documentation from tool definitions.
 
@@ -202,7 +189,7 @@ Auto-generate API documentation from tool definitions.
 - The HandlerFactory and BackendAdapter patterns are stable extension points. New features should integrate through these rather than modifying server.js.
 - The intelligence layer (11 modules) is the most complex subsystem. Persistence and testing should be prioritized before adding new intelligence features.
 - The 4-tier routing system is powerful but currently lacks observability. Any routing changes should include logging and dashboard integration.
-- Backend configuration via backends.json is clean and declarative. The plugin system should follow this pattern for plugin configuration.
+- Backend configuration via backends.json is clean and declarative. New backends should follow this pattern.
 
 ---
 
