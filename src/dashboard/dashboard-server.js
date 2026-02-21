@@ -3,14 +3,14 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { BackendRegistry } from '../../backends/backend-registry.js';
+import { BackendRegistry } from '../backends/backend-registry.js';
 
 /**
  * Model aliases for the ask command
  * Maps shorthand names to actual backend names
  */
 const MODEL_ALIASES = {
-  'auto': { backend: null, description: 'Let Orchestrator decide' },
+  'auto': { backend: null, description: 'Auto-route to best backend' },
   'local': { backend: 'local', description: 'Local LLM (currently loaded model)' },
   'gemini': { backend: 'gemini', description: 'Google Gemini 2.5 Flash' },
   'deepseek': { backend: 'nvidia_deepseek', description: 'NVIDIA DeepSeek V3.2' },
@@ -106,7 +106,7 @@ export class DashboardServer {
       res.json({
         success: true,
         aliases: MODEL_ALIASES,
-        usage: 'Use these aliases with mcp__mecha-king-ghidorah-global__ask model="alias"'
+        usage: 'Use these aliases with mcp__smart-ai-bridge__ask model="alias"'
       });
     });
 
@@ -178,9 +178,8 @@ export class DashboardServer {
           'local': 'Local LLM (OpenAI-compatible endpoint)',
           'nvidia_deepseek': 'NVIDIA DeepSeek V3.2',
           'nvidia_qwen': 'NVIDIA Qwen3 Coder 480B',
-          'nvidia_minimax': 'NVIDIA MiniMax M2',
           'gemini': 'Google Gemini 2.5 Flash',
-          'openai': 'OpenAI GPT-4 / Any OpenAI-compatible API',
+          'openai': 'OpenAI GPT-4.1',
           'groq': 'Groq Llama 3.3 70B'
         }
       });

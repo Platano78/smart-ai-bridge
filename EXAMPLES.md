@@ -1,792 +1,633 @@
-# EXAMPLES.md
+# Smart AI Bridge v2.0.0 - Usage Examples
 
-# Smart AI Bridge v1.0.0 - Usage Examples
+## Token-Saving File Operations
 
-## 🎯 Real-World Usage Examples and Patterns
+### analyze_file -- 90% Token Savings
 
-### Basic Tool Usage
+Local LLM reads and analyzes files. Claude never sees full file content, only structured findings.
 
-#### Code Analysis Examples
-
-**Security Analysis**
 ```javascript
-// Analyze a JavaScript file for security vulnerabilities
-await callTool('analyze', {
-  content: `
-const express = require('express');
-const app = express();
-
-app.get('/user/:id', (req, res) => {
-  const userId = req.params.id;
-  const query = \`SELECT * FROM users WHERE id = \${userId}\`;
-  // Direct SQL injection vulnerability
-  db.query(query, (err, results) => {
-    res.json(results);
-  });
-});
-`,
-  analysis_type: 'security',
-  language: 'javascript'
-});
-
-// Expected output: Detailed security analysis with SQL injection warning
-```
-
-**Performance Analysis**
-```javascript
-// Analyze Python code for performance bottlenecks
-await callTool('analyze', {
-  content: `
-def inefficient_search(data, target):
-    for i in range(len(data)):
-        for j in range(len(data)):
-            if data[i] == target:
-                return i
-    return -1
-
-def process_large_dataset(dataset):
-    results = []
-    for item in dataset:
-        # Inefficient nested loops
-        for other_item in dataset:
-            if item['value'] > other_item['value']:
-                results.append(item)
-    return results
-`,
-  analysis_type: 'performance',
-  language: 'python'
-});
-
-// Expected output: Performance bottleneck identification with O(n²) complexity warnings
-```
-
-**Comprehensive Code Review**
-```javascript
-// Full code review with all aspects
-await callTool('review', {
-  content: `
-class UserController {
-  constructor(database) {
-    this.db = database;
+// Security analysis
+@analyze_file({
+  filePath: "/src/auth.js",
+  question: "What are the security vulnerabilities?",
+  options: {
+    analysisType: "security",
+    backend: "auto"
   }
+})
 
-  async createUser(userData) {
-    // Missing input validation
-    const user = await this.db.users.create(userData);
-    return user;
+// Architecture analysis with context files
+@analyze_file({
+  filePath: "/src/server.js",
+  question: "How does the request lifecycle work?",
+  options: {
+    analysisType: "architecture",
+    includeContext: ["src/router.js", "src/handlers/index.js"],
+    maxResponseTokens: 3000
   }
+})
 
-  async getUser(id) {
-    // No error handling
-    const user = await this.db.users.findById(id);
-    return user.password; // Exposing sensitive data
+// Bug hunting
+@analyze_file({
+  filePath: "/src/utils/parser.js",
+  question: "Are there any edge cases that could cause crashes?",
+  options: { analysisType: "bug" }
+})
+```
+
+### modify_file -- 95% Token Savings
+
+Local LLM applies natural language edits. Claude reviews a small diff instead of the full file.
+
+```javascript
+// Add error handling
+@modify_file({
+  filePath: "/src/api.js",
+  instructions: "Add try-catch error handling to all async route handlers",
+  options: {
+    review: true,
+    backup: true,
+    backend: "auto"
   }
-}
-`,
-  review_type: 'comprehensive',
-  file_path: './controllers/UserController.js'
-});
+})
 
-// Expected output: Security, performance, and quality issues with recommendations
+// Refactor a function
+@modify_file({
+  filePath: "/src/utils/validator.js",
+  instructions: "Convert the validateEmail function to use a regex pattern and add input type checking",
+  options: {
+    review: true,
+    contextFiles: ["src/utils/types.js"]
+  }
+})
+
+// Dry run (preview changes without writing)
+@modify_file({
+  filePath: "/src/config.js",
+  instructions: "Add a new 'timeout' field with default value 30000",
+  options: { dryRun: true }
+})
 ```
 
-#### Code Generation Examples
+### generate_file -- Code Generation
 
-**Fill-in-the-Middle Completion**
+Generate code from natural language spec using local LLM.
+
 ```javascript
-// Generate code completion for a React component
-await callTool('generate', {
-  prefix: `
-import React, { useState, useEffect } from 'react';
+// Generate a utility module
+@generate_file({
+  spec: "Create a rate limiter module using a sliding window algorithm. Export a RateLimiter class with check(key) and reset(key) methods. Include JSDoc comments.",
+  outputPath: "/src/utils/rate-limiter.js",
+  options: {
+    review: true,
+    language: "javascript",
+    includeTests: true
+  }
+})
 
-const UserProfile = ({ userId }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-`,
-  suffix: `
-  }, [userId]);
-
-  if (loading) return <div>Loading...</div>;
-  if (!user) return <div>User not found</div>;
-
-  return (
-    <div className="user-profile">
-      <h1>{user.name}</h1>
-      <p>{user.email}</p>
-    </div>
-  );
-};
-`,
-  language: 'javascript'
-});
-
-// Expected output: Complete useEffect implementation with API call and error handling
+// Generate with context files for style matching
+@generate_file({
+  spec: "Create a GroqAdapter class that follows the same pattern as the existing adapters",
+  outputPath: "/src/backends/groq-adapter.js",
+  options: {
+    contextFiles: ["src/backends/openai-adapter.js", "src/backends/backend-adapter.js"],
+    review: true
+  }
+})
 ```
 
-**Function Implementation**
-```javascript
-// Generate a complete sorting algorithm
-await callTool('generate', {
-  description: 'Implement a quick sort algorithm with optimizations for small arrays',
-  language: 'javascript',
-  requirements: [
-    'Handle edge cases (empty arrays, single elements)',
-    'Use insertion sort for small arrays (< 10 elements)',
-    'Include performance comments',
-    'Add unit test examples'
-  ]
-});
+### batch_analyze -- Multi-File Analysis
 
-// Expected output: Complete quicksort implementation with optimizations
+Analyze multiple files at once with aggregated findings.
+
+```javascript
+// Security audit across all handlers
+@batch_analyze({
+  filePatterns: ["src/handlers/**/*.js"],
+  question: "Are there any unvalidated inputs or injection vulnerabilities?",
+  options: {
+    analysisType: "security",
+    maxFiles: 20,
+    aggregateResults: true,
+    parallel: true
+  }
+})
+
+// Performance review of backend adapters
+@batch_analyze({
+  filePatterns: ["src/backends/*.js"],
+  question: "What are the potential performance bottlenecks and timeout risks?",
+  options: {
+    analysisType: "performance",
+    backend: "nvidia_deepseek"
+  }
+})
 ```
 
-### Advanced File Operations
+### batch_modify -- Multi-File Edits
 
-#### Intelligent File Editing
+Apply the same instructions across multiple files atomically.
 
-**Targeted Code Refactoring**
 ```javascript
-await callTool('edit_file', {
-  file_path: './src/components/UserList.jsx',
-  edits: [{
-    line_start: 15,
-    line_end: 25,
-    new_content: `
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Add error handling to all handlers
+@batch_modify({
+  files: ["src/handlers/*.js"],
+  instructions: "Add input validation at the top of the execute() method to check that required arguments are present",
+  options: {
+    review: true,
+    transactionMode: "all_or_nothing",
+    stopOnError: true
+  }
+})
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await userService.getUsers();
-      setUsers(response.data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-`,
-    description: 'Replace inefficient user fetching with proper error handling and loading states'
-  }],
-  validation_mode: 'comprehensive',
-  language: 'javascript'
-});
-
-// Expected output: File successfully edited with validation results
+// Update import paths
+@batch_modify({
+  files: ["src/**/*.js"],
+  instructions: "Replace all imports from '../old-module.js' with '../new-module.js'",
+  options: {
+    parallel: true,
+    transactionMode: "best_effort"
+  }
+})
 ```
 
-**Multi-File Refactoring**
+### explore -- Codebase Exploration
+
+Answer questions about the codebase using intelligent search. Returns a summary, never raw file contents.
+
 ```javascript
-await callTool('multi_edit', {
-  file_operations: [
+// Find where something is implemented
+@explore({
+  question: "Where is user authentication handled?",
+  options: {
+    scope: "src/**/*.js",
+    depth: "deep",
+    maxFiles: 30
+  }
+})
+
+// Understand architecture
+@explore({
+  question: "How does the routing system decide which backend to use?",
+  options: {
+    scope: "src/router.js",
+    depth: "deep"
+  }
+})
+
+// Quick search
+@explore({
+  question: "Which files use the BackendRegistry?",
+  options: {
+    depth: "shallow",
+    maxFiles: 50
+  }
+})
+```
+
+### refactor -- Cross-File Refactoring
+
+```javascript
+// Rename a class across all files
+@refactor({
+  scope: "class",
+  target: "OldService",
+  instructions: "Rename to NewService and update all imports and references",
+  options: {
+    dryRun: true,
+    findReferences: true
+  }
+})
+
+// Module-level refactoring
+@refactor({
+  scope: "module",
+  target: "src/utils/helpers.js",
+  instructions: "Split this module into separate files: string-utils.js, date-utils.js, and math-utils.js",
+  options: {
+    review: true,
+    backend: "nvidia_qwen"
+  }
+})
+
+// Function extraction
+@refactor({
+  scope: "function",
+  target: "processUserData",
+  instructions: "Extract the validation logic into a separate validateUserData function",
+  options: {
+    files: ["src/controllers/user.js"],
+    review: true
+  }
+})
+```
+
+## Multi-AI Workflow Tools
+
+### ask -- Smart Multi-Backend Routing
+
+```javascript
+// Auto-routing (let the router decide)
+@ask({
+  model: "auto",
+  prompt: "Implement a binary search tree with insert, delete, and search operations in JavaScript"
+})
+
+// Force specific backend
+@ask({
+  model: "nvidia_deepseek",
+  prompt: "Analyze the time complexity of this algorithm and suggest optimizations",
+  thinking: true
+})
+
+// Ultra-fast response via Groq
+@ask({
+  model: "groq",
+  prompt: "Explain the difference between Promise.all and Promise.allSettled"
+})
+
+// Large context with local model
+@ask({
+  model: "local",
+  prompt: "Here is a complete module [large code]. Summarize the architecture.",
+  max_tokens: 16384
+})
+
+// OpenAI premium reasoning
+@ask({
+  model: "openai",
+  prompt: "Design a distributed caching strategy for a microservices architecture with these constraints..."
+})
+```
+
+### council -- Multi-AI Consensus
+
+```javascript
+// Architecture decision
+@council({
+  prompt: "Should we use microservices or a monolith for a real-time multiplayer game backend?",
+  topic: "architecture",
+  confidence_needed: "high"
+})
+
+// Security review
+@council({
+  prompt: "Review this authentication flow for vulnerabilities: [flow description]",
+  topic: "security",
+  confidence_needed: "high"
+})
+
+// Performance optimization
+@council({
+  prompt: "What is the best approach to optimize database queries for this schema?",
+  topic: "performance",
+  confidence_needed: "medium",
+  max_tokens: 6000
+})
+
+// Creative solution
+@council({
+  prompt: "What are novel approaches to reduce token usage in LLM-powered tools?",
+  topic: "creative",
+  confidence_needed: "low"
+})
+```
+
+### dual_iterate -- Generate->Review->Fix Loop
+
+```javascript
+// Code generation with quality gate
+@dual_iterate({
+  task: "Write a function that validates email addresses using RFC 5322 rules",
+  quality_threshold: 0.8,
+  max_iterations: 3,
+  include_history: false
+})
+
+// Complex implementation
+@dual_iterate({
+  task: "Implement a connection pool manager with idle timeout, max connections, and health checking",
+  quality_threshold: 0.7,
+  max_iterations: 5,
+  include_history: true
+})
+```
+
+### parallel_agents -- TDD Workflow
+
+```javascript
+// Full TDD cycle
+@parallel_agents({
+  task: "Implement OAuth2 authentication with JWT tokens",
+  max_parallel: 2,
+  iterate_until_quality: true,
+  max_iterations: 3,
+  write_files: true,
+  work_directory: "/tmp/oauth2-tdd"
+})
+
+// TDD without file writing (results only)
+@parallel_agents({
+  task: "Create a caching layer with TTL and LRU eviction",
+  max_parallel: 2,
+  iterate_until_quality: true,
+  write_files: false
+})
+```
+
+### spawn_subagent -- Specialized AI Roles
+
+```javascript
+// Code review
+@spawn_subagent({
+  role: "code-reviewer",
+  task: "Review the authentication module for best practices and potential issues",
+  file_patterns: ["src/auth/**/*.js"],
+  verdict_mode: "full"
+})
+
+// Security audit
+@spawn_subagent({
+  role: "security-auditor",
+  task: "Audit the API endpoints for OWASP Top 10 vulnerabilities",
+  file_patterns: ["src/routes/**/*.js"],
+  verdict_mode: "summary"
+})
+
+// Task planning
+@spawn_subagent({
+  role: "planner",
+  task: "Break down the migration from REST to GraphQL into ordered subtasks with dependencies"
+})
+
+// Test generation with file output
+@spawn_subagent({
+  role: "test-generator",
+  task: "Generate unit tests for the BackendRegistry class",
+  file_patterns: ["src/backends/backend-registry.js"],
+  write_files: true,
+  work_directory: "/tmp/tests"
+})
+
+// TDD decomposition
+@spawn_subagent({
+  role: "tdd-decomposer",
+  task: "Decompose 'Implement a notification system' into atomic TDD subtasks"
+})
+```
+
+## Code Quality Tools
+
+### review -- Code Review
+
+```javascript
+// Comprehensive review
+@review({
+  content: "function processPayment(amount, card) { ... }",
+  file_path: "src/payments/processor.js",
+  language: "javascript",
+  review_type: "comprehensive"
+})
+
+// Security-focused review
+@review({
+  content: "[paste code here]",
+  review_type: "security"
+})
+
+// Performance-focused review
+@review({
+  content: "[paste code here]",
+  review_type: "performance"
+})
+```
+
+### validate_changes -- Pre-Flight Validation
+
+```javascript
+// Validate proposed changes before applying
+@validate_changes({
+  file_path: "src/auth/login.js",
+  proposed_changes: [
     {
-      action: 'edit',
-      file_path: './src/services/userService.js',
-      content: `
-export class UserService {
-  constructor(apiClient) {
-    this.api = apiClient;
-  }
-
-  async getUsers() {
-    return await this.api.get('/users');
-  }
-
-  async getUserById(id) {
-    return await this.api.get(\`/users/\${id}\`);
-  }
-}
-`
-    },
-    {
-      action: 'create',
-      file_path: './src/hooks/useUsers.js',
-      content: `
-import { useState, useEffect } from 'react';
-import { userService } from '../services/userService';
-
-export const useUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await userService.getUsers();
-        setUsers(response.data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, []);
-
-  return { users, loading, error };
-};
-`
+      find: "const token = jwt.sign(payload, secret)",
+      replace: "const token = jwt.sign(payload, secret, { expiresIn: '1h' })"
     }
   ],
-  transaction_mode: true,
-  parallel_processing: true
-});
-
-// Expected output: Multiple files created/edited in a single transaction
+  language: "javascript",
+  validation_rules: ["syntax", "security", "logic"]
+})
 ```
 
-#### Code Validation
+## Infrastructure Tools
 
-**Change Validation**
+### check_backend_health -- Backend Health
+
 ```javascript
-await callTool('validate_changes', {
-  file_path: './src/utils/encryption.js',
-  proposed_changes: `
-// Changed from MD5 to bcrypt for password hashing
-import bcrypt from 'bcrypt';
+// Check specific backend
+@check_backend_health({
+  backend: "local",
+  force: true
+})
 
-export const hashPassword = async (password) => {
-  const saltRounds = 12;
-  return await bcrypt.hash(password, saltRounds);
-};
-
-export const verifyPassword = async (password, hash) => {
-  return await bcrypt.compare(password, hash);
-};
-`,
-  validation_rules: ['security', 'performance', 'compatibility'],
-  language: 'javascript'
-});
-
-// Expected output: Validation results with security improvement confirmation
+// Check cloud backend
+@check_backend_health({
+  backend: "nvidia_deepseek"
+})
 ```
 
-### System Health and Monitoring
+### backup_restore -- Backup Management
 
-#### Comprehensive Health Check
-```javascript
-await callTool('health', {
-  check_type: 'comprehensive'
-});
-
-// Expected output:
-// {
-//   "status": "healthy",
-//   "version": "8.0.0",
-//   "endpoints": {
-//     "local": {
-//       "status": "healthy",
-//       "model": "Qwen3-Coder-30B-A3B-Instruct-FP8",
-//       "responseTime": "45.23ms",
-//       "priority": 1
-//     },
-//     "nvidiaDeepSeek": {
-//       "status": "healthy",
-//       "model": "NVIDIA-DeepSeek-V3.1",
-//       "responseTime": "156.78ms",
-//       "priority": 2
-//     }
-//   },
-//   "routing": {
-//     "localProcessing": "95%",
-//     "cloudEscalation": "5%",
-//     "totalRequests": 1247
-//   }
-// }
-```
-
-#### Endpoint-Specific Monitoring
-```javascript
-await callTool('health', {
-  check_type: 'endpoints'
-});
-
-// Expected output: Detailed endpoint health with real-time metrics
-```
-
-### Backup and Recovery Operations
-
-#### File Backup Management
 ```javascript
 // Create backup before major changes
-await callTool('backup_restore', {
-  action: 'create',
-  file_path: './src/critical-component.js',
+@backup_restore({
+  action: "create",
+  file_path: "src/server.js",
   metadata: {
-    reason: 'Major refactoring',
-    version: '2.1.0',
-    author: 'developer'
+    description: "Before v2.1 refactor",
+    tags: ["pre-refactor", "v2.1"]
   }
-});
+})
 
-// List available backups
-await callTool('backup_restore', {
-  action: 'list',
-  file_path: './src/critical-component.js'
-});
+// List backups
+@backup_restore({
+  action: "list",
+  file_path: "src/server.js"
+})
 
-// Restore from backup if needed
-await callTool('backup_restore', {
-  action: 'restore',
-  file_path: './src/critical-component.js',
-  backup_id: 'backup_20240319_143022'
-});
+// Restore from backup
+@backup_restore({
+  action: "restore",
+  file_path: "src/server.js",
+  backup_id: "backup_20260220_143022"
+})
 
-// Cleanup old backups
-await callTool('backup_restore', {
-  action: 'cleanup',
+// Clean up old backups
+@backup_restore({
+  action: "cleanup",
   cleanup_options: {
-    retain_count: 5,
-    max_age_days: 30
+    max_age_days: 30,
+    max_count_per_file: 5,
+    dry_run: true
   }
-});
+})
 ```
 
-## 🏗️ Configuration Examples
+### write_files_atomic -- Atomic Multi-File Writes
 
-### Local Model Setups
-
-#### Basic Qwen3-Coder Setup
-```yaml
-# docker-compose.basic.yml
-version: '3.8'
-services:
-  qwen3-coder:
-    image: vllm/vllm-openai:latest
-    container_name: qwen3-coder-basic
-    ports:
-      - "8001:8000"
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-    command: [
-      "--model", "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
-      "--host", "0.0.0.0",
-      "--port", "8000",
-      "--max-model-len", "32768"
-    ]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-```
-
-#### High-Performance Setup
-```yaml
-# docker-compose.performance.yml
-version: '3.8'
-services:
-  qwen3-coder-performance:
-    image: vllm/vllm-openai:latest
-    container_name: qwen3-coder-performance
-    ports:
-      - "8001:8000"
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - CUDA_VISIBLE_DEVICES=0,1
-    volumes:
-      - model_cache:/root/.cache/huggingface
-      - ./config:/app/config:ro
-    command: [
-      "--model", "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
-      "--host", "0.0.0.0",
-      "--port", "8000",
-      "--max-model-len", "32768",
-      "--gpu-memory-utilization", "0.90",
-      "--tensor-parallel-size", "2",
-      "--quantization", "fp8",
-      "--enable-lora",
-      "--max-loras", "8",
-      "--swap-space", "4"
-    ]
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "100m"
-        max-file: "3"
-
-volumes:
-  model_cache:
-    driver: local
-```
-
-#### Development Setup with Multiple Models
-```yaml
-# docker-compose.multi-model.yml
-version: '3.8'
-services:
-  qwen3-coder:
-    image: vllm/vllm-openai:latest
-    container_name: qwen3-coder
-    ports:
-      - "8001:8000"
-    command: ["--model", "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"]
-
-  qwen25-coder:
-    image: vllm/vllm-openai:latest
-    container_name: qwen25-coder
-    ports:
-      - "8002:8000"
-    command: ["--model", "Qwen/Qwen2.5-Coder-7B-Instruct"]
-
-  deepseek-lite:
-    image: vllm/vllm-openai:latest
-    container_name: deepseek-lite
-    ports:
-      - "8003:8000"
-    command: ["--model", "deepseek-ai/deepseek-coder-6.7b-instruct"]
-```
-
-### Environment Configurations
-
-#### Development Environment
-```bash
-# .env.development
-NODE_ENV=development
-MCP_SERVER_MODE=true
-DEBUG=true
-LOG_LEVEL=debug
-
-# Local model (development)
-DEEPSEEK_ENDPOINT=http://localhost:8001/v1
-MKG_SERVER_PORT=8001
-
-# Optional cloud providers for testing
-NVIDIA_API_KEY=your-dev-api-key
-
-# Development settings
-CACHE_TTL=60
-HEALTH_CHECK_INTERVAL=10
-VALIDATION_ENABLED=false
-MAX_CONCURRENT_REQUESTS=5
-```
-
-#### Staging Environment
-```bash
-# .env.staging
-NODE_ENV=staging
-MCP_SERVER_MODE=true
-DEBUG=false
-LOG_LEVEL=info
-
-# Staging model endpoint
-DEEPSEEK_ENDPOINT=http://staging-model:8001/v1
-MKG_SERVER_PORT=8001
-
-# Cloud providers
-NVIDIA_API_KEY=your-staging-api-key
-DEEPSEEK_API_KEY=your-staging-deepseek-key
-
-# Staging settings
-CACHE_TTL=300
-HEALTH_CHECK_INTERVAL=30
-VALIDATION_ENABLED=true
-MAX_CONCURRENT_REQUESTS=8
-RATE_LIMIT_ENABLED=true
-```
-
-#### Production Environment
-```bash
-# .env.production
-NODE_ENV=production
-MCP_SERVER_MODE=true
-DEBUG=false
-LOG_LEVEL=warn
-
-# Production model endpoint
-DEEPSEEK_ENDPOINT=http://production-model:8001/v1
-MKG_SERVER_PORT=8001
-
-# Cloud providers with production keys
-NVIDIA_API_KEY=your-production-nvidia-key
-DEEPSEEK_API_KEY=your-production-deepseek-key
-OPENAI_API_KEY=your-production-openai-key
-
-# Production settings
-CACHE_TTL=900
-HEALTH_CHECK_INTERVAL=30
-VALIDATION_ENABLED=true
-MAX_CONCURRENT_REQUESTS=20
-RATE_LIMIT_ENABLED=true
-MAX_REQUESTS_PER_MINUTE=200
-METRICS_ENABLED=true
-BACKUP_ENABLED=true
-```
-
-### Claude Desktop Configurations
-
-#### Basic Setup
-```json
-{
-  "mcpServers": {
-    "mkg-server": {
-      "command": "node",
-      "args": ["smart-ai-bridge.js"],
-      "cwd": "/path/to/mkg-server"
-    }
-  }
-}
-```
-
-#### Development Setup
-```json
-{
-  "mcpServers": {
-    "mkg-dev": {
-      "command": "node",
-      "args": ["smart-ai-bridge.js"],
-      "cwd": "/home/developer/mkg-server",
-      "env": {
-        "NODE_ENV": "development",
-        "DEBUG": "true",
-        "LOG_LEVEL": "debug",
-        "MCP_SERVER_MODE": "true",
-        "DEEPSEEK_ENDPOINT": "http://localhost:8001/v1"
-      }
-    }
-  }
-}
-```
-
-#### Production Setup with Multiple Endpoints
-```json
-{
-  "mcpServers": {
-    "mkg-production": {
-      "command": "node",
-      "args": [
-        "/opt/smart-ai-bridge/smart-ai-bridge.js"
-      ],
-      "cwd": "/opt/mkg-server",
-      "env": {
-        "MCP_SERVER_NAME": "mkg-production",
-        "NODE_ENV": "production",
-        "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
-        "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}",
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-        "DEEPSEEK_ENDPOINT": "http://localhost:8001/v1",
-        "MCP_SERVER_MODE": "true",
-        "MKG_SERVER_PORT": "8001",
-        "VALIDATION_ENABLED": "true",
-        "MAX_CONCURRENT_REQUESTS": "20",
-        "CACHE_TTL": "900",
-        "METRICS_ENABLED": "true"
-      }
-    }
-  }
-}
-```
-
-#### Team Setup with Shared Configuration
-```json
-{
-  "mcpServers": {
-    "mkg-team": {
-      "command": "node",
-      "args": [
-        "/shared/smart-ai-bridge/smart-ai-bridge.js"
-      ],
-      "cwd": "/shared/mkg-server",
-      "env": {
-        "MCP_SERVER_NAME": "mkg-team",
-        "NODE_ENV": "production",
-        "NVIDIA_API_KEY": "team-nvidia-key",
-        "DEEPSEEK_ENDPOINT": "http://team-model-server:8001/v1",
-        "MCP_SERVER_MODE": "true",
-        "VALIDATION_ENABLED": "true",
-        "BACKUP_ENABLED": "true",
-        "TEAM_MODE": "true"
-      }
-    }
-  }
-}
-```
-
-## 🎮 Game Development Examples
-
-### Unity C# Analysis
 ```javascript
-await callTool('analyze', {
-  content: `
-using UnityEngine;
-using System.Collections.Generic;
-
-public class PlayerController : MonoBehaviour
-{
-    public float moveSpeed = 5f;
-    private List<GameObject> enemies = new List<GameObject>();
-
-    void Update()
+// Write multiple files with automatic backup
+@write_files_atomic({
+  file_operations: [
     {
-        // Performance issue: Find all enemies every frame
-        enemies = new List<GameObject>(GameObject.FindGameObjectsWithTag("Enemy"));
-
-        Vector3 movement = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
-        transform.Translate(movement * moveSpeed * Time.deltaTime);
-
-        // Inefficient distance checking
-        foreach(GameObject enemy in enemies)
-        {
-            if(Vector3.Distance(transform.position, enemy.transform.position) < 2f)
-            {
-                // Handle collision
-                Debug.Log("Hit enemy!");
-            }
-        }
+      path: "src/models/user.js",
+      content: "export class User { ... }",
+      operation: "write"
+    },
+    {
+      path: "src/models/index.js",
+      content: "export { User } from './user.js';",
+      operation: "write"
     }
-}
-`,
-  analysis_type: 'performance',
-  language: 'csharp'
-});
+  ],
+  create_backup: true
+})
 ```
 
-### React Component Generation
+### manage_conversation -- Conversation Threading
+
 ```javascript
-await callTool('generate', {
-  description: 'Create a reusable data table component with sorting, filtering, and pagination',
-  language: 'javascript',
-  framework: 'react',
-  requirements: [
-    'TypeScript support',
-    'Sortable columns',
-    'Search/filter functionality',
-    'Pagination with page size options',
-    'Responsive design',
-    'Accessibility features'
-  ]
-});
+// Start new conversation
+@manage_conversation({
+  action: "start",
+  topic: "Backend refactoring discussion"
+})
+
+// Search conversations
+@manage_conversation({
+  action: "search",
+  query: "authentication"
+})
+
+// Get analytics
+@manage_conversation({
+  action: "analytics"
+})
 ```
 
-## 🔧 Workflow Examples
+### get_analytics -- Usage Analytics
+
+```javascript
+// Current session stats
+@get_analytics({
+  report_type: "current"
+})
+
+// Cost analysis
+@get_analytics({
+  report_type: "cost",
+  time_range: "7d",
+  format: "markdown"
+})
+
+// Optimization recommendations
+@get_analytics({
+  report_type: "recommendations"
+})
+```
+
+## Common Workflows
 
 ### Code Review Workflow
+
 ```javascript
-// Step 1: Analyze code for issues
-const analysis = await callTool('analyze', {
-  content: sourceCode,
-  analysis_type: 'comprehensive',
-  language: 'javascript'
-});
+// Step 1: Analyze the file
+@analyze_file({
+  filePath: "src/auth/login.js",
+  question: "What are the security issues and code quality problems?",
+  options: { analysisType: "security" }
+})
 
-// Step 2: Review with specific focus
-const review = await callTool('review', {
-  content: sourceCode,
-  review_type: 'security',
-  file_path: './src/auth.js'
-});
+// Step 2: Get AI consensus on the approach
+@council({
+  prompt: "Given these security findings, what is the best remediation approach?",
+  topic: "security",
+  confidence_needed: "high"
+})
 
-// Step 3: Generate improvements
-const improvements = await callTool('generate', {
-  description: 'Fix the security issues identified in the review',
-  context: review,
-  language: 'javascript'
-});
+// Step 3: Apply fixes
+@modify_file({
+  filePath: "src/auth/login.js",
+  instructions: "Fix the SQL injection vulnerability by using parameterized queries, add input validation, and implement rate limiting",
+  options: { review: true, backup: true }
+})
 
-// Step 4: Apply changes
-const editResult = await callTool('edit_file', {
-  file_path: './src/auth.js',
-  edits: improvements.edits,
-  validation_mode: 'comprehensive'
-});
-
-// Step 5: Validate changes
-const validation = await callTool('validate_changes', {
-  file_path: './src/auth.js',
-  proposed_changes: editResult.content,
-  validation_rules: ['security', 'functionality']
-});
+// Step 4: Validate the changes
+@validate_changes({
+  file_path: "src/auth/login.js",
+  proposed_changes: [{ find: "old code", replace: "new code" }],
+  validation_rules: ["security", "logic", "performance"]
+})
 ```
 
 ### Refactoring Workflow
+
 ```javascript
-// Step 1: Backup original files
-await callTool('backup_restore', {
-  action: 'create',
-  file_path: './src/legacy-component.js',
-  metadata: { reason: 'Major refactoring to hooks' }
-});
+// Step 1: Backup
+@backup_restore({
+  action: "create",
+  file_path: "src/legacy-module.js",
+  metadata: { description: "Before refactoring" }
+})
 
-// Step 2: Analyze current implementation
-const analysis = await callTool('analyze', {
-  content: legacyCode,
-  analysis_type: 'structure',
-  language: 'javascript'
-});
+// Step 2: Analyze current structure
+@analyze_file({
+  filePath: "src/legacy-module.js",
+  question: "What is the module structure and what are the dependencies?",
+  options: { analysisType: "architecture" }
+})
 
-// Step 3: Generate modern implementation
-const modernCode = await callTool('generate', {
-  description: 'Convert class component to functional component with hooks',
-  context: analysis,
-  language: 'javascript'
-});
+// Step 3: Generate replacement code
+@dual_iterate({
+  task: "Rewrite the legacy module using modern ES modules, async/await, and proper error handling",
+  quality_threshold: 0.8
+})
 
-// Step 4: Apply changes with validation
-await callTool('edit_file', {
-  file_path: './src/legacy-component.js',
-  edits: [{
-    line_start: 1,
-    line_end: -1, // Replace entire file
-    new_content: modernCode
-  }],
-  validation_mode: 'comprehensive'
-});
-
-// Step 5: Verify the refactoring
-const validation = await callTool('validate_changes', {
-  file_path: './src/legacy-component.js',
-  validation_rules: ['functionality', 'performance', 'maintainability']
-});
+// Step 4: Apply refactoring across files
+@refactor({
+  scope: "module",
+  target: "src/legacy-module.js",
+  instructions: "Replace with the new implementation and update all imports",
+  options: { review: true, findReferences: true }
+})
 ```
 
-### Team Development Workflow
+### Multi-File Security Audit
+
 ```javascript
-// Developer 1: Initial analysis
-const requirements = await callTool('analyze', {
-  content: projectSpec,
-  analysis_type: 'dependencies',
-  language: 'javascript'
-});
+// Step 1: Batch analyze all source files
+@batch_analyze({
+  filePatterns: ["src/**/*.js"],
+  question: "Are there any security vulnerabilities (injection, path traversal, auth bypass)?",
+  options: {
+    analysisType: "security",
+    maxFiles: 50,
+    aggregateResults: true
+  }
+})
 
-// Developer 2: Implementation planning
-const architecture = await callTool('generate', {
-  description: 'Design component architecture based on requirements',
-  context: requirements,
-  language: 'javascript'
-});
+// Step 2: Deep dive on flagged files
+@spawn_subagent({
+  role: "security-auditor",
+  task: "Perform OWASP Top 10 audit on the flagged files",
+  file_patterns: ["src/handlers/file-handlers.js", "src/file-security.js"]
+})
 
-// Developer 3: Code implementation
-const implementation = await callTool('multi_edit', {
-  file_operations: [
-    {
-      action: 'create',
-      file_path: './src/components/FeatureA.jsx',
-      content: architectureA
-    },
-    {
-      action: 'create',
-      file_path: './src/components/FeatureB.jsx',
-      content: architectureB
-    }
-  ],
-  parallel_processing: true
-});
-
-// Code review by team lead
-const teamReview = await callTool('review', {
-  content: implementation.results,
-  review_type: 'comprehensive',
-  context: 'Team code review for new features'
-});
+// Step 3: Fix identified issues
+@batch_modify({
+  files: ["src/handlers/file-handlers.js", "src/handlers/read-handler.js"],
+  instructions: "Add path validation using file-security.js before any file operations",
+  options: { review: true, transactionMode: "all_or_nothing" }
+})
 ```
-
-These examples demonstrate the full range of Smart AI Bridge capabilities, from simple code analysis to complex multi-file operations and team workflows.

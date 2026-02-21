@@ -1,13 +1,12 @@
 {
   "name": "smart-ai-bridge",
-  "version": "1.6.0",
-  "description": "Enterprise-grade MCP server for Claude Desktop with multi-AI orchestration, dynamic token scaling, smart routing, conversation threading, usage analytics, and local AI auto-discovery",
-  "main": "smart-ai-bridge-v1.1.0.js",
+  "version": "2.0.0",
+  "description": "Enterprise-grade MCP server with multi-AI orchestration, modular handler architecture, intelligent routing, and local AI auto-discovery",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "start": "node smart-ai-bridge-v1.1.0.js",
-    "start:v1.0.0": "node smart-ai-bridge.js",
-    "start:v1.1.0": "node smart-ai-bridge-v1.1.0.js",
+    "start": "node src/server.js",
+    "start:legacy": "node smart-ai-bridge-v1.1.0.js",
     "test": "node scripts/validate-hybrid-server.js",
     "test:features": "node run-comprehensive-feature-tests.js",
     "test:conversation": "node test-conversation-threading.js",
@@ -22,6 +21,8 @@
     "deepseek",
     "nvidia",
     "gemini",
+    "openai",
+    "groq",
     "llm",
     "model-context-protocol"
   ],
@@ -29,12 +30,17 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
+    "acorn": "^8.14.0",
+    "diff": "^8.0.3",
     "express": "^5.2.1",
     "glob": "^13.0.0",
     "lodash": "^4.17.21",
     "minimatch": "^10.1.1",
+    "openai": "^4.77.0",
     "string-similarity": "^4.0.4",
-    "ws": "^8.18.3"
+    "tiktoken": "^1.0.18",
+    "ws": "^8.18.3",
+    "yaml": "^2.7.0"
   },
   "engines": {
     "node": ">=18.0.0"

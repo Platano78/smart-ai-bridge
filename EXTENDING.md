@@ -1,274 +1,233 @@
-# EXTENDING.md
+# Smart AI Bridge v2.0.0 - Extension Guide
 
-# Smart AI Bridge v1.6.0 - Extension Guide
+## Adding New Backends
 
-## 🚀 Adding New AI Providers
+### Overview
 
-### Provider Architecture Overview
+Smart AI Bridge v2.0.0 uses a config-driven backend system. Adding a new backend requires:
 
-The Smart AI Bridge uses a modular architecture that makes adding new AI providers straightforward. Each provider is defined in the `endpoints` configuration with specific capabilities and routing logic.
+1. Creating an adapter class (or reusing an existing one like `openai`)
+2. Registering it in `src/config/backends.json`
+3. Optionally adding to the adapter class mapping
 
-### Step 1: Define Provider Configuration
+### Method 1: OpenAI-Compatible Backends (No Code Required)
 
-```javascript
-// In smart-ai-bridge.js
-// Add to the endpoints object in SmartAIBridgeRouter constructor
+Any API that follows the OpenAI chat completions format can be added purely through configuration. The `openai` adapter type handles standard `/v1/chat/completions` endpoints.
 
-this.endpoints = {
-  // Existing endpoints...
+**Step 1: Add to `src/config/backends.json`**
 
-  yourNewProvider: {
-    name: 'Your-Provider-Name',
-    url: 'https://api.yourprovider.com/v1/chat/completions',
-    healthUrl: 'https://api.yourprovider.com/health', // Optional
-    apiKey: process.env.YOUR_PROVIDER_API_KEY,
-    maxTokens: 32768,
-    isHealthy: true,
-    lastHealthCheck: 0,
-    priority: 4, // Set priority order
-
-    // Provider-specific configuration
-    specialization: 'your-specialty', // e.g., 'code-generation', 'analysis'
-    supportedModels: ['model-1', 'model-2'],
-    rateLimit: 100, // requests per minute
-    features: ['streaming', 'function-calling'] // supported features
-  }
-};
-```
-
-### Step 2: Implement Provider-Specific Logic
-
-```javascript
-// Add provider-specific methods to SmartAIBridgeRouter class
-
-/**
- * Your Provider specific request formatting
- */
-async formatYourProviderRequest(messages, options = {}) {
-  return {
-    messages: messages,
-    model: options.model || 'your-default-model',
-    max_tokens: options.max_tokens || this.endpoints.yourNewProvider.maxTokens,
-    temperature: options.temperature || 0.1,
-    // Add provider-specific parameters
-    your_custom_param: options.customParam || 'default-value'
-  };
-}
-
-/**
- * Your Provider response processing
- */
-async processYourProviderResponse(response) {
-  try {
-    const data = await response.json();
-
-    // Handle provider-specific response format
-    if (data.choices && data.choices[0]) {
-      return {
-        content: data.choices[0].message?.content || data.choices[0].text,
-        usage: data.usage,
-        model: data.model,
-        provider: 'yourNewProvider'
-      };
-    }
-
-    throw new Error('Invalid response format from Your Provider');
-  } catch (error) {
-    console.error('Your Provider response processing error:', error);
-    throw error;
-  }
-}
-```
-
-### Step 3: Add Health Check Logic
-
-```javascript
-// Extend the performComprehensiveHealthCheck method
-
-async performComprehensiveHealthCheck() {
-  const healthResults = {};
-
-  for (const [key, endpoint] of Object.entries(this.endpoints)) {
-    try {
-      let healthUrl = endpoint.healthUrl || endpoint.url;
-      let headers = {};
-
-      // Provider-specific health check logic
-      if (key === 'yourNewProvider') {
-        headers = {
-          'Authorization': `Bearer ${endpoint.apiKey}`,
-          'Content-Type': 'application/json',
-          'X-Custom-Header': 'your-value' // Provider-specific headers
-        };
-
-        // Custom health check endpoint
-        healthUrl = healthUrl.replace('/v1/chat/completions', '/health');
+```json
+{
+  "backends": {
+    "my_custom_api": {
+      "type": "openai",
+      "enabled": true,
+      "priority": 7,
+      "description": "My custom OpenAI-compatible endpoint",
+      "capabilities": ["code_specialized"],
+      "context_limit": 32768,
+      "config": {
+        "url": "https://api.example.com/v1/chat/completions",
+        "apiKey": "$MY_CUSTOM_API_KEY",
+        "model": "my-model-name",
+        "maxTokens": 32768,
+        "timeout": 60000
       }
-
-      const startTime = performance.now();
-      const response = await fetch(healthUrl, {
-        method: 'GET',
-        headers,
-        timeout: 5000
-      });
-
-      const responseTime = performance.now() - startTime;
-
-      if (response.ok) {
-        // Provider-specific health validation
-        let details = {};
-        if (key === 'yourNewProvider') {
-          const healthData = await response.json();
-          details = {
-            status: healthData.status,
-            version: healthData.version,
-            available_models: healthData.models?.length || 0
-          };
-        }
-
-        healthResults[key] = {
-          status: 'healthy',
-          responseTime: `${responseTime.toFixed(2)}ms`,
-          lastCheck: new Date().toISOString(),
-          details
-        };
-
-        endpoint.isHealthy = true;
-        endpoint.lastHealthCheck = Date.now();
-      } else {
-        throw new Error(`HTTP ${response.status}`);
-      }
-    } catch (error) {
-      healthResults[key] = {
-        status: 'unhealthy',
-        error: error.message,
-        lastCheck: new Date().toISOString()
-      };
-      endpoint.isHealthy = false;
-      endpoint.lastHealthCheck = Date.now();
     }
   }
-
-  return healthResults;
 }
 ```
 
-### Step 4: Update Routing Logic
-
-```javascript
-// Add routing patterns for your provider
-const routingPatterns = {
-  // Existing patterns...
-
-  yourSpecialty: {
-    patterns: ['your-keyword', 'another-keyword', 'specialty-pattern'],
-    preferredEndpoint: 'yourNewProvider',
-    minComplexity: 1000, // Token threshold
-    description: 'Your provider specialization description'
-  }
-};
-
-// Update the smart routing logic in selectOptimalEndpoint method
-async selectOptimalEndpoint(prompt, options = {}) {
-  const complexity = await this.analyzeComplexity(prompt);
-
-  // Check for your provider patterns
-  const yourSpecialtyPattern = /your-keyword|another-keyword|specialty-pattern/i;
-  if (yourSpecialtyPattern.test(prompt) && this.endpoints.yourNewProvider.isHealthy) {
-    console.error(`🎯 Routing to Your Provider for specialty task`);
-    return this.endpoints.yourNewProvider;
-  }
-
-  // Existing routing logic...
-}
-```
-
-### Step 5: Environment Configuration
+**Step 2: Set the API key**
 
 ```bash
-# Add environment variables for your provider
-YOUR_PROVIDER_API_KEY=your-api-key-here
-YOUR_PROVIDER_ENDPOINT=https://api.yourprovider.com/v1
-YOUR_PROVIDER_MODEL=your-default-model
-YOUR_PROVIDER_ENABLED=true
+export MY_CUSTOM_API_KEY="your-api-key"
 ```
 
-### Step 6: Add Provider Tests
+**Step 3: Restart Smart AI Bridge**
 
-Create `tests/your-provider.test.js`:
+The `BackendRegistry` loads the new backend at startup. It will use the `OpenAIAdapter` class automatically.
+
+### Method 2: Dynamic Registration via Dashboard/API
+
+The `BackendRegistry` supports runtime backend addition:
+
 ```javascript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SmartAIBridgeRouter } from '../smart-ai-bridge.js';
+const registry = backendRegistry;
 
-describe('Your Provider Integration', () => {
-  let router;
-
-  beforeEach(() => {
-    router = new SmartAIBridgeRouter();
-  });
-
-  it('should configure your provider endpoint correctly', () => {
-    expect(router.endpoints.yourNewProvider).toBeDefined();
-    expect(router.endpoints.yourNewProvider.name).toBe('Your-Provider-Name');
-    expect(router.endpoints.yourNewProvider.url).toContain('yourprovider.com');
-  });
-
-  it('should format requests for your provider', async () => {
-    const messages = [{ role: 'user', content: 'Test message' }];
-    const formatted = await router.formatYourProviderRequest(messages);
-
-    expect(formatted.messages).toEqual(messages);
-    expect(formatted.model).toBeDefined();
-    expect(formatted.max_tokens).toBeGreaterThan(0);
-  });
-
-  it('should process your provider responses', async () => {
-    const mockResponse = {
-      json: async () => ({
-        choices: [{
-          message: { content: 'Test response' }
-        }],
-        usage: { total_tokens: 100 },
-        model: 'your-model'
-      })
-    };
-
-    const result = await router.processYourProviderResponse(mockResponse);
-    expect(result.content).toBe('Test response');
-    expect(result.provider).toBe('yourNewProvider');
-  });
-
-  it('should route specialty tasks to your provider', async () => {
-    const prompt = 'This is a your-keyword task';
-    const endpoint = await router.selectOptimalEndpoint(prompt);
-
-    expect(endpoint.name).toBe('Your-Provider-Name');
-  });
+registry.addBackend({
+  name: 'azure_openai',
+  type: 'openai',
+  url: 'https://my-resource.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview',
+  apiKey: process.env.AZURE_OPENAI_KEY,
+  model: 'gpt-4',
+  maxTokens: 8192,
+  timeout: 60000,
+  priority: 7,
+  description: 'Azure OpenAI GPT-4'
 });
 ```
 
-## 🛠️ Adding New Tools
+This persists the backend to `backends.json` automatically via `registry.saveConfig()`.
 
-### Tool Structure
+### Method 3: Custom Adapter Class
 
-Smart AI Bridge tools follow a consistent structure with schema definition and implementation:
+For APIs with non-standard formats, create a new adapter class.
+
+**Step 1: Create the adapter in `src/backends/`**
 
 ```javascript
-// Tool definition in the tools array
+// src/backends/custom-adapter.js
+import { BackendAdapter } from './backend-adapter.js';
+
+export class CustomAdapter extends BackendAdapter {
+  constructor(config = {}) {
+    super(config);
+    this.url = config.url || 'https://api.custom.com/generate';
+    this.apiKey = config.apiKey || process.env.CUSTOM_API_KEY;
+    this.model = config.model || 'custom-model';
+  }
+
+  /**
+   * Execute a prompt against this backend
+   * @param {string} prompt - The prompt to send
+   * @param {Object} [options] - Request options
+   * @returns {Promise<Object>} - { content, tokens, latency }
+   */
+  async execute(prompt, options = {}) {
+    const startTime = Date.now();
+
+    const response = await fetch(this.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.max_tokens || this.config.maxTokens || 4096,
+        temperature: options.temperature || 0.1
+      }),
+      signal: AbortSignal.timeout(this.config.timeout || 60000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Custom API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const latency = Date.now() - startTime;
+
+    return {
+      content: data.choices?.[0]?.message?.content || data.output || '',
+      tokens: data.usage?.total_tokens || 0,
+      latency
+    };
+  }
+
+  /**
+   * Check backend health
+   * @returns {Promise<Object>} - { healthy, latency, model }
+   */
+  async checkHealth() {
+    try {
+      const startTime = Date.now();
+      const response = await fetch(this.url.replace('/generate', '/health'), {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        signal: AbortSignal.timeout(5000)
+      });
+      const latency = Date.now() - startTime;
+
+      this.lastHealth = {
+        healthy: response.ok,
+        latency,
+        model: this.model,
+        timestamp: Date.now()
+      };
+      return this.lastHealth;
+    } catch (error) {
+      this.lastHealth = { healthy: false, error: error.message, timestamp: Date.now() };
+      return this.lastHealth;
+    }
+  }
+}
+```
+
+**Step 2: Register the adapter type in `src/backends/backend-registry.js`**
+
+Add the import and mapping:
+
+```javascript
+import { CustomAdapter } from './custom-adapter.js';
+
+const ADAPTER_CLASSES = {
+  'local': LocalAdapter,
+  'nvidia_deepseek': NvidiaDeepSeekAdapter,
+  'nvidia_qwen': NvidiaQwenAdapter,
+  'gemini': GeminiAdapter,
+  'openai': OpenAIAdapter,
+  'groq': GroqAdapter,
+  'custom': CustomAdapter        // Add this line
+};
+```
+
+**Step 3: Add configuration to `backends.json`**
+
+```json
 {
-  name: 'your_new_tool',
-  description: '🔧 Your tool description with capabilities and use cases',
-  inputSchema: {
+  "my_custom": {
+    "type": "custom",
+    "enabled": true,
+    "priority": 7,
+    "description": "My custom backend",
+    "config": {
+      "url": "https://api.custom.com/generate",
+      "apiKey": "$CUSTOM_API_KEY",
+      "model": "custom-model",
+      "maxTokens": 16384,
+      "timeout": 60000
+    }
+  }
+}
+```
+
+## Adding New Tools
+
+Adding a new tool requires three steps: define the tool schema, implement the handler, and register the mapping.
+
+### Step 1: Define the Tool Schema
+
+Add a new entry to the `CORE_TOOL_DEFINITIONS` array in `src/tools/tool-definitions.js`:
+
+```javascript
+{
+  name: 'my_new_tool',
+  description: 'Description of what the tool does -- shown to Claude for tool selection.',
+  handler: 'handleMyNewTool',
+  schema: {
     type: 'object',
     properties: {
       input_param: {
         type: 'string',
-        description: 'Description of the parameter'
+        description: 'Description of this parameter'
       },
       optional_param: {
-        type: 'string',
-        description: 'Optional parameter description',
-        default: 'default-value'
+        type: 'number',
+        default: 10,
+        description: 'Optional parameter with default'
+      },
+      options: {
+        type: 'object',
+        properties: {
+          backend: {
+            type: 'string',
+            enum: ['auto', 'local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini', 'openai', 'groq'],
+            default: 'auto',
+            description: 'AI backend to use'
+          }
+        }
       }
     },
     required: ['input_param']
@@ -276,474 +235,285 @@ Smart AI Bridge tools follow a consistent structure with schema definition and i
 }
 ```
 
-### Current Tool Categories (v1.6.0)
+The `handler` field maps this tool to a handler name in the `HANDLER_REGISTRY`.
 
-| Category       | Tools                                                                                     | Version |
-|----------------|-------------------------------------------------------------------------------------------|---------|
-| Infrastructure | `health`, `backup_restore`, `write_files_atomic`, `rate_limit_status`, `system_metrics`   | v1.0+   |
-| AI Routing     | `ask`, `spawn_subagent`                                                                   | v1.3.0  |
-| Token-Saving   | `analyze_file`, `modify_file`, `batch_modify`                                             | v1.4.0  |
-| Workflows      | `council`, `dual_iterate`, `parallel_agents`                                              | v1.5.0  |
-| Intelligence   | `pattern_search`, `pattern_add`, `playbook_list`, `playbook_run`, `playbook_step`, `learning_summary` | v1.6.0  |
+### Step 2: Implement the Handler
 
-### Step 1: Define Tool Schema
-
-Example using the token-saving `analyze_file` tool pattern (v1.4.0+):
+Create a new handler class extending `BaseHandler` in `src/handlers/`:
 
 ```javascript
-// Add to the tools array in the MCP server setup
-{
-  name: 'analyze_file',
-  description: '📊 Local LLM File Analysis - Reads and analyzes files using local LLM. Claude never sees full file content, only structured findings. Token savings: 2000+ → ~150 tokens per file.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      filePath: {
-        type: 'string',
-        description: 'Path to the file to analyze'
-      },
-      question: {
-        type: 'string',
-        description: 'Question about the file (e.g., "What are the security vulnerabilities?")'
-      },
-      options: {
-        type: 'object',
-        properties: {
-          analysisType: {
-            type: 'string',
-            description: 'Type of analysis to perform',
-            enum: ['general', 'bug', 'security', 'performance', 'architecture'],
-            default: 'general'
-          },
-          backend: {
-            type: 'string',
-            description: 'AI backend to use for analysis',
-            enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
-            default: 'auto'
-          },
-          includeContext: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Related files to include for better analysis'
-          },
-          maxResponseTokens: {
-            type: 'number',
-            description: 'Maximum tokens for the analysis response',
-            default: 2000
-          }
-        }
-      }
-    },
-    required: ['filePath', 'question']
-  }
-}
-```
+// src/handlers/my-new-tool-handler.js
+import { BaseHandler } from './base-handler.js';
 
-### Step 2: Implement Tool Logic
+export class MyNewToolHandler extends BaseHandler {
+  /**
+   * Execute the tool
+   * @param {Object} args - Arguments matching the tool schema
+   * @returns {Promise<Object>}
+   */
+  async execute(args) {
+    const { input_param, optional_param = 10, options = {} } = args;
 
-```javascript
-// Add tool implementation to the callTool handler
-case 'analyze_file':
-  try {
-    // Read file content locally (never sent to Claude)
-    const fileContent = await fs.readFile(args.filePath, 'utf-8');
-
-    // Route to local LLM for analysis
-    const analysisResult = await this.routeToLocalLLM({
-      prompt: `Analyze this file and answer: ${args.question}\n\nFile content:\n${fileContent}`,
-      options: args.options || {}
-    });
-
-    // Return only structured findings (saves ~90% tokens)
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          file: args.filePath,
-          question: args.question,
-          findings: analysisResult.findings,
-          recommendations: analysisResult.recommendations,
-          severity: analysisResult.severity,
-          backendUsed: analysisResult.backend
-        }, null, 2)
-      }]
-    };
-  } catch (error) {
-    console.error('File analysis error:', error);
-    throw new McpError(
-      ErrorCode.InternalError,
-      `File analysis failed: ${error.message}`
-    );
-  }
-```
-
-### Step 3: Implement Tool Method
-
-```javascript
-// Add the implementation method to SmartAIBridgeRouter class
-async routeToLocalLLM(params) {
-  try {
-    const { prompt, options = {} } = params;
-
-    // 1. Select backend based on options or auto-routing
+    // Use the router to make AI requests
     const backend = options.backend || 'auto';
-    const endpoint = await this.selectBackend(backend, prompt);
-
-    // 2. Prepare request for local LLM
-    const request = {
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: options.maxResponseTokens || 2000,
-      temperature: 0.1
-    };
-
-    // 3. Make request to selected backend
-    const startTime = performance.now();
-    const response = await fetch(endpoint.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${endpoint.apiKey}`
-      },
-      body: JSON.stringify(request)
+    const selectedBackend = await this.routeRequest(input_param, {
+      backend,
+      forceBackend: backend !== 'auto' ? backend : undefined
     });
 
-    const responseTime = performance.now() - startTime;
+    // Make the AI request
+    const result = await this.makeRequest(
+      `Process this: ${input_param}`,
+      selectedBackend,
+      { max_tokens: optional_param * 100 }
+    );
 
-    // 4. Parse and structure the response
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    // Record for learning engine
+    await this.recordLearningOutcome(
+      true,
+      result.content?.length || 0,
+      result.backend,
+      { taskType: 'my_task_type' }
+    );
 
-    // 5. Parse structured findings from LLM response
-    const findings = this.parseFindings(content, options.analysisType);
-
-    return {
-      findings: findings.issues,
-      recommendations: findings.recommendations,
-      severity: findings.severity,
-      backend: endpoint.name,
-      responseTime: `${responseTime.toFixed(0)}ms`,
-      tokensUsed: data.usage?.total_tokens || 0
-    };
-  } catch (error) {
-    console.error('Local LLM routing error:', error);
-    throw error;
-  }
-}
-
-// Helper method to parse structured findings
-parseFindings(content, analysisType = 'general') {
-  // Extract issues, recommendations, and severity from LLM response
-  const lines = content.split('\n');
-  const issues = [];
-  const recommendations = [];
-  let severity = 'info';
-
-  for (const line of lines) {
-    if (line.match(/error|critical|bug|vulnerability/i)) {
-      issues.push(line.trim());
-      severity = 'high';
-    } else if (line.match(/warning|concern|issue/i)) {
-      issues.push(line.trim());
-      if (severity === 'info') severity = 'medium';
-    } else if (line.match(/recommend|suggest|should|consider/i)) {
-      recommendations.push(line.trim());
-    }
-  }
-
-  return { issues, recommendations, severity };
-}
-```
-
-### Step 4: Add Tool Tests
-
-Create `tests/analyze-file.test.js`:
-```javascript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SmartAIBridgeRouter } from '../smart-ai-bridge.js';
-
-describe('Analyze File Tool', () => {
-  let router;
-
-  beforeEach(() => {
-    router = new SmartAIBridgeRouter();
-  });
-
-  it('should analyze file and return structured findings', async () => {
-    // Mock file read and LLM response
-    const mockFileContent = `
-function processUserInput(input) {
-  eval(input); // Security vulnerability
-  return input;
-}`;
-
-    const result = await router.routeToLocalLLM({
-      prompt: `Analyze this file for security issues:\n${mockFileContent}`,
-      options: { analysisType: 'security' }
+    // Return structured response
+    return this.buildSuccessResponse({
+      result: result.content,
+      backend_used: result.backend,
+      tokens_saved: this.estimateTokens(input_param) - this.estimateTokens(result.content)
     });
-
-    expect(result.findings).toBeDefined();
-    expect(result.severity).toBeDefined();
-    expect(result.backend).toBeDefined();
-  });
-
-  it('should route to correct backend based on options', async () => {
-    const result = await router.routeToLocalLLM({
-      prompt: 'Test prompt',
-      options: { backend: 'local' }
-    });
-
-    expect(result.backend).toContain('local');
-  });
-
-  it('should parse findings correctly', () => {
-    const content = `
-Found critical error in line 5: SQL injection vulnerability.
-Warning: Input not sanitized.
-Recommend using parameterized queries.
-`;
-
-    const findings = router.parseFindings(content, 'security');
-
-    expect(findings.issues.length).toBeGreaterThan(0);
-    expect(findings.recommendations.length).toBeGreaterThan(0);
-    expect(findings.severity).toBe('high');
-  });
-});
-```
-
-## 🔄 Extending Routing Logic
-
-### Custom Routing Strategies
-
-```javascript
-// Add custom routing strategy to SmartAIBridgeRouter
-
-/**
- * Custom routing strategy based on file type and content
- */
-async customFileTypeRouting(content, filePath, options = {}) {
-  const fileExtension = path.extname(filePath).toLowerCase();
-  const fileSize = content.length;
-
-  // Define file-type specific routing
-  const fileTypeRouting = {
-    '.py': {
-      preferredEndpoint: 'nvidiaDeepSeek', // Python analysis specialist
-      minTokens: 1000,
-      features: ['data-science', 'ml-analysis']
-    },
-    '.js': {
-      preferredEndpoint: 'local', // Fast local processing
-      minTokens: 500,
-      features: ['web-development', 'node-js']
-    },
-    '.rs': {
-      preferredEndpoint: 'nvidiaQwen', // Systems programming
-      minTokens: 1500,
-      features: ['systems', 'performance']
-    },
-    '.sql': {
-      preferredEndpoint: 'nvidiaDeepSeek', // Database analysis
-      minTokens: 800,
-      features: ['database', 'query-optimization']
-    }
-  };
-
-  const routing = fileTypeRouting[fileExtension];
-  if (routing && fileSize > routing.minTokens) {
-    const endpoint = this.endpoints[routing.preferredEndpoint];
-    if (endpoint && endpoint.isHealthy) {
-      console.error(`🎯 Custom file routing: ${fileExtension} → ${endpoint.name}`);
-      return endpoint;
-    }
   }
-
-  // Fallback to standard routing
-  return await this.selectOptimalEndpoint(content, options);
 }
 ```
 
-### Load Balancing Strategy
+### BaseHandler Capabilities
+
+Every handler inherits these methods from `BaseHandler`:
+
+| Method | Description |
+|--------|-------------|
+| `this.routeRequest(prompt, options)` | Route through 4-tier MultiAIRouter |
+| `this.makeRequest(prompt, backend, options)` | Send prompt to specific backend with fallback |
+| `this.estimateTokens(text)` | Estimate token count (4 chars = 1 token) |
+| `this.detectLanguage(content)` | Detect programming language from content |
+| `this.calculateStringSimilarity(a, b)` | Levenshtein-based similarity score (0-1) |
+| `this.recordExecution(result, context)` | Record execution for playbook learning |
+| `this.recordLearningOutcome(success, length, backend, ctx)` | Feed into compound learning engine |
+| `this.buildSuccessResponse(data)` | Build standardized success response |
+| `this.buildErrorResponse(error, context)` | Build standardized error response |
+
+Handler context properties:
+
+| Property | Description |
+|----------|-------------|
+| `this.router` | MultiAIRouter instance |
+| `this.server` | Server instance (backendRegistry, VERSION) |
+| `this.playbook` | PlaybookSystem instance |
+| `this.context` | Full handler context object |
+
+### Step 3: Register the Handler
+
+Add the import and registry mapping in `src/handlers/index.js`:
 
 ```javascript
-/**
- * Load balancing routing strategy
- */
-async loadBalancedRouting(content, options = {}) {
-  const healthyEndpoints = Object.entries(this.endpoints)
-    .filter(([key, endpoint]) => endpoint.isHealthy)
-    .sort((a, b) => a[1].priority - b[1].priority);
+// Add import
+import { MyNewToolHandler } from './my-new-tool-handler.js';
 
-  if (healthyEndpoints.length === 0) {
-    throw new Error('No healthy endpoints available');
-  }
-
-  // Simple round-robin load balancing
-  if (!this.lastUsedEndpoint) {
-    this.lastUsedEndpoint = 0;
-  }
-
-  this.lastUsedEndpoint = (this.lastUsedEndpoint + 1) % healthyEndpoints.length;
-  const [key, endpoint] = healthyEndpoints[this.lastUsedEndpoint];
-
-  console.error(`⚖️ Load balanced routing: → ${endpoint.name}`);
-  return endpoint;
-}
-```
-
-## 📊 Adding Metrics and Monitoring
-
-### Custom Metrics Collection
-
-```javascript
-// Add to SmartAIBridgeRouter constructor
-this.customMetrics = {
-  toolUsage: {},
-  providerPerformance: {},
-  errorRates: {},
-  userPatterns: {}
+// Add to HANDLER_REGISTRY
+const HANDLER_REGISTRY = {
+  // ... existing handlers ...
+  'handleMyNewTool': MyNewToolHandler
 };
 
-// Method to track tool usage
-trackToolUsage(toolName, executionTime, success = true) {
-  if (!this.customMetrics.toolUsage[toolName]) {
-    this.customMetrics.toolUsage[toolName] = {
-      count: 0,
-      totalTime: 0,
-      successCount: 0,
-      errorCount: 0
-    };
-  }
-
-  const metrics = this.customMetrics.toolUsage[toolName];
-  metrics.count++;
-  metrics.totalTime += executionTime;
-
-  if (success) {
-    metrics.successCount++;
-  } else {
-    metrics.errorCount++;
-  }
-}
-
-// Method to get comprehensive metrics
-getCustomMetrics() {
-  return {
-    toolUsage: Object.entries(this.customMetrics.toolUsage).map(([tool, metrics]) => ({
-      tool,
-      usage: metrics.count,
-      averageTime: metrics.count > 0 ? (metrics.totalTime / metrics.count).toFixed(2) + 'ms' : '0ms',
-      successRate: metrics.count > 0 ? ((metrics.successCount / metrics.count) * 100).toFixed(1) + '%' : '0%'
-    })),
-    totalRequests: this.metrics.totalRequests,
-    routingDecisions: this.metrics.routingDecisions,
-    timestamp: new Date().toISOString()
-  };
-}
+// Add to exports
+export {
+  // ... existing exports ...
+  MyNewToolHandler
+};
 ```
 
-## 🔌 Plugin System
+That is the complete process. The `server.js` entry point automatically:
+1. Reads `CORE_TOOL_DEFINITIONS` to build the tool list for `ListTools`
+2. Maps each tool's `name` to its `handler` string
+3. Uses `HandlerFactory.execute(handlerName, args)` to instantiate and run the handler
 
-### Plugin Architecture
+### How the Wiring Works
+
+```
+Tool Call: "my_new_tool"
+    |
+    v
+server.js: toolToHandler.get("my_new_tool") -> "handleMyNewTool"
+    |
+    v
+HandlerFactory.execute("handleMyNewTool", args)
+    |
+    v
+HANDLER_REGISTRY["handleMyNewTool"] -> MyNewToolHandler
+    |
+    v
+new MyNewToolHandler(context).execute(args)
+```
+
+## Adding New Subagent Roles
+
+Subagent roles are defined in `src/config/role-templates.js`. Each role has a system prompt, output format, and default backend.
+
+### Step 1: Add Role Template
 
 ```javascript
-// Plugin interface
-class SmartAIBridgePlugin {
-  constructor(config = {}) {
-    this.config = config;
-    this.name = 'base-plugin';
-    this.version = '1.0.0';
+// In src/config/role-templates.js
+export const ROLE_TEMPLATES = {
+  // ... existing roles ...
+
+  'my-custom-role': {
+    name: 'My Custom Role',
+    description: 'What this role does',
+    systemPrompt: `You are a specialized AI agent focused on [specialty].
+Your task is to [detailed instructions].
+Return your analysis as structured JSON with the following fields:
+- findings: array of specific findings
+- severity: overall severity (low/medium/high/critical)
+- recommendations: array of actionable recommendations`,
+    outputFormat: 'structured',
+    defaultBackend: 'nvidia_deepseek',
+    verdictFields: ['findings', 'severity', 'recommendations']
   }
+};
+```
 
-  // Plugin lifecycle methods
-  async init(router) {
-    this.router = router;
-  }
+### Step 2: Update Tool Schema
 
-  async beforeRequest(request) {
-    return request;
-  }
+Add the new role to the `spawn_subagent` tool's `role` enum in `src/tools/tool-definitions.js`:
 
-  async afterResponse(response) {
-    return response;
-  }
-
-  async onError(error) {
-    return error;
-  }
-}
-
-// Example plugin: Response Caching
-class ResponseCachingPlugin extends SmartAIBridgePlugin {
-  constructor(config = {}) {
-    super(config);
-    this.name = 'response-caching';
-    this.cache = new Map();
-    this.ttl = config.ttl || 300000; // 5 minutes
-  }
-
-  async beforeRequest(request) {
-    const cacheKey = this.generateCacheKey(request);
-    const cached = this.cache.get(cacheKey);
-
-    if (cached && Date.now() - cached.timestamp < this.ttl) {
-      console.log(`🔄 Cache hit for request: ${cacheKey}`);
-      request.cachedResponse = cached.response;
-    }
-
-    return request;
-  }
-
-  async afterResponse(response, request) {
-    if (!request.cachedResponse) {
-      const cacheKey = this.generateCacheKey(request);
-      this.cache.set(cacheKey, {
-        response: response,
-        timestamp: Date.now()
-      });
-    }
-
-    return response;
-  }
-
-  generateCacheKey(request) {
-    const content = JSON.stringify(request.messages || request);
-    return crypto.createHash('md5').update(content).digest('hex');
-  }
-}
-
-// Plugin registration
-class PluginManager {
-  constructor() {
-    this.plugins = [];
-  }
-
-  register(plugin) {
-    this.plugins.push(plugin);
-  }
-
-  async init(router) {
-    for (const plugin of this.plugins) {
-      await plugin.init(router);
-    }
-  }
-
-  async beforeRequest(request) {
-    for (const plugin of this.plugins) {
-      request = await plugin.beforeRequest(request);
-    }
-    return request;
-  }
-
-  async afterResponse(response, request) {
-    for (const plugin of this.plugins) {
-      response = await plugin.afterResponse(response, request);
-    }
-    return response;
-  }
+```javascript
+role: {
+  type: 'string',
+  enum: [
+    'code-reviewer', 'security-auditor', 'planner',
+    'refactor-specialist', 'test-generator', 'documentation-writer',
+    'tdd-decomposer', 'tdd-test-writer', 'tdd-implementer',
+    'tdd-quality-reviewer',
+    'my-custom-role'  // Add here
+  ]
 }
 ```
 
-This extension guide provides a comprehensive framework for extending Smart AI Bridge v1.6.0 with new providers, tools, routing strategies, and plugins. Each section includes practical examples and test cases to ensure reliable implementation.
+## Extending the Router
 
-**Deprecated tools removed in v1.6.0:** `review`, `read`, `edit_file`, `validate_changes`, `multi_edit`. Use `analyze_file`, `modify_file`, and `batch_modify` instead for token-efficient operations.
+### Custom Routing Rules
+
+The `MultiAIRouter` in `src/router.js` applies rule-based routing in Tier 3. To add custom rules:
+
+```javascript
+// In src/router.js, extend _applyRuleBasedRouting
+async _applyRuleBasedRouting(context) {
+  const backends = await this.registry.checkHealth();
+
+  // Custom rule: Security tasks -> nvidia_deepseek
+  if (context.taskType === 'security' && backends.nvidia_deepseek?.healthy) {
+    return 'nvidia_deepseek';
+  }
+
+  // Custom rule: Documentation -> gemini (fast)
+  if (context.taskType === 'documentation' && backends.gemini?.healthy) {
+    return 'gemini';
+  }
+
+  // Existing rules
+  if (context.complexity === 'complex' && backends.nvidia_qwen?.healthy) {
+    return 'nvidia_qwen';
+  }
+  if (context.taskType === 'code' && backends.nvidia_deepseek?.healthy) {
+    return 'nvidia_deepseek';
+  }
+
+  return null;
+}
+```
+
+### Custom Context Extraction
+
+Extend `_extractContext` to detect additional task types:
+
+```javascript
+_extractContext(prompt, options) {
+  // ... existing logic ...
+
+  // Add custom task type detection
+  if (lower.includes('security') || lower.includes('vulnerability') || lower.includes('audit')) {
+    taskType = 'security';
+  } else if (lower.includes('document') || lower.includes('readme') || lower.includes('guide')) {
+    taskType = 'documentation';
+  }
+
+  return { complexity, taskType, promptLength: prompt.length, maxTokens: options.max_tokens || 2048 };
+}
+```
+
+## Current Tool Categories (v2.0.0)
+
+| Category | Tools | Count |
+|----------|-------|-------|
+| Token-Saving | `analyze_file`, `modify_file`, `batch_analyze`, `batch_modify`, `generate_file`, `explore`, `read` | 7 |
+| Multi-AI Workflows | `ask`, `council`, `dual_iterate`, `parallel_agents`, `spawn_subagent` | 5 |
+| Code Quality | `review`, `refactor`, `validate_changes` | 3 |
+| Infrastructure | `check_backend_health`, `backup_restore`, `write_files_atomic`, `manage_conversation`, `get_analytics` | 5 |
+| **Total** | | **20** |
+
+## Current Adapter Types
+
+| Type | Adapter Class | File |
+|------|---------------|------|
+| `local` | LocalAdapter | `src/backends/local-adapter.js` |
+| `nvidia_deepseek` | NvidiaDeepSeekAdapter | `src/backends/nvidia-adapter.js` |
+| `nvidia_qwen` | NvidiaQwenAdapter | `src/backends/nvidia-adapter.js` |
+| `gemini` | GeminiAdapter | `src/backends/gemini-adapter.js` |
+| `openai` | OpenAIAdapter | `src/backends/openai-adapter.js` |
+| `groq` | GroqAdapter | `src/backends/groq-adapter.js` |
+
+Any type not in this mapping defaults to `OpenAIAdapter`, which works for standard OpenAI-compatible APIs.
+
+## Testing Extensions
+
+### Testing a New Handler
+
+```javascript
+import { MyNewToolHandler } from '../src/handlers/my-new-tool-handler.js';
+
+// Create mock context
+const mockContext = {
+  router: {
+    routeRequest: async () => 'local',
+    makeRequest: async (prompt) => ({
+      content: 'Mock response',
+      backend: 'local',
+      tokens: 50
+    }),
+    makeRequestWithFallback: async (prompt) => ({
+      content: 'Mock response',
+      backend: 'local',
+      tokens: 50
+    })
+  },
+  server: { backendRegistry: {}, VERSION: '2.0.0' },
+  playbook: { postExecutionReflection: async () => {} }
+};
+
+const handler = new MyNewToolHandler(mockContext);
+const result = await handler.execute({ input_param: 'test' });
+console.log(result);
+```
+
+### Testing a New Backend
+
+```bash
+# Verify the backend loads
+node -e "
+  import('./src/backends/backend-registry.js').then(m => {
+    const registry = new m.BackendRegistry();
+    console.log('Backends:', registry.getEnabledBackends());
+    console.log('Stats:', registry.getStats());
+  });
+"
+```

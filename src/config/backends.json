@@ -1,0 +1,107 @@
+{
+  "version": "2.0.0",
+  "description": "Smart AI Bridge v2.0.0 Backend Configuration",
+  "backends": {
+    "local": {
+      "type": "local",
+      "enabled": true,
+      "priority": 1,
+      "description": "Local inference (dynamic model discovery)",
+      "capabilities": "dynamic",
+      "context_limit": 65536,
+      "strengths": "Large context, free inference",
+      "config": {
+        "url": "http://127.0.0.1:8081/v1/chat/completions",
+        "model": "dynamic",
+        "maxTokens": 65536,
+        "timeout": 120000
+      }
+    },
+    "nvidia_deepseek": {
+      "type": "nvidia_deepseek",
+      "enabled": true,
+      "priority": 2,
+      "description": "NVIDIA DeepSeek V3.2 (reasoning, 8K tokens)",
+      "capabilities": [
+        "deep_reasoning",
+        "security_focus"
+      ],
+      "context_limit": 8192,
+      "strengths": "Complex reasoning, security analysis",
+      "config": {
+        "maxTokens": 8192,
+        "timeout": 60000,
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "model": "deepseek-ai/deepseek-v3.2"
+      }
+    },
+    "nvidia_qwen": {
+      "type": "nvidia_qwen",
+      "enabled": true,
+      "priority": 3,
+      "description": "NVIDIA Qwen3 Coder 480B (coding, 32K tokens)",
+      "capabilities": [
+        "code_specialized",
+        "deep_reasoning"
+      ],
+      "context_limit": 32768,
+      "strengths": "Code review, refactoring",
+      "config": {
+        "maxTokens": 32768,
+        "timeout": 60000
+      }
+    },
+    "gemini": {
+      "type": "gemini",
+      "enabled": true,
+      "priority": 4,
+      "description": "Google Gemini 2.5 Flash (fast, 32K tokens)",
+      "capabilities": [
+        "fast_generation",
+        "documentation"
+      ],
+      "context_limit": 32768,
+      "strengths": "Fast docs, quick responses",
+      "config": {
+        "maxTokens": 32768,
+        "timeout": 60000
+      }
+    },
+    "openai_chatgpt": {
+      "type": "openai",
+      "enabled": true,
+      "priority": 5,
+      "description": "OpenAI GPT-4.1 (premium reasoning, 128K context)",
+      "config": {
+        "model": "gpt-4.1-2025-04-14",
+        "maxTokens": 128000,
+        "timeout": 120000
+      }
+    },
+    "groq_llama": {
+      "type": "groq",
+      "enabled": true,
+      "priority": 6,
+      "description": "Groq Llama 3.3 70B (ultra-fast 500+ t/s)",
+      "config": {
+        "model": "llama-3.3-70b-versatile",
+        "maxTokens": 32768,
+        "timeout": 30000
+      }
+    }
+  },
+  "fallbackPolicy": {
+    "maxRetries": 3,
+    "retryDelayMs": 1000,
+    "circuitBreakerThreshold": 5,
+    "circuitBreakerResetMs": 30000
+  },
+  "routing": {
+    "defaultBackend": "local",
+    "complexityThresholds": {
+      "simple": 0.3,
+      "medium": 0.6,
+      "complex": 0.8
+    }
+  }
+}
