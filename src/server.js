@@ -148,4 +148,4 @@ const transport = new StdioServerTransport();
 await server.connect(transport);
 
 console.error(`Smart AI Bridge v${VERSION} connected via stdio`);
-console.error(`Tools: ${toolToHandler.size} | Backends: 6`);
+console.error(`Tools: ${toolToHandler.size} | Backends: ${backendRegistry.getStats().totalBackends}`);

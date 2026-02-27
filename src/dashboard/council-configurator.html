@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart AI Bridge - Council Configuration</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* Nav */
+    .nav {
+      background: rgba(26, 26, 46, 0.95);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffd700;
+      letter-spacing: 0.5px;
+      margin-right: auto;
+    }
+    .nav a {
+      color: #a0a0b0;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 4px 0;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav a:hover { color: #e0e0e0; }
+    .nav a.active { color: #ffd700; border-bottom-color: #ffd700; }
+
+    /* Status bar */
+    .status-bar {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px 24px;
+      display: flex;
+      gap: 32px;
+      font-size: 13px;
+    }
+    .status-item { display: flex; gap: 8px; align-items: center; }
+    .status-label { color: #707080; }
+    .status-value { color: #e0e0e0; font-weight: 500; }
+
+    /* Main content */
+    .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+    /* Strategy reference */
+    .reference-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .reference-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      color: #e0e0e0;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    .reference-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+    .reference-toggle .chevron {
+      transition: transform 0.25s;
+      font-size: 12px;
+      color: #707080;
+    }
+    .reference-toggle.open .chevron { transform: rotate(180deg); }
+    .reference-body { display: none; padding: 0 18px 16px; }
+    .reference-body.open { display: block; }
+    .reference-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .reference-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: #707080;
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .reference-table td { padding: 9px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+    .reference-table tr:last-child td { border-bottom: none; }
+    .strategy-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: monospace;
+      background: rgba(255, 215, 0, 0.12);
+      color: #ffd700;
+    }
+
+    /* Topic grid */
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffd700;
+      margin-bottom: 16px;
+      letter-spacing: 0.3px;
+    }
+    .topic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .topic-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 18px;
+      transition: border-color 0.2s;
+    }
+    .topic-card:hover { border-color: rgba(255, 215, 0, 0.25); }
+    .topic-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .topic-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffd700;
+      text-transform: capitalize;
+    }
+    .strategy-select {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 13px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .strategy-select:focus { border-color: rgba(255, 215, 0, 0.5); }
+    .strategy-select option { background: #1a1a2e; }
+    .backends-label {
+      font-size: 12px;
+      color: #707080;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+    .backends-list { display: flex; flex-direction: column; gap: 7px; }
+    .backend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .backend-item input[type="checkbox"] { display: none; }
+    .backend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .backend-checkbox-ui {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .backend-item input:checked ~ .backend-checkbox-ui {
+      background: #ffd700;
+      border-color: #ffd700;
+    }
+    .backend-checkbox-ui::after {
+      content: '';
+      width: 4px;
+      height: 7px;
+      border: 2px solid #1a1a2e;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+      display: none;
+    }
+    .backend-item input:checked ~ .backend-checkbox-ui::after { display: block; }
+    .backend-name { font-size: 13px; color: #c0c0d0; }
+    .backend-item:has(input:not(:checked)) .backend-dot { opacity: 0.35; }
+    .backend-item:has(input:not(:checked)) .backend-name { color: #606070; }
+
+    /* Skeleton loading */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    /* Action bar */
+    .action-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(26, 26, 46, 0.97);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+    .btn {
+      padding: 9px 20px;
+      border-radius: 7px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-save { background: #ffd700; color: #1a1a2e; }
+    .btn-save:hover:not(:disabled) { opacity: 0.9; }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e0e0e0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+    .btn-danger {
+      background: rgba(255, 82, 82, 0.12);
+      color: #ff5252;
+      border: 1px solid rgba(255, 82, 82, 0.2);
+    }
+    .btn-danger:hover:not(:disabled) { background: rgba(255, 82, 82, 0.2); }
+    .action-bar-spacer { flex: 1; }
+    .save-status { font-size: 12px; color: #707080; }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      padding: 11px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 320px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.25s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+    @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(110%); opacity: 0; } }
+    .toast.success { background: #00c853; color: #fff; }
+    .toast.error { background: #ff5252; color: #fff; }
+    .toast.warning { background: #ffc107; color: #1a1a2e; }
+    .toast-icon { font-size: 15px; flex-shrink: 0; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #1e1e35;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 700px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title { font-size: 15px; font-weight: 600; color: #ffd700; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: #707080;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: color 0.2s, background 0.2s;
+    }
+    .modal-close:hover { color: #e0e0e0; background: rgba(255, 255, 255, 0.08); }
+    .modal-body { padding: 20px; overflow-y: auto; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .history-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: #707080;
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      white-space: nowrap;
+    }
+    .history-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
+    .btn-xs { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+    .modal-empty { color: #707080; font-size: 13px; text-align: center; padding: 32px 0; }
+
+    /* Validation result */
+    .validation-result {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-size: 13px;
+      display: none;
+    }
+    .validation-result.valid { background: rgba(0, 200, 83, 0.12); border: 1px solid rgba(0, 200, 83, 0.25); color: #00c853; }
+    .validation-result.invalid { background: rgba(255, 82, 82, 0.12); border: 1px solid rgba(255, 82, 82, 0.25); color: #ff5252; }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <span class="nav-title">Smart AI Bridge - Council Configuration</span>
+    <a href="/">Dashboard</a>
+    <a href="/council" class="active">Council Config</a>
+  </nav>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-label">Config Version</span>
+      <span class="status-value" id="stat-version">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Last Modified</span>
+      <span class="status-value" id="stat-modified">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">History Count</span>
+      <span class="status-value" id="stat-history">—</span>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <div class="reference-section" style="margin-bottom:24px;">
+      <button class="reference-toggle" id="ref-toggle" aria-expanded="false">
+        Strategy Reference
+        <span class="chevron">&#9650;</span>
+      </button>
+      <div class="reference-body" id="ref-body">
+        <table class="reference-table">
+          <thead>
+            <tr><th>Strategy</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="strategy-tag">parallel</span></td>
+              <td>All backends respond simultaneously. Fastest. Good for general queries.</td>
+            </tr>
+            <tr>
+              <td><span class="strategy-tag">sequential</span></td>
+              <td>Backends respond one-by-one, each seeing prior responses. Deeper reasoning.</td>
+            </tr>
+            <tr>
+              <td><span class="strategy-tag">debate</span></td>
+              <td>Multiple rounds of parallel responses. Most thorough analysis.</td>
+            </tr>
+            <tr>
+              <td><span class="strategy-tag">fallback</span></td>
+              <td>Try backends in priority order until enough succeed. Maximum reliability.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title">Topic Configuration</div>
+    <div class="topic-grid" id="topic-grid"></div>
+
+  </div>
+
+  <div class="action-bar">
+    <button class="btn btn-save" id="btn-save" onclick="saveConfig()">Save</button>
+    <button class="btn btn-secondary" id="btn-test" onclick="testConfig()">Test Config</button>
+    <button class="btn btn-secondary" onclick="showHistory()">History</button>
+    <button class="btn btn-danger" onclick="rollback()">Rollback</button>
+    <span class="action-bar-spacer"></span>
+    <span class="save-status" id="save-status"></span>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- History Modal -->
+  <div class="modal-overlay" id="history-modal" onclick="closeHistoryOnOverlay(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Config History</span>
+        <button class="modal-close" onclick="closeHistory()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Version</th>
+              <th>Modified By</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+        <div class="modal-empty" id="history-empty" style="display:none;">No history entries found.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOPICS = ['coding', 'reasoning', 'architecture', 'general', 'creative', 'security', 'performance'];
+    const STRATEGIES = ['parallel', 'sequential', 'debate', 'fallback'];
+
+    const BACKEND_COLORS = {
+      local: '#9c27b0',
+      deepseek: '#2196f3',
+      qwen3: '#4caf50',
+      groq: '#ff9800',
+      gemini: '#ea4335',
+      openai: '#10a37f',
+      claude: '#d97706',
+    };
+
+    /** Derive a color for unknown backends deterministically from name */
+    function backendColor(name) {
+      if (BACKEND_COLORS[name]) return BACKEND_COLORS[name];
+      let h = 0;
+      for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFFFF;
+      return '#' + (h & 0xFFFFFF).toString(16).padStart(6, '0');
+    }
+
+    /** Format ISO timestamp to relative time */
+    function relativeTime(isoStr) {
+      if (!isoStr) return '—';
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    }
+
+    /** Format ISO timestamp to locale string */
+    function formatTimestamp(isoStr) {
+      if (!isoStr) return '—';
+      try { return new Date(isoStr).toLocaleString(); } catch { return isoStr; }
+    }
+
+    // -------------------------
+    // State
+    // -------------------------
+    let availableBackends = [];
+
+    // -------------------------
+    // Init
+    // -------------------------
+    async function loadConfig() {
+      try {
+        const [configRes, backendsRes] = await Promise.all([
+          fetch('/api/council-config').then(r => r.json()),
+          fetch('/api/council-config/backends').then(r => r.json()),
+        ]);
+
+        availableBackends = (backendsRes.success && backendsRes.backends) ? backendsRes.backends : [];
+
+        if (backendsRes.success && backendsRes.topics) {
+          // Server may send canonical topic list
+        }
+
+        renderTopicGrid(
+          (configRes.success && configRes.config) ? configRes.config : {},
+        );
+
+        if (configRes.success && configRes.metadata) {
+          const m = configRes.metadata;
+          document.getElementById('stat-version').textContent = m.version || '1';
+          document.getElementById('stat-modified').textContent = relativeTime(m.lastModified);
+          document.getElementById('stat-history').textContent = m.historyCount ?? '—';
+        }
+      } catch (err) {
+        showToast('warning', 'Could not reach API — showing defaults');
+        availableBackends = Object.keys(BACKEND_COLORS).map(id => ({ id, name: id }));
+        renderTopicGrid({});
+      }
+    }
+
+    // -------------------------
+    // Render
+    // -------------------------
+    function renderTopicGrid(config) {
+      const grid = document.getElementById('topic-grid');
+      grid.innerHTML = '';
+
+      TOPICS.forEach(topic => {
+        const topicCfg = config[topic] || {};
+        const selectedStrategy = topicCfg.strategy || 'parallel';
+        const enabledBackends = new Set(topicCfg.backends || availableBackends.map(b => b.id || b));
+
+        const card = document.createElement('div');
+        card.className = 'topic-card';
+        card.dataset.topic = topic;
+
+        // Header row
+        const header = document.createElement('div');
+        header.className = 'topic-card-header';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'topic-name';
+        nameEl.textContent = topic.charAt(0).toUpperCase() + topic.slice(1);
+
+        const select = document.createElement('select');
+        select.className = 'strategy-select';
+        select.setAttribute('aria-label', `Strategy for ${topic}`);
+        STRATEGIES.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          if (s === selectedStrategy) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        header.appendChild(nameEl);
+        header.appendChild(select);
+        card.appendChild(header);
+
+        // Backends
+        const backendsLabel = document.createElement('div');
+        backendsLabel.className = 'backends-label';
+        backendsLabel.textContent = 'Backends';
+        card.appendChild(backendsLabel);
+
+        const list = document.createElement('div');
+        list.className = 'backends-list';
+
+        const backends = availableBackends.length
+          ? availableBackends
+          : Object.keys(BACKEND_COLORS).map(id => ({ id, name: id }));
+
+        backends.forEach(backend => {
+          const id = backend.id || backend;
+          const name = backend.name || backend;
+
+          const label = document.createElement('label');
+          label.className = 'backend-item';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = id;
+          cb.checked = enabledBackends.has(id);
+          cb.setAttribute('aria-label', `Enable ${name} for ${topic}`);
+
+          const dot = document.createElement('span');
+          dot.className = 'backend-dot';
+          dot.style.background = backendColor(name);
+
+          const checkUi = document.createElement('span');
+          checkUi.className = 'backend-checkbox-ui';
+
+          const nameEl2 = document.createElement('span');
+          nameEl2.className = 'backend-name';
+          nameEl2.textContent = name;
+
+          label.appendChild(cb);
+          label.appendChild(dot);
+          label.appendChild(checkUi);
+          label.appendChild(nameEl2);
+          list.appendChild(label);
+        });
+
+        card.appendChild(list);
+        grid.appendChild(card);
+      });
+    }
+
+    // -------------------------
+    // Build config from UI
+    // -------------------------
+    function buildConfigFromUI() {
+      const config = {};
+      document.querySelectorAll('.topic-card').forEach(card => {
+        const topic = card.dataset.topic;
+        const strategy = card.querySelector('.strategy-select').value;
+        const backends = Array.from(card.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        config[topic] = { strategy, backends };
+      });
+      return config;
+    }
+
+    // -------------------------
+    // Save
+    // -------------------------
+    async function saveConfig() {
+      const btn = document.getElementById('btn-save');
+      const status = document.getElementById('save-status');
+      btn.disabled = true;
+      status.textContent = 'Saving…';
+      try {
+        const config = buildConfigFromUI();
+        const res = await fetch('/api/council-config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        const result = await res.json();
+        if (result.success) {
+          showToast('success', 'Configuration saved');
+          status.textContent = `Saved ${relativeTime(new Date().toISOString())}`;
+          if (result.metadata) {
+            document.getElementById('stat-version').textContent = result.metadata.version || '—';
+            document.getElementById('stat-modified').textContent = relativeTime(result.metadata.lastModified);
+          }
+        } else {
+          showToast('error', result.error || 'Save failed');
+          status.textContent = '';
+        }
+      } catch {
+        showToast('error', 'Network error saving config');
+        status.textContent = '';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // -------------------------
+    // Test
+    // -------------------------
+    async function testConfig() {
+      const btn = document.getElementById('btn-test');
+      btn.disabled = true;
+      btn.textContent = 'Testing…';
+      try {
+        const config = buildConfigFromUI();
+        const res = await fetch('/api/council-config/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        const result = await res.json();
+        if (result.success && result.valid !== false) {
+          showToast('success', result.message || 'Config is valid');
+        } else {
+          const msg = result.errors?.join(', ') || result.message || 'Validation failed';
+          showToast('warning', msg);
+        }
+      } catch {
+        showToast('error', 'Network error testing config');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Test Config';
+      }
+    }
+
+    // -------------------------
+    // History
+    // -------------------------
+    async function showHistory() {
+      try {
+        const res = await fetch('/api/council-config/history');
+        const data = await res.json();
+        const entries = data.history || data.entries || [];
+
+        const tbody = document.getElementById('history-tbody');
+        const empty = document.getElementById('history-empty');
+        tbody.innerHTML = '';
+
+        if (!entries.length) {
+          empty.style.display = 'block';
+        } else {
+          empty.style.display = 'none';
+          entries.forEach(entry => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${formatTimestamp(entry.timestamp)}</td>
+              <td>${entry.version ?? '—'}</td>
+              <td>${entry.modifiedBy || entry.user || '—'}</td>
+              <td></td>
+            `;
+            const rollbackBtn = document.createElement('button');
+            rollbackBtn.className = 'btn btn-danger btn-xs';
+            rollbackBtn.textContent = 'Rollback';
+            rollbackBtn.onclick = () => rollbackToVersion(entry.version);
+            tr.querySelector('td:last-child').appendChild(rollbackBtn);
+            tbody.appendChild(tr);
+          });
+        }
+        document.getElementById('history-modal').classList.add('open');
+      } catch {
+        showToast('error', 'Could not load history');
+      }
+    }
+
+    function closeHistory() {
+      document.getElementById('history-modal').classList.remove('open');
+    }
+
+    function closeHistoryOnOverlay(event) {
+      if (event.target === document.getElementById('history-modal')) closeHistory();
+    }
+
+    async function rollbackToVersion(version) {
+      if (!confirm(`Rollback to version ${version}?`)) return;
+      closeHistory();
+      await performRollback({ version });
+    }
+
+    // -------------------------
+    // Rollback (latest)
+    // -------------------------
+    async function rollback() {
+      if (!confirm('Rollback to the previous configuration?')) return;
+      await performRollback();
+    }
+
+    async function performRollback(body = {}) {
+      try {
+        const res = await fetch('/api/council-config/rollback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const result = await res.json();
+        if (result.success) {
+          showToast('success', 'Rolled back successfully');
+          loadConfig();
+        } else {
+          showToast('error', result.error || 'Rollback failed');
+        }
+      } catch {
+        showToast('error', 'Network error during rollback');
+      }
+    }
+
+    // -------------------------
+    // Individual topic PATCH
+    // -------------------------
+    async function updateTopic(topic, backends, strategy) {
+      const res = await fetch(`/api/council-config/topic/${topic}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backends, strategy }),
+      });
+      return res.json();
+    }
+
+    // -------------------------
+    // Toast
+    // -------------------------
+    function showToast(type, message) {
+      const icons = { success: '&#10003;', error: '&#10007;', warning: '&#9888;' };
+      const container = document.getElementById('toast-container');
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span class="toast-icon">${icons[type] || ''}</span><span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.25s ease forwards';
+        setTimeout(() => toast.remove(), 260);
+      }, 3000);
+    }
+
+    // -------------------------
+    // Strategy Reference toggle
+    // -------------------------
+    document.getElementById('ref-toggle').addEventListener('click', function () {
+      const body = document.getElementById('ref-body');
+      const isOpen = body.classList.toggle('open');
+      this.classList.toggle('open', isOpen);
+      this.setAttribute('aria-expanded', isOpen);
+    });
+
+    // -------------------------
+    // Keyboard: close modal on Escape
+    // -------------------------
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeHistory();
+    });
+
+    // -------------------------
+    // Bootstrap
+    // -------------------------
+    loadConfig();
+  </script>
+
+</body>
+</html>

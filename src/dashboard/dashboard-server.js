@@ -4,6 +4,8 @@ import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BackendRegistry } from '../backends/backend-registry.js';
+import { registerCouncilConfigAPI } from './council-config-api.js';
+import { setBackendRegistry } from '../config/council-config-manager.js';
 
 /**
  * Model aliases for the ask command
@@ -11,14 +13,14 @@ import { BackendRegistry } from '../backends/backend-registry.js';
  */
 const MODEL_ALIASES = {
   'auto': { backend: null, description: 'Auto-route to best backend' },
-  'local': { backend: 'local', description: 'Local LLM (currently loaded model)' },
-  'gemini': { backend: 'gemini', description: 'Google Gemini' },
-  'deepseek': { backend: 'nvidia_deepseek', description: 'NVIDIA NVIDIA DeepSeek' },
-  'qwen3': { backend: 'nvidia_qwen', description: 'NVIDIA NVIDIA Qwen' },
-  'chatgpt': { backend: 'openai_chatgpt', description: 'OpenAI' },
-  'openai': { backend: 'openai_chatgpt', description: 'OpenAI (alias)' },
-  'groq': { backend: 'groq_llama', description: 'Groq Llama 3.3 70B' },
-  'llama': { backend: 'groq_llama', description: 'Groq Llama (alias)' }
+  'local': { backend: 'local', description: 'Local LLM' },
+  'gemini': { backend: 'gemini', description: 'Cloud API (Gemini)' },
+  'deepseek': { backend: 'nvidia_deepseek', description: 'Cloud API (DeepSeek)' },
+  'qwen3': { backend: 'nvidia_qwen', description: 'Cloud API (Qwen)' },
+  'chatgpt': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI)' },
+  'openai': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI alias)' },
+  'groq': { backend: 'groq_llama', description: 'Cloud API (Groq)' },
+  'llama': { backend: 'groq_llama', description: 'Cloud API (Groq alias)' }
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,9 +36,15 @@ export class DashboardServer {
   }
 
   async start() {
+    // Wire council config with backend registry
+    setBackendRegistry(this.backendRegistry);
+
     // Serve static files
     this.app.use(express.static(path.join(__dirname, 'public')));
     this.app.use(express.json());
+
+    // Register council config API routes
+    registerCouncilConfigAPI(this.app, this.backendRegistry);
 
     // API Routes
     this.app.get('/api/status', (req, res) => {
@@ -70,9 +78,10 @@ export class DashboardServer {
         return res.json({ success: false, error: 'Backend name required' });
       }
       this.backendRegistry.setEnabled(name, enabled !== false);
+      this.backendRegistry.saveConfig();
       this.broadcast({ type: 'backend_changed', backend: name, enabled });
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Backend ${name} ${enabled ? 'enabled' : 'disabled'}`,
         fallbackChain: this.backendRegistry.getFallbackChain()
       });
@@ -84,9 +93,10 @@ export class DashboardServer {
         return res.json({ success: false, error: 'Backend name and priority required' });
       }
       this.backendRegistry.setPriority(name, parseInt(priority));
+      this.backendRegistry.saveConfig();
       this.broadcast({ type: 'priority_changed', backend: name, priority });
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Backend ${name} priority set to ${priority}`,
         fallbackChain: this.backendRegistry.getFallbackChain()
       });
@@ -111,7 +121,7 @@ export class DashboardServer {
     });
 
     // === Backend CRUD APIs ===
-    
+
     // Add new backend
     this.app.post('/api/backends/add', (req, res) => {
       const { name, type, url, apiKey, model, maxTokens, timeout, priority, description } = req.body;
@@ -171,18 +181,33 @@ export class DashboardServer {
 
     // Get available backend types
     this.app.get('/api/backends/types', (req, res) => {
+      // Build descriptions dynamically from registry
+      const stats = this.backendRegistry.getStats();
+      const descriptions = {};
+      for (const b of stats.backends) {
+        descriptions[b.type] = b.description || b.type;
+      }
       res.json({
         success: true,
         types: this.backendRegistry.getAvailableTypes(),
-        descriptions: {
-          'local': 'Local LLM (OpenAI-compatible endpoint)',
-          'nvidia_deepseek': 'NVIDIA NVIDIA DeepSeek',
-          'nvidia_qwen': 'NVIDIA NVIDIA Qwen',
-          'gemini': 'Google Gemini',
-          'openai': 'OpenAI',
-          'groq': 'Groq Llama 3.3 70B'
-        }
+        descriptions
       });
+    });
+
+    // Get single backend details (registered AFTER /health and /types to avoid Express param capture)
+    this.app.get('/api/backends/:name', (req, res) => {
+      const { name } = req.params;
+      const backend = this.backendRegistry.getBackend(name);
+      if (!backend) {
+        return res.json({ success: false, error: `Backend '${name}' not found` });
+      }
+      // Mask sensitive fields
+      const masked = { ...backend };
+      if (masked.apiKey) masked.apiKey = '***masked***';
+      if (masked.config?.apiKey) {
+        masked.config = { ...masked.config, apiKey: '***masked***' };
+      }
+      res.json({ success: true, backend: masked });
     });
 
     // === Alias CRUD APIs ===
@@ -262,6 +287,11 @@ export class DashboardServer {
       } catch (error) {
         res.json({ success: false, error: error.message });
       }
+    });
+
+    // Council configurator page
+    this.app.get('/council', (req, res) => {
+      res.sendFile(path.join(__dirname, 'council-configurator.html'));
     });
 
     // Create HTTP server

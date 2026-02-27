@@ -163,11 +163,29 @@ class CouncilHandler extends BaseHandler {
         );
       }
 
-      console.log(`[Council] Topic: ${topic}, Confidence: ${confidence_needed}, Backends: ${availableBackends.join(', ')}`);
+      // Get strategy from config
+      const strategy = configManager.getStrategyForTopic(topic);
 
-      // Stage 1: Get parallel responses from all backends
-      const responses = await this.getParallelResponses(prompt, availableBackends, max_tokens);
-      
+      console.log(`[Council] Topic: ${topic}, Strategy: ${strategy}, Confidence: ${confidence_needed}, Backends: ${availableBackends.join(', ')}`);
+
+      // Dispatch based on strategy
+      let responses;
+      switch (strategy) {
+        case 'sequential':
+          responses = await this.executeSequentialStrategy(prompt, availableBackends, max_tokens);
+          break;
+        case 'debate':
+          responses = await this.executeDebateStrategy(prompt, availableBackends, max_tokens);
+          break;
+        case 'fallback':
+          responses = await this.executeFallbackStrategy(prompt, availableBackends, max_tokens);
+          break;
+        case 'parallel':
+        default:
+          responses = await this.getParallelResponses(prompt, availableBackends, max_tokens);
+          break;
+      }
+
       const processingTime = Date.now() - startTime;
       this.metrics.recordCouncil(topic, availableBackends.length, processingTime, true);
 
@@ -184,19 +202,19 @@ class CouncilHandler extends BaseHandler {
       // Return responses for Claude to synthesize (Claude is chairman)
       return this.buildSuccessResponse({
         topic,
+        strategy,
         confidence_needed,
         backends_queried: availableBackends,
         backends_responded: responses.filter(r => r.success).map(r => r.backend),
         responses: responses,
         processing_time_ms: processingTime,
         metrics: this.metrics.getSummary(),
-        // Hint for Claude's synthesis
-        synthesis_hint: `You have ${responses.filter(r => r.success).length} expert perspectives. Synthesize them into a unified answer, noting areas of agreement and disagreement.`
+        synthesis_hint: `You have ${responses.filter(r => r.success).length} expert perspectives (${strategy} strategy). Synthesize them into a unified answer, noting areas of agreement and disagreement.`
       });
 
     } catch (error) {
       const processingTime = Date.now() - startTime;
-      this.metrics.recordCouncil(mode, 0, processingTime, false);
+      this.metrics.recordCouncil(topic, 0, processingTime, false);
       console.error('[Council] Execution failed:', error);
       return this.buildErrorResponse(error);
     }
@@ -529,6 +547,113 @@ SYNTHESIS: [Final unified answer]`;
       consensus: consensusMatch ? consensusMatch[1] : 'Unknown',
       confidence
     };
+  }
+
+  /**
+   * Sequential strategy: Query backends one-by-one, each sees prior responses
+   */
+  async executeSequentialStrategy(prompt, backends, maxTokens) {
+    const responses = [];
+
+    for (const backend of backends) {
+      try {
+        const startTime = Date.now();
+
+        // Build prompt with prior context
+        let sequentialPrompt = prompt;
+        if (responses.length > 0) {
+          const priorSummary = responses
+            .map(r => `[${r.backend}]: ${r.content?.slice(0, 300)}...`)
+            .join('\n\n');
+          sequentialPrompt = `${prompt}\n\nPrevious expert responses (consider and build upon these):\n${priorSummary}`;
+        }
+
+        const response = await this.makeRequest(sequentialPrompt, backend, {
+          maxTokens,
+          thinking: true
+        });
+
+        responses.push({
+          backend,
+          content: response.content || response,
+          latency: Date.now() - startTime,
+          success: true,
+          order: responses.length + 1
+        });
+      } catch (error) {
+        console.error(`[Council] Sequential backend ${backend} failed:`, error.message);
+        responses.push({
+          backend,
+          content: null,
+          error: error.message,
+          success: false,
+          order: responses.length + 1
+        });
+      }
+    }
+
+    return responses.filter(r => r.success);
+  }
+
+  /**
+   * Debate strategy: Multiple rounds of parallel responses, each round sees prior
+   */
+  async executeDebateStrategy(prompt, backends, maxTokens, rounds = 2) {
+    const allResponses = [];
+
+    for (let round = 1; round <= rounds; round++) {
+      console.log(`[Council] Debate round ${round}/${rounds}`);
+
+      const roundPrompt = round === 1
+        ? prompt
+        : `Original question: ${prompt}\n\nPrevious responses:\n${this.formatPreviousResponses(allResponses)}\n\nProvide your updated perspective considering the other viewpoints:`;
+
+      const responses = await this.getParallelResponses(roundPrompt, backends, maxTokens);
+      allResponses.push(...responses.map(r => ({ ...r, round })));
+    }
+
+    return allResponses;
+  }
+
+  /**
+   * Fallback strategy: Try backends in order until 2+ succeed
+   */
+  async executeFallbackStrategy(prompt, backends, maxTokens) {
+    const responses = [];
+    const minSuccessful = 2;
+
+    for (const backend of backends) {
+      try {
+        const startTime = Date.now();
+        const response = await this.makeRequest(prompt, backend, {
+          maxTokens,
+          thinking: true
+        });
+
+        responses.push({
+          backend,
+          content: response.content || response,
+          latency: Date.now() - startTime,
+          success: true
+        });
+
+        // Stop once we have enough successful responses
+        if (responses.filter(r => r.success).length >= minSuccessful) {
+          console.log(`[Council] Fallback: ${minSuccessful} backends succeeded, stopping`);
+          break;
+        }
+      } catch (error) {
+        console.error(`[Council] Fallback backend ${backend} failed:`, error.message);
+        responses.push({
+          backend,
+          content: null,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+
+    return responses.filter(r => r.success);
   }
 
   /**

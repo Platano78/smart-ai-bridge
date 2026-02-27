@@ -161,7 +161,7 @@ class CouncilConfigManager {
    */
   getStrategyForTopic(topic) {
     const topicConfig = this.config.topics[topic];
-    return topicConfig?.strategy || 'consensus';
+    return topicConfig?.strategy || 'parallel';
   }
 
   /**
