@@ -47,8 +47,24 @@ class BaseHandler {
     /** @type {ConversationThreading} */
     this.conversationThreading = context.conversationThreading;
 
+    /** @type {Object} */
+    this.backendRegistry = context.backendRegistry;
+
     /** @type {string} */
     this.handlerName = this.constructor.name;
+
+    /** @type {string} Handler type for routing overrides */
+    this.handlerType = null;
+  }
+
+  selectBackend(requestedBackend, context = {}) {
+    if (this.backendRegistry) {
+      return this.backendRegistry.selectBackend(requestedBackend, {
+        handlerType: this.handlerType,
+        ...context
+      });
+    }
+    return { backend: requestedBackend || 'local' };
   }
 
   /**

@@ -16,14 +16,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { getLocalContextLimit } from '../utils/model-discovery.js';
 
-// Backend selection based on code complexity/type
-const GENERATION_BACKEND_MAP = {
-  simple: 'local',           // Quick scaffolding
-  standard: 'nvidia_qwen',   // Production code
-  complex: 'nvidia_deepseek', // Complex logic
-  test: 'nvidia_qwen'        // Test generation
-};
-
 // Retry configuration for resilient generation
 const RETRY_CONFIG = {
   maxLocalRetries: 2,           // Try local with increasing tokens
@@ -34,6 +26,17 @@ const RETRY_CONFIG = {
 };
 
 export class GenerateFileHandler extends BaseHandler {
+
+  constructor(context) {
+    super(context);
+    this.handlerType = 'generate';
+    if (this.backendRegistry) {
+      this.backendRegistry.registerRoutingOverride('generate', (ctx) => {
+        if (ctx.complexity === 'complex') return 'nvidia_deepseek';
+        return null;
+      });
+    }
+  }
 
   /**
    * Execute file generation using local LLM
@@ -102,13 +105,14 @@ export class GenerateFileHandler extends BaseHandler {
       });
 
       // 7. Determine the backend
-      let selectedBackend = this.selectBackend(backend, complexity);
+      const routingResult = this.selectBackend(backend, { complexity });
+      let selectedBackend = routingResult.backend;
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await getLocalContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      if (prompt.length > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
+      if (prompt.length > MAX_LOCAL_INPUT_CHARS && (selectedBackend === 'local' || selectedBackend === 'seed_coder')) {
         console.error(`[GenerateFile] ⚠️ Prompt size (${prompt.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
         console.error(`[GenerateFile] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
         selectedBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
@@ -403,24 +407,6 @@ TESTS:
   }
 
   /**
-   * Select the appropriate backend
-   */
-  selectBackend(requestedBackend, complexity) {
-    if (requestedBackend && requestedBackend !== 'auto') {
-      const backendMap = {
-        local: 'local',
-        deepseek: 'nvidia_deepseek',
-        qwen3: 'nvidia_qwen',
-        gemini: 'gemini',
-        groq: 'groq_llama'
-      };
-      return backendMap[requestedBackend] || requestedBackend;
-    }
-
-    return GENERATION_BACKEND_MAP[complexity] || 'local';
-  }
-
-  /**
    * Parse the LLM response to extract code and tests
    */
   parseGeneratedCode(responseText, language) {
@@ -481,8 +467,7 @@ TESTS:
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'local': 512000,     // Same - dual mode local
-      'local': 512000,     // Same - dual mode local
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -502,6 +487,7 @@ TESTS:
     // Backend speed estimates (tokens/sec)
     const backendSpeeds = {
       'local': 20,           // Conservative estimate for local models
+      'seed_coder': 132,     // Seed Coder on ai-utility
       'nvidia_deepseek': 40, // Cloud DeepSeek V3
       'nvidia_qwen': 35,     // Cloud Qwen3 480B
       'gemini': 50,          // Gemini Flash

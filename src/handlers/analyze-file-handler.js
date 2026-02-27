@@ -16,16 +16,18 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { getLocalContextLimit } from '../utils/model-discovery.js';
 
-// Backend selection based on analysis type complexity
-const ANALYSIS_BACKEND_MAP = {
-  general: 'local',      // Fast, handles most cases
-  bug: 'local',          // Code understanding
-  security: 'nvidia_qwen', // Deep reasoning for security
-  performance: 'nvidia_deepseek', // Complex analysis
-  architecture: 'nvidia_deepseek' // System-level understanding
-};
-
 export class AnalyzeFileHandler extends BaseHandler {
+
+  constructor(context) {
+    super(context);
+    this.handlerType = 'analyze';
+    if (this.backendRegistry) {
+      this.backendRegistry.registerRoutingOverride('analyze', (ctx) => {
+        const map = { general: 'seed_coder', bug: 'seed_coder', security: 'nvidia_qwen', performance: 'nvidia_deepseek', architecture: 'nvidia_deepseek' };
+        return map[ctx.analysisType] || null;
+      });
+    }
+  }
 
   /**
    * Execute file analysis using local LLM
@@ -81,7 +83,8 @@ export class AnalyzeFileHandler extends BaseHandler {
       });
 
       // 5. Determine the backend with smart fallback
-      let selectedBackend = this.selectBackend(backend, analysisType);
+      const routingResult = this.selectBackend(backend, { analysisType });
+      let selectedBackend = routingResult.backend;
 
       // 6. Smart override: Dynamic context limit detection
       // For local backend, use actual model context limit from router
@@ -257,26 +260,6 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
   }
 
   /**
-   * Select the appropriate backend based on analysis type
-   */
-  selectBackend(requestedBackend, analysisType) {
-    if (requestedBackend && requestedBackend !== 'auto') {
-      // Map friendly names to backend identifiers
-      const backendMap = {
-        local: 'local',
-        deepseek: 'nvidia_deepseek',
-        qwen3: 'nvidia_qwen',
-        gemini: 'gemini',
-        groq: 'groq_llama'
-      };
-      return backendMap[requestedBackend] || requestedBackend;
-    }
-
-    // Auto-select based on analysis type
-    return ANALYSIS_BACKEND_MAP[analysisType] || 'local';
-  }
-
-  /**
    * Parse the LLM response into structured format
    */
   parseAnalysisResponse(responseText) {
@@ -324,6 +307,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -344,6 +328,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Token limits are now backend-based, not speed-based
     const backendSpeeds = {
       'local': 50,             // RTX 5080 is fast - be generous
+      'seed_coder': 132,       // Seed Coder on ai-utility
       'nvidia_deepseek': 40,   // Cloud DeepSeek V3
       'nvidia_qwen': 35,       // Cloud Qwen3 480B
       'gemini': 50,            // Gemini Flash
@@ -379,6 +364,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Cloud backends: Fixed limits based on TPM/cost constraints
     const backendLimits = {
       'local': 4000,           // Fallback if no slot info (conservative)
+      'seed_coder': 4000,      // Optimized for Seed Coder's VRAM constraints
       'nvidia_deepseek': 8000, // Free tier TPM protection
       'nvidia_qwen': 8000,     // Free tier TPM protection
       'gemini': 8000,          // Free tier friendly

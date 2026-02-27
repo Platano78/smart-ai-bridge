@@ -29,6 +29,18 @@ const BACKENDS_CONFIG_PATH = join(__dirname, '../config/backends.json');
 const CUSTOM_BACKENDS_PATH = join(__dirname, '../../data/backends-custom.json');
 
 /**
+ * Map friendly backend names to internal identifiers
+ */
+const FRIENDLY_NAME_MAP = {
+  local: 'local',
+  deepseek: 'nvidia_deepseek',
+  qwen3: 'nvidia_qwen',
+  gemini: 'gemini',
+  groq: 'groq_llama',
+  seed_coder: 'seed_coder'
+};
+
+/**
  * Adapter class mapping by type
  */
 const ADAPTER_CLASSES = {
@@ -110,6 +122,9 @@ class BackendRegistry {
 
     /** @type {string[]} */
     this.fallbackChain = [];
+
+    /** @type {Object<string, Function>} Handler-specific routing overrides */
+    this.routingOverrides = {};
 
     if (this.config.autoInitialize) {
       this.initializeDefaults();
@@ -624,6 +639,27 @@ class BackendRegistry {
     };
   }
 
+  selectBackend(requestedBackend, context = {}) {
+    if (requestedBackend && requestedBackend !== 'auto') {
+      return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend };
+    }
+    if (context.handlerType && this.routingOverrides[context.handlerType]) {
+      const override = this.routingOverrides[context.handlerType](context);
+      if (override) {
+        if (typeof override === 'string') return { backend: override };
+        return override;
+      }
+    }
+    if (context.contentLength > 40000) {
+      return { backend: 'nvidia_qwen', recommendation: 'Large content — routed to cloud' };
+    }
+    return { backend: 'seed_coder' };
+  }
+
+  registerRoutingOverride(handlerType, fn) {
+    this.routingOverrides[handlerType] = fn;
+  }
+
   /**
    * Get list of available adapter types
    * @returns {string[]}
@@ -636,6 +672,7 @@ class BackendRegistry {
 export {
   BackendRegistry,
   ADAPTER_CLASSES,
+  FRIENDLY_NAME_MAP,
   loadBackendsFromConfig,
   BACKENDS_CONFIG_PATH
 };

@@ -23,7 +23,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
 
   constructor(context) {
     super(context);
-    // Create an AnalyzeFileHandler instance for delegating
+    this.handlerType = 'batch-analyze';
     this.analyzeHandler = new AnalyzeFileHandler(context);
   }
 
@@ -92,11 +92,15 @@ export class BatchAnalyzeHandler extends BaseHandler {
       }
 
       // Auto-fallback if total input exceeds local limit
-      let effectiveBackend = backend;
-      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (backend === 'auto' || backend === 'local')) {
-        console.error(`[BatchAnalyze] ⚠️ Total input size (${totalInputSize} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[BatchAnalyze] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
-        effectiveBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
+      const routingResult = this.selectBackend(backend, { contentLength: totalInputSize });
+      let effectiveBackend = routingResult.backend;
+      if (routingResult.recommendation) {
+        console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
+      }
+      // Safety: if local/seed_coder but exceeds local limit, escalate
+      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (effectiveBackend === 'local' || effectiveBackend === 'seed_coder')) {
+        console.error(`[BatchAnalyze] ⚠️ Total input (${totalInputSize} chars) exceeds limit (${MAX_LOCAL_INPUT_CHARS})`);
+        effectiveBackend = 'nvidia_qwen';
       }
 
       // 2. Analyze each file
@@ -416,6 +420,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -435,6 +440,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
     // Backend speed estimates (tokens/sec)
     const backendSpeeds = {
       'local': 20,           // Conservative estimate for local models
+      'seed_coder': 132,     // Seed Coder on ai-utility
       'nvidia_deepseek': 40, // Cloud DeepSeek V3
       'nvidia_qwen': 35,     // Cloud Qwen3 480B
       'gemini': 50,          // Gemini Flash

@@ -17,14 +17,6 @@ import path from 'path';
 import { createTwoFilesPatch } from 'diff';
 import { getLocalContextLimit } from '../utils/model-discovery.js';
 
-// Backend selection based on modification complexity
-const MODIFY_BACKEND_MAP = {
-  simple: 'local',           // Simple edits
-  refactor: 'nvidia_qwen',   // Code restructuring
-  complex: 'nvidia_deepseek', // Complex logic changes
-  security: 'nvidia_deepseek' // Security-sensitive changes
-};
-
 // FIM (Fill-in-the-Middle) token configurations for supported models
 // These models can use FIM for more reliable code insertion
 const FIM_MODEL_TOKENS = {
@@ -77,6 +69,23 @@ const RETRY_CONFIG = {
 };
 
 export class ModifyFileHandler extends BaseHandler {
+
+  constructor(context) {
+    super(context);
+    this.handlerType = 'modify';
+    if (this.backendRegistry) {
+      this.backendRegistry.registerRoutingOverride('modify', (ctx) => {
+        if (ctx.complexity === 'complex' || ctx.complexity === 'security') return 'nvidia_deepseek';
+        if (ctx.contentLength > ROUTING_THRESHOLDS.PREFER_NATIVE_EDIT) {
+          return { backend: 'groq_llama', recommendation: 'VERY_LARGE_FILE: Consider native Edit.' };
+        }
+        if (ctx.contentLength > ROUTING_THRESHOLDS.CLOUD_FALLBACK_CHARS) {
+          return { backend: 'groq_llama', recommendation: 'Large file routed to cloud.' };
+        }
+        return null;
+      });
+    }
+  }
 
   /**
    * Execute file modification using local LLM
@@ -133,7 +142,7 @@ export class ModifyFileHandler extends BaseHandler {
       const complexity = this.estimateComplexity(instructions, originalContent);
 
       // 5. Determine the backend with smart routing
-      const routingResult = this.selectBackend(backend, complexity, originalContent.length);
+      const routingResult = this.selectBackend(backend, { complexity, contentLength: originalContent.length });
       let selectedBackend = routingResult.backend;
       const routingRecommendation = routingResult.recommendation;
 
@@ -584,69 +593,6 @@ SUMMARY: [1-2 sentence description after all blocks]
   }
 
   /**
-   * Select the appropriate backend with smart routing
-   * Priority: local (unlimited) → groq (fast) → nvidia (reliable)
-   *
-   * @param {string} requestedBackend - Explicitly requested backend or 'auto'
-   * @param {string} complexity - Estimated task complexity
-   * @param {number} contentLength - File content length in characters
-   * @returns {Object} { backend: string, recommendation: string|null }
-   */
-  selectBackend(requestedBackend, complexity, contentLength = 0) {
-    const backendMap = {
-      local: 'local',
-      deepseek: 'nvidia_deepseek',
-      qwen3: 'nvidia_qwen',
-      gemini: 'gemini',
-      groq: 'groq_llama'
-    };
-
-    // If explicitly requested, honor it (but warn for very large files)
-    if (requestedBackend && requestedBackend !== 'auto') {
-      const backend = backendMap[requestedBackend] || requestedBackend;
-
-      if (contentLength > ROUTING_THRESHOLDS.PREFER_NATIVE_EDIT) {
-        console.error(`[ModifyFile] ⚠️ Very large file (${contentLength} chars). Consider using native Edit tool for precision.`);
-      }
-
-      return { backend, recommendation: null };
-    }
-
-    // Smart routing based on file size
-    // Strategy: Maximize local usage, preserve cloud quota
-
-    if (contentLength <= ROUTING_THRESHOLDS.LOCAL_MAX_CHARS) {
-      // Small/medium files: always use local (unlimited, free)
-      return { backend: 'local', recommendation: null };
-    }
-
-    if (contentLength <= ROUTING_THRESHOLDS.CLOUD_FALLBACK_CHARS) {
-      // Medium-large files: try local, suggest cloud fallback
-      console.error(`[ModifyFile] 📊 Medium-large file (${contentLength} chars). Using local, cloud fallback available.`);
-      return {
-        backend: 'local',
-        recommendation: 'If local fails, retry with backend: "groq"'
-      };
-    }
-
-    if (contentLength <= ROUTING_THRESHOLDS.PREFER_NATIVE_EDIT) {
-      // Large files: use groq (fast, good limits) to preserve local for smaller tasks
-      console.error(`[ModifyFile] 📊 Large file (${contentLength} chars). Routing to groq for reliability.`);
-      return {
-        backend: 'groq_llama',
-        recommendation: 'Large file routed to cloud. Local reserved for smaller files.'
-      };
-    }
-
-    // Very large files: warn that native Edit might be better
-    console.error(`[ModifyFile] ⚠️ Very large file (${contentLength} chars). Native Edit tool recommended for precision.`);
-    return {
-      backend: 'groq_llama',
-      recommendation: 'VERY_LARGE_FILE: Claude should consider reading file and using native Edit for precision.'
-    };
-  }
-
-  /**
    * Detect if the current model supports FIM (Fill-in-the-Middle)
    * @param {string} modelName - The model name/id to check
    * @returns {Object|null} FIM tokens if supported, null otherwise
@@ -930,8 +876,7 @@ SUMMARY: [1-2 sentence description after all blocks]
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'local': 512000,     // Same - dual mode local
-      'local': 512000,     // Same - dual mode local
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -951,6 +896,7 @@ SUMMARY: [1-2 sentence description after all blocks]
     // Backend speed estimates (tokens/sec)
     const backendSpeeds = {
       'local': 20,           // Conservative estimate for local models
+      'seed_coder': 132,     // Seed Coder on ai-utility
       'nvidia_deepseek': 40, // Cloud DeepSeek V3
       'nvidia_qwen': 35,     // Cloud Qwen3 480B
       'gemini': 50,          // Gemini Flash
