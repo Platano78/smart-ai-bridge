@@ -64,7 +64,6 @@ class HealthHandler extends BaseHandler {
         multi_ai_integration: 'Modular Plugin Architecture',
         backends_configured: this.context.backendRegistry?.getBackendCount() || 0
       },
-      tool_stats: this.context.aliasResolver?.getSystemStats() || {},
       multi_ai_status: {
         total_backends: this.context.backendRegistry?.getBackendCount() || 0,
         healthy_backends: 0,
@@ -78,7 +77,13 @@ class HealthHandler extends BaseHandler {
     if (this.context.backendRegistry && check_type !== 'system') {
       const backends = this.context.backendRegistry.getAllBackends();
       for (const [key, backend] of Object.entries(backends)) {
-        const isHealthy = backend.adapter?.isHealthy?.() ?? false;
+        const adapter = this.context.backendRegistry.getAdapter(key);
+        let isHealthy = false;
+        try {
+          isHealthy = adapter ? await adapter.isAvailable() : false;
+        } catch (e) {
+          isHealthy = false;
+        }
         if (isHealthy) {
           healthData.multi_ai_status.healthy_backends++;
         }

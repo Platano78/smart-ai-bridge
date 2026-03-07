@@ -28,7 +28,7 @@ class DualIterateHandler extends BaseHandler {
       // Get dependencies from context
       const dualWorkflowManager = this.context.dualWorkflowManager;
       const backendRegistry = this.context.backendRegistry;
-      const learningEngine = this.context.server?.learningEngine;
+      const learningEngine = this.context.learningEngine;
 
       if (!dualWorkflowManager) {
         throw new Error('DualWorkflowManager not available in context');
