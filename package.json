@@ -1,6 +1,6 @@
 {
   "name": "smart-ai-bridge",
-  "version": "2.0.0",
+  "version": "2.2.1",
   "description": "Enterprise-grade MCP server with multi-AI orchestration, modular handler architecture, intelligent routing, and local AI auto-discovery",
   "main": "src/server.js",
   "type": "module",

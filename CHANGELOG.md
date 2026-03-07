@@ -5,7 +5,7 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.1] - 2026-03-07
+## [2.2.1] - 2026-03-07
 
 ### Fixed — Subsystem Wiring & Runtime Correctness
 
@@ -32,8 +32,50 @@ All fixes are wiring-only — no behavioral changes to existing tools, no new de
 - **Code pattern LearningEngine instantiated** (Issue 7): PatternRAGStore-backed LearningEngine now initialized with async `init()` and added to handler context
 
 ### Changed
-- Version bumped to 2.0.1
+- Version bumped to 2.2.1
 - `handlerContext` now includes: `healthMonitor`, `dualWorkflowManager`, `learningEngine` (code patterns), `compoundLearning` (routing), `conversationThreading`, `usageAnalytics`
+
+---
+
+## [2.2.0] - 2026-02-27
+
+### Added
+- **Council execution strategies**: 4 modes — parallel (default), sequential (chain-of-thought), debate (multi-round cross-pollination), and fallback (efficiency-first)
+- **Dashboard persistence**: Backend toggle/priority changes now persist to config file via `saveConfig()`
+- **Council configurator web UI** at `/council` with REST API for CRUD operations on topics, backends, and strategies
+- `GET /api/backends/:name` endpoint with API key masking
+- Dynamic backend type descriptions from registry
+- `docs/COUNCIL.md` and `docs/DASHBOARD.md`
+- `tests/test-dashboard-persistence.js`
+
+### Fixed
+- `council-handler`: `metrics.recordCouncil()` passing wrong variable (`mode` instead of `topic`)
+- `council-config-manager`: Default strategy corrected from `'consensus'` to `'parallel'`
+- `server.js`: Startup log now shows dynamic backend count instead of hardcoded `6`
+
+### Changed
+- README trimmed to user-focused overview
+
+---
+
+## [2.1.0] - 2026-02-27
+
+### Added
+- **Centralized backend selection** via `BackendRegistry` — all handlers delegate routing through `BaseHandler.selectBackend()`
+- `seed_coder` backend config (OpenAI-compatible, `192.168.1.79:8084`, 132 t/s workhorse)
+- Handler-specific routing overrides for security, architecture, complex generation, and large files
+
+### Changed
+- `base-handler.js`: Added `backendRegistry` property, `handlerType`, and `selectBackend()` delegation method
+- `analyze-file-handler.js`: Constructor with routing override, removed `ANALYSIS_BACKEND_MAP`
+- `generate-file-handler.js`: Constructor with routing override, removed `GENERATION_BACKEND_MAP`
+- `modify-file-handler.js`: Constructor with `ROUTING_THRESHOLDS`-based override, removed `MODIFY_BACKEND_MAP`
+- `batch-analyze-handler.js`: Added `handlerType`, registry-based backend selection with seed_coder overflow check
+- `backends.json`: Added `seed_coder` entry (type: openai, priority: 0)
+
+### Fixed
+- Duplicate `'local'` key bugs in `getBackendContextLimit()` for generate and modify handlers
+- Added `seed_coder` to all context limit, speed, and token allocation maps
 
 ---
 
