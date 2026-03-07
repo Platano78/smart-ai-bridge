@@ -5,6 +5,38 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-03-07
+
+### Fixed — Subsystem Wiring & Runtime Correctness
+
+All fixes are wiring-only — no behavioral changes to existing tools, no new dependencies.
+
+#### Critical
+- **CompoundLearningEngine now wired to MultiAIRouter** (Issue 1): Tier 2 learning-based routing was permanently dead; router now receives `learningEngine` and records outcomes
+- **DualWorkflowManager instantiated and injected** (Issue 2): `dual_iterate` tool was always throwing "not available in context"; now fully functional
+
+#### High
+- **HealthMonitor instantiated and registered** (Issue 3): Backend health data was always empty; all adapters now registered with health monitor
+- **ConversationThreading instantiated and initialized** (Issue 4): `manage_conversation` was returning hardcoded stub; now connects to real threading system
+- **HealthHandler backend health loop fixed** (Issue 10): `healthy_backends` always reported 0 because handler read nonexistent `backend.adapter.isHealthy()`; now uses `backendRegistry.getAdapter()` + `adapter.isAvailable()`
+
+#### Medium
+- **UsageAnalytics class created and wired** (Issue 5): `get_analytics` returned "not fully initialized" stub; new class delegates to CompoundLearningEngine, router, and registry for real metrics
+- **CouncilConfigManager linked to BackendRegistry** (Issue 6): `setBackendRegistry()` now called at startup for dynamic backend validation in council tool
+- **Removed `aliasResolver` ghost reference** (Issue 11): `tool_stats` in health response referenced nonexistent class; field removed
+- **Removed orphaned handler registry entries** (Issue 12): `handleEditFile` and `handleMultiEdit` had no tool definitions; removed from HANDLER_REGISTRY
+
+#### Low
+- **DualIterateHandler learningEngine context path fixed** (Issues 7+14): Handler read `this.context.server?.learningEngine` (always undefined); now reads `this.context.learningEngine` directly
+- **Dashboard conditionally started** (Issue 8): Dashboard server now starts when `SAB_DASHBOARD=true` env var is set
+- **Code pattern LearningEngine instantiated** (Issue 7): PatternRAGStore-backed LearningEngine now initialized with async `init()` and added to handler context
+
+### Changed
+- Version bumped to 2.0.1
+- `handlerContext` now includes: `healthMonitor`, `dualWorkflowManager`, `learningEngine` (code patterns), `compoundLearning` (routing), `conversationThreading`, `usageAnalytics`
+
+---
+
 ## [2.0.0] - 2026-02-20
 
 ### BREAKING CHANGE: Full Modular Rewrite

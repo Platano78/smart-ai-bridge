@@ -46,8 +46,6 @@ const HANDLER_REGISTRY = {
   'handleRead': ReadHandler,  // DEPRECATED: Use handleAnalyzeFile
   'handleAsk': AskHandler,
   'handleWriteFilesAtomic': WriteFilesAtomicHandler,
-  'handleEditFile': EditFileHandler,  // DEPRECATED: Use handleModifyFile
-  'handleMultiEdit': MultiEditHandler,  // DEPRECATED: Use handleBatchModify
   'handleBackupRestore': BackupRestoreHandler,
   'handleHealth': HealthHandler,
   'handleCheckBackendHealth': HealthHandler,
