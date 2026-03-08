@@ -9,6 +9,7 @@
  * - String similarity for fuzzy matching
  */
 
+import path from 'path';
 import { promises as fs } from 'fs';
 import { PlaybookSystem } from '../intelligence/playbook-system.js';
 import { detectLanguage } from '../utils/language-detector.js';
