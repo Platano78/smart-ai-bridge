@@ -11,6 +11,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import { detectLanguageByPath } from '../utils/language-detector.js';
 
 // Import patterns for various languages
 const IMPORT_PATTERNS = {
@@ -350,28 +351,7 @@ export class SmartContextManager {
   }
 
   detectLanguage(filePath) {
-    const ext = path.extname(filePath).toLowerCase();
-    const languageMap = {
-      '.js': 'javascript',
-      '.mjs': 'javascript',
-      '.cjs': 'javascript',
-      '.jsx': 'javascript',
-      '.ts': 'typescript',
-      '.tsx': 'typescript',
-      '.py': 'python',
-      '.go': 'go',
-      '.rs': 'rust',
-      '.java': 'java',
-      '.kt': 'kotlin',
-      '.swift': 'swift',
-      '.rb': 'ruby',
-      '.php': 'php',
-      '.cs': 'csharp',
-      '.cpp': 'cpp',
-      '.c': 'c',
-      '.h': 'c'
-    };
-    return languageMap[ext] || 'javascript';
+    return detectLanguageByPath(filePath, 'javascript');
   }
 
   isCodeFile(filename) {

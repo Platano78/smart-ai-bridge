@@ -36,6 +36,27 @@ class GeminiAdapter extends BackendAdapter {
     });
   }
 
+  async makeAPICall(body, errorPrefix = 'Gemini error') {
+    const url = `${this.config.url}?key=${this.config.apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      if (response.status === 429 || error.includes('quota')) {
+        console.error('[GeminiAdapter] API rate limit hit');
+        this.rateLimiter.metrics.limitReachedCount++;
+      }
+      throw new Error(`${errorPrefix}: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
   async makeRequest(prompt, options = {}) {
     if (!this.config.apiKey) {
       throw new Error('GEMINI_API_KEY not configured');
@@ -56,8 +77,6 @@ class GeminiAdapter extends BackendAdapter {
       throw new Error(`Gemini rate limit: ${limitCheck.reason}`);
     }
 
-    const url = `${this.config.url}?key=${this.config.apiKey}`;
-
     const body = {
       contents: [{
         parts: [{ text: prompt }]
@@ -68,28 +87,7 @@ class GeminiAdapter extends BackendAdapter {
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-
-      // Check if it's a rate limit error from API
-      if (response.status === 429 || error.includes('quota')) {
-        console.error('[GeminiAdapter] API rate limit hit (should have been prevented by limiter)');
-        this.rateLimiter.metrics.limitReachedCount++;
-      }
-
-      throw new Error(`Gemini error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
+    const data = await this.makeAPICall(body, 'Gemini error');
 
     // Record successful request with actual token usage
     const tokensUsed = data.usageMetadata?.totalTokenCount || estimatedTokens;
@@ -119,60 +117,11 @@ class GeminiAdapter extends BackendAdapter {
     };
   }
 
-  async checkHealth() {
-    const startTime = Date.now();
-
-    try {
-      // Check rate limiter first
-      const limitCheck = this.rateLimiter.checkLimit(10); // Health check uses ~10 tokens
-
-      if (!limitCheck.allowed) {
-        this.lastHealth = {
-          healthy: false,
-          latency: 0,
-          checkedAt: new Date(),
-          error: `Rate limited: ${limitCheck.reason}`,
-          rateLimiter: limitCheck.usage
-        };
-        return this.lastHealth;
-      }
-
-      const url = `${this.config.url}?key=${this.config.apiKey}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'ping' }] }],
-          generationConfig: { maxOutputTokens: 5 }
-        }),
-        signal: AbortSignal.timeout(3000)
-      });
-
-      // Record health check request
-      if (response.ok) {
-        this.rateLimiter.recordRequest(10);
-      }
-
-      this.lastHealth = {
-        healthy: response.ok,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: response.ok ? null : `Status ${response.status}`,
-        rateLimiter: this.rateLimiter.getUsage()
-      };
-
-      return this.lastHealth;
-    } catch (error) {
-      this.lastHealth = {
-        healthy: false,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: error.message,
-        rateLimiter: this.rateLimiter.getUsage()
-      };
-      return this.lastHealth;
-    }
+  getHealthCheckBody() {
+    return {
+      contents: [{ parts: [{ text: 'ping' }] }],
+      generationConfig: { maxOutputTokens: 5 }
+    };
   }
 
   /**

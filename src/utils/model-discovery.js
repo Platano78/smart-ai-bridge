@@ -210,6 +210,8 @@ async function discoverModelOnPort(port, timeout = 2000) {
   const cached = modelCache.get(port);
   if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
     return cached.model;
+  } else if (cached) {
+    modelCache.delete(port);
   }
 
   try {

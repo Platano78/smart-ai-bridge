@@ -51,25 +51,25 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
     }
 
     try {
-      return await this._executeRequest(prompt, this.model, options);
+      return await this._executeWithModel(prompt, this.model, options);
     } catch (error) {
       const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout') || error.message.includes('aborted');
-      const isServerError = error.message.includes('500') || error.message.includes('502') || error.message.includes('503') || error.message.includes('Internal Server Error');
+      const isServerError = error.message.includes('500') || error.message.includes('502') || error.message.includes('503');
 
       if (isTimeout || isServerError) {
         const reason = isTimeout ? 'timed out' : 'server error';
-        console.error(`[SAB] NVIDIA DeepSeek ${reason}, falling back to V3.1-terminus...`);
-        return await this._executeRequest(prompt, this.fallbackModel, options, true);
+        console.error(`[SAB] NVIDIA DeepSeek ${reason}, falling back to ${this.fallbackModel}...`);
+        return await this._executeWithModel(prompt, this.fallbackModel, options, true);
       }
       throw error;
     }
   }
 
-  async _executeRequest(prompt, model, options = {}, isFallback = false) {
+  async _executeWithModel(prompt, model, options = {}, isFallback = false) {
     const isTerminus = model.includes('terminus');
 
     const body = {
-      model: model,
+      model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: options.maxTokens || this.config.maxTokens,
       temperature: isTerminus ? 0.2 : (options.temperature || 1),
@@ -87,66 +87,27 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
       || baseTimeout;
 
-    const response = await fetch(this.config.url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeout)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`NVIDIA DeepSeek error (${model}): ${response.status} - ${error}`);
+    // Temporarily override timeout for this call
+    const origTimeout = this.config.timeout;
+    this.config.timeout = timeout;
+    try {
+      const data = await this.makeAPICall(body, `NVIDIA DeepSeek error (${model})`);
+      const result = this.parseResponse(data);
+      result.metadata = result.metadata || {};
+      result.metadata.model = model;
+      result.metadata.wasFallback = isFallback;
+      return result;
+    } finally {
+      this.config.timeout = origTimeout;
     }
-
-    const data = await response.json();
-    const result = this.parseResponse(data);
-
-    result.metadata = result.metadata || {};
-    result.metadata.model = model;
-    result.metadata.wasFallback = isFallback;
-
-    return result;
   }
 
-  async checkHealth() {
-    const startTime = Date.now();
-
-    for (const model of [this.model, this.fallbackModel]) {
-      try {
-        const response = await fetch(this.config.url, {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: 'user', content: 'ping' }],
-            max_tokens: 5
-          }),
-          signal: AbortSignal.timeout(10000)
-        });
-
-        if (response.ok) {
-          this.lastHealth = {
-            healthy: true,
-            latency: Date.now() - startTime,
-            checkedAt: new Date(),
-            error: null,
-            activeModel: model
-          };
-          return this.lastHealth;
-        }
-      } catch (error) {
-        continue;
-      }
-    }
-
-    this.lastHealth = {
-      healthy: false,
-      latency: Date.now() - startTime,
-      checkedAt: new Date(),
-      error: 'Both V3.2 and V3.1-terminus unavailable'
+  getHealthCheckBody() {
+    return {
+      model: this.model,
+      messages: [{ role: 'user', content: 'ping' }],
+      max_tokens: 5
     };
-    return this.lastHealth;
   }
 }
 
@@ -188,54 +149,16 @@ class NvidiaQwenAdapter extends BackendAdapter {
       || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
       || calculateDynamicTimeout(requestedTokens, options.thinking);
 
-    const response = await fetch(this.config.url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeout)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`NVIDIA Qwen error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
+    const data = await this.makeAPICall(body, 'NVIDIA Qwen error');
     return this.parseResponse(data);
   }
 
-  async checkHealth() {
-    const startTime = Date.now();
-
-    try {
-      const response = await fetch(this.config.url, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 5
-        }),
-        signal: AbortSignal.timeout(8000)
-      });
-
-      this.lastHealth = {
-        healthy: response.ok,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: response.ok ? null : `Status ${response.status}`
-      };
-
-      return this.lastHealth;
-    } catch (error) {
-      this.lastHealth = {
-        healthy: false,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: error.message
-      };
-      return this.lastHealth;
-    }
+  getHealthCheckBody() {
+    return {
+      model: this.model,
+      messages: [{ role: 'user', content: 'ping' }],
+      max_tokens: 5
+    };
   }
 }
 

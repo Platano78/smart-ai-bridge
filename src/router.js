@@ -10,6 +10,7 @@
  */
 
 import { ConcurrentRequestManager } from './utils/concurrent-request-manager.js';
+import { detectLanguage as _detectLanguage } from './utils/language-detector.js';
 
 export class MultiAIRouter {
   /**
@@ -263,13 +264,8 @@ export class MultiAIRouter {
     return 2048;
   }
 
-  detectLanguage(content = '') {
-    if (content.includes('import React') || content.includes('useState')) return 'javascript';
-    if (content.includes('def ') || content.includes('import ')) return 'python';
-    if (content.includes('public class') || content.includes('private ')) return 'java';
-    if (content.includes('#include') || content.includes('std::')) return 'cpp';
-    if (content.includes('interface ') || content.includes(': string')) return 'typescript';
-    return 'unknown';
+  detectLanguage(input = '') {
+    return _detectLanguage(input);
   }
 
   // Legacy no-op hook retained for HealthHandler compatibility.

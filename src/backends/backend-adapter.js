@@ -122,13 +122,66 @@ class BackendAdapter {
     throw new Error('makeRequest must be implemented by subclass');
   }
 
+  getHealthCheckBody() {
+    return {
+      model: this.config.model,
+      messages: [{ role: 'user', content: 'ping' }],
+      max_tokens: 5
+    };
+  }
+
+  getHealthCheckTimeout() {
+    return 5000;
+  }
+
+  async makeAPICall(body, errorPrefix = 'API error') {
+    const response = await fetch(this.config.url, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`${errorPrefix}: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
   /**
    * Check backend health
    * @abstract
    * @returns {Promise<BackendHealth>}
    */
   async checkHealth() {
-    throw new Error('checkHealth must be implemented by subclass');
+    const startTime = Date.now();
+    try {
+      const body = this.getHealthCheckBody();
+      const response = await fetch(this.config.url, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.getHealthCheckTimeout())
+      });
+
+      this.lastHealth = {
+        healthy: response.ok,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: response.ok ? null : `Status ${response.status}`
+      };
+      return this.lastHealth;
+    } catch (error) {
+      this.lastHealth = {
+        healthy: false,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: error.message
+      };
+      return this.lastHealth;
+    }
   }
 
   /**

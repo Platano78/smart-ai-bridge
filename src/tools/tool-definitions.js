@@ -442,33 +442,6 @@ const CORE_TOOL_DEFINITIONS = [
     }
   },
   {
-    name: 'read',
-    description: 'Read file contents - Returns raw file content for direct inspection. DEPRECATED: Prefer analyze_file for token-efficient analysis. Use only when raw content is explicitly needed.',
-    handler: 'handleRead',
-    schema: {
-      type: 'object',
-      properties: {
-        file_paths: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of file paths to read'
-        },
-        max_files: {
-          type: 'number',
-          default: 5,
-          description: 'Maximum number of files to read'
-        },
-        analysis_type: {
-          type: 'string',
-          enum: ['content', 'summary', 'structure', 'dependencies'],
-          default: 'content',
-          description: 'Type of analysis (non-content types delegate to LLM)'
-        }
-      },
-      required: ['file_paths']
-    }
-  },
-  {
     name: 'explore',
     description: 'Codebase Exploration - Answer questions about the codebase using intelligent search. Returns only a summary, never raw file contents. Token savings: 90%+ for exploration tasks.',
     handler: 'handleExplore',

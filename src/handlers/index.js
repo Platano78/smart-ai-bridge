@@ -7,12 +7,9 @@
 
 import { BaseHandler } from './base-handler.js';
 import { ReviewHandler } from './review-handler.js';
-import { ReadHandler } from './read-handler.js';
 import { AskHandler, MODEL_MAP } from './ask-handler.js';
 import {
   WriteFilesAtomicHandler,
-  EditFileHandler,
-  MultiEditHandler,
   BackupRestoreHandler
 } from './file-handlers.js';
 import {
@@ -43,8 +40,7 @@ import { DualIterateHandler } from './dual-iterate-handler.js';
 const HANDLER_REGISTRY = {
   // Original handlers
   'handleReview': ReviewHandler,
-  'handleRead': ReadHandler,  // DEPRECATED: Use handleAnalyzeFile
-  'handleAsk': AskHandler,
+'handleAsk': AskHandler,
   'handleWriteFilesAtomic': WriteFilesAtomicHandler,
   'handleBackupRestore': BackupRestoreHandler,
   'handleHealth': HealthHandler,
@@ -162,11 +158,8 @@ export {
 
   // Original handler classes
   ReviewHandler,
-  ReadHandler,
   AskHandler,
   WriteFilesAtomicHandler,
-  EditFileHandler,
-  MultiEditHandler,
   BackupRestoreHandler,
   HealthHandler,
   ValidateChangesHandler,

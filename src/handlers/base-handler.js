@@ -9,7 +9,18 @@
  * - String similarity for fuzzy matching
  */
 
+import { promises as fs } from 'fs';
 import { PlaybookSystem } from '../intelligence/playbook-system.js';
+import { detectLanguage } from '../utils/language-detector.js';
+import { getLocalContextLimit } from '../utils/model-discovery.js';
+
+const RETRY_CONFIG = {
+  maxLocalRetries: 2,
+  maxDualModeIterations: 3,
+  tokenScaleFactor: 1.5,
+  cloudFallbackEnabled: true,
+  truncationThreshold: 0.7
+};
 
 /**
  * @typedef {Object} HandlerContext
@@ -55,6 +66,20 @@ class BaseHandler {
 
     /** @type {string} Handler type for routing overrides */
     this.handlerType = null;
+
+    /** @type {Object|null} Cached context limit result */
+    this._contextLimitCache = null;
+    this._contextLimitCacheTime = 0;
+  }
+
+  async getContextLimit() {
+    const now = Date.now();
+    if (this._contextLimitCache && (now - this._contextLimitCacheTime) < 30000) {
+      return this._contextLimitCache;
+    }
+    this._contextLimitCache = await getLocalContextLimit();
+    this._contextLimitCacheTime = now;
+    return this._contextLimitCache;
   }
 
   selectBackend(requestedBackend, context = {}) {
@@ -65,6 +90,20 @@ class BaseHandler {
       });
     }
     return { backend: requestedBackend || 'local' };
+  }
+
+  async safeReadFile(filePath, encoding = 'utf8') {
+    try {
+      return await fs.readFile(filePath, encoding);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw new Error(`File not found: ${filePath}`);
+      }
+      if (error.code === 'EACCES') {
+        throw new Error(`Permission denied: ${filePath}`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -142,18 +181,8 @@ class BaseHandler {
    * @param {string} content - Code content
    * @returns {string}
    */
-  detectLanguage(content) {
-    if (this.router?.detectLanguage) {
-      return this.router.detectLanguage(content);
-    }
-
-    // Simple detection fallback
-    if (content.includes('import React') || content.includes('useState')) return 'javascript';
-    if (content.includes('def ') || content.includes('import ')) return 'python';
-    if (content.includes('public class') || content.includes('private ')) return 'java';
-    if (content.includes('#include') || content.includes('std::')) return 'cpp';
-    if (content.includes('interface ') || content.includes(': string')) return 'typescript';
-    return 'unknown';
+  detectLanguage(input) {
+    return detectLanguage(input);
   }
 
   /**
@@ -287,4 +316,4 @@ class BaseHandler {
   }
 }
 
-export { BaseHandler };
+export { BaseHandler, RETRY_CONFIG };

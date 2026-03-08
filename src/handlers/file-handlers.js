@@ -2,15 +2,7 @@
  * @fileoverview FileHandlers - File operation handlers
  * @module handlers/file-handlers
  *
- * Handlers for write_files_atomic, edit_file, multi_edit, backup_restore
- *
- * @deprecated (Partial) Since v9.0:
- * - edit_file: Use modify_file instead (natural language instructions, local LLM processing)
- * - multi_edit: Use batch_modify instead (same instructions across files, atomic rollback)
- *
- * NOT deprecated:
- * - write_files_atomic: Still the best for direct file writes with backup
- * - backup_restore: Still needed for backup management
+ * Handlers for write_files_atomic and backup_restore
  */
 
 import { BaseHandler } from './base-handler.js';
@@ -104,273 +96,6 @@ class WriteFilesAtomicHandler extends BaseHandler {
 }
 
 /**
- * EditFileHandler - Intelligent file editing with fuzzy matching
- * @deprecated Since v9.0. Use modify_file instead for natural language edits via local LLM.
- */
-class EditFileHandler extends BaseHandler {
-  async execute(args) {
-    // Deprecation warning
-    console.error('\x1b[33m⚠️  DEPRECATED: edit_file() is deprecated since SAB v2.0\x1b[0m');
-    console.error('\x1b[33m   Use modify_file() with natural language instructions.\x1b[0m');
-    console.error('');
-
-    const {
-      file_path,
-      edits,
-      language,
-      validation_mode = 'strict',
-      fuzzy_threshold = 0.8,
-      suggest_alternatives = true,
-      max_suggestions = 3
-    } = args;
-
-    if (!file_path) {
-      throw new Error('file_path is required');
-    }
-    if (!edits || edits.length === 0) {
-      throw new Error('edits is required');
-    }
-
-    // Read current content
-    let content = await fs.readFile(file_path, 'utf8');
-    const originalContent = content;
-    const editResults = [];
-
-    // Dry run mode
-    if (validation_mode === 'dry_run') {
-      for (const edit of edits) {
-        const found = content.includes(edit.find);
-        editResults.push({
-          find: edit.find.substring(0, 50),
-          found,
-          would_replace: found,
-          description: edit.description
-        });
-      }
-
-      return this.buildSuccessResponse({
-        file_path,
-        dry_run: true,
-        edits_analyzed: editResults.length,
-        results: editResults
-      });
-    }
-
-    // Apply edits
-    for (const edit of edits) {
-      const result = {
-        find: edit.find.substring(0, 50),
-        description: edit.description
-      };
-
-      // Try exact match first
-      if (content.includes(edit.find)) {
-        content = content.replace(edit.find, edit.replace);
-        result.success = true;
-        result.match_type = 'exact';
-      } else if (validation_mode === 'lenient') {
-        // Try fuzzy matching
-        const fuzzyResult = this.findFuzzyMatch(content, edit.find, fuzzy_threshold);
-        if (fuzzyResult.found) {
-          content = content.replace(fuzzyResult.match, edit.replace);
-          result.success = true;
-          result.match_type = 'fuzzy';
-          result.similarity = fuzzyResult.similarity;
-        } else {
-          result.success = false;
-          result.error = 'No match found';
-          if (suggest_alternatives && fuzzyResult.suggestions) {
-            result.suggestions = fuzzyResult.suggestions.slice(0, max_suggestions);
-          }
-        }
-      } else {
-        result.success = false;
-        result.error = 'Exact match not found';
-        if (suggest_alternatives) {
-          const fuzzyResult = this.findFuzzyMatch(content, edit.find, 0.5);
-          if (fuzzyResult.suggestions) {
-            result.suggestions = fuzzyResult.suggestions.slice(0, max_suggestions);
-          }
-        }
-      }
-
-      editResults.push(result);
-    }
-
-    // Check if any edits failed in strict mode
-    const failedEdits = editResults.filter(r => !r.success);
-    if (validation_mode === 'strict' && failedEdits.length > 0) {
-      return this.buildSuccessResponse({
-        file_path,
-        success: false,
-        error: `${failedEdits.length} edit(s) failed in strict mode`,
-        results: editResults
-      });
-    }
-
-    // Write modified content
-    if (content !== originalContent) {
-      // Create backup
-      const backupPath = `${file_path}.backup.${Date.now()}`;
-      await fs.writeFile(backupPath, originalContent);
-
-      // Write new content
-      await fs.writeFile(file_path, content);
-    }
-
-    return this.buildSuccessResponse({
-      file_path,
-      edits_applied: editResults.filter(r => r.success).length,
-      edits_failed: failedEdits.length,
-      results: editResults,
-      content_changed: content !== originalContent
-    });
-  }
-
-  /**
-   * Find fuzzy match in content
-   * @private
-   */
-  findFuzzyMatch(content, searchText, threshold) {
-    const lines = content.split('\n');
-    const searchLines = searchText.split('\n');
-    const suggestions = [];
-
-    // Try line-by-line matching
-    for (let i = 0; i <= lines.length - searchLines.length; i++) {
-      const segment = lines.slice(i, i + searchLines.length).join('\n');
-      const similarity = this.calculateStringSimilarity(searchText, segment);
-
-      if (similarity >= threshold) {
-        return {
-          found: true,
-          match: segment,
-          similarity,
-          lineNumber: i + 1
-        };
-      }
-
-      if (similarity > 0.5) {
-        suggestions.push({
-          text: segment.substring(0, 100),
-          similarity,
-          lineNumber: i + 1
-        });
-      }
-    }
-
-    return {
-      found: false,
-      suggestions: suggestions.sort((a, b) => b.similarity - a.similarity)
-    };
-  }
-}
-
-/**
- * MultiEditHandler - Atomic batch operations across multiple files
- * @deprecated Since v9.0. Use batch_modify instead for natural language edits via local LLM.
- */
-class MultiEditHandler extends BaseHandler {
-  async execute(args) {
-    // Deprecation warning
-    console.error('\x1b[33m⚠️  DEPRECATED: multi_edit() is deprecated since SAB v2.0\x1b[0m');
-    console.error('\x1b[33m   Use batch_modify() with natural language instructions.\x1b[0m');
-    console.error('');
-
-    const {
-      file_operations,
-      transaction_mode = 'all_or_nothing',
-      validation_level = 'strict',
-      parallel_processing = true
-    } = args;
-
-    if (!file_operations || file_operations.length === 0) {
-      throw new Error('file_operations is required');
-    }
-
-    const editHandler = new EditFileHandler({
-      router: this.router,
-      server: this.server,
-      playbook: this.playbook
-    });
-
-    const results = [];
-    const backups = [];
-
-    // Create backups for all files
-    for (const op of file_operations) {
-      try {
-        const content = await fs.readFile(op.file_path, 'utf8');
-        backups.push({
-          path: op.file_path,
-          content
-        });
-      } catch (e) {
-        // File doesn't exist
-      }
-    }
-
-    // Process operations
-    const processOperation = async (op) => {
-      try {
-        const result = await editHandler.execute({
-          file_path: op.file_path,
-          edits: op.edits,
-          validation_mode: validation_level === 'none' ? 'lenient' : validation_level
-        });
-        return { ...result, file_path: op.file_path };
-      } catch (error) {
-        return {
-          file_path: op.file_path,
-          success: false,
-          error: error.message
-        };
-      }
-    };
-
-    if (parallel_processing) {
-      const promises = file_operations.map(processOperation);
-      results.push(...await Promise.all(promises));
-    } else {
-      for (const op of file_operations) {
-        results.push(await processOperation(op));
-      }
-    }
-
-    // Handle transaction mode
-    const failedOps = results.filter(r => !r.success);
-
-    if (transaction_mode === 'all_or_nothing' && failedOps.length > 0) {
-      // Rollback all changes
-      for (const backup of backups) {
-        try {
-          await fs.writeFile(backup.path, backup.content);
-        } catch (e) {
-          console.error(`Rollback failed for ${backup.path}: ${e.message}`);
-        }
-      }
-
-      return this.buildSuccessResponse({
-        success: false,
-        transaction_mode,
-        error: `${failedOps.length} operation(s) failed, all changes rolled back`,
-        files_attempted: file_operations.length,
-        files_succeeded: 0,
-        results
-      });
-    }
-
-    return this.buildSuccessResponse({
-      transaction_mode,
-      files_processed: file_operations.length,
-      files_succeeded: results.filter(r => r.success).length,
-      files_failed: failedOps.length,
-      results
-    });
-  }
-}
-
-/**
  * BackupRestoreHandler - Backup management operations
  */
 class BackupRestoreHandler extends BaseHandler {
@@ -396,7 +121,7 @@ class BackupRestoreHandler extends BaseHandler {
       throw new Error('file_path is required for create action');
     }
 
-    const content = await fs.readFile(filePath, 'utf8');
+    const content = await this.safeReadFile(filePath);
     const backupId = `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const backupPath = `${filePath}.${backupId}`;
 
@@ -427,7 +152,7 @@ class BackupRestoreHandler extends BaseHandler {
     }
 
     const backupPath = `${filePath}.${backupId}`;
-    const content = await fs.readFile(backupPath, 'utf8');
+    const content = await this.safeReadFile(backupPath);
 
     // Create backup of current state before restoring
     const preRestoreBackup = `${filePath}.pre_restore_${Date.now()}`;
@@ -546,7 +271,5 @@ class BackupRestoreHandler extends BaseHandler {
 
 export {
   WriteFilesAtomicHandler,
-  EditFileHandler,
-  MultiEditHandler,
   BackupRestoreHandler
 };

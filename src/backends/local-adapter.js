@@ -587,29 +587,14 @@ class LocalAdapter extends BackendAdapter {
    * @protected
    */
   parseResponse(response) {
-    const message = response.choices?.[0]?.message;
-    const content = message?.content ||
-                   message?.reasoning_content ||
-                   response.content ||
-                   response.text ||
-                   '';
-
-    const tokens = response.usage?.total_tokens ||
-                  response.usage?.completion_tokens ||
-                  0;
-
-    return {
-      content,
-      tokens,
-      backend: this.name,
-      success: true,
-      metadata: {
-        model: response.model || this.modelId || 'local',
-        detectedModel: this.modelId,
-        endpoint: this.config.url,
-        finishReason: response.choices?.[0]?.finish_reason
-      }
+    const result = super.parseResponse(response);
+    result.metadata = {
+      ...result.metadata,
+      model: response.model || this.modelId || 'local',
+      detectedModel: this.modelId,
+      endpoint: this.config.url
     };
+    return result;
   }
 }
 

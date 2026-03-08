@@ -14,7 +14,6 @@
 import { BaseHandler } from './base-handler.js';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { getLocalContextLimit } from '../utils/model-discovery.js';
 
 export class AnalyzeFileHandler extends BaseHandler {
 
@@ -65,7 +64,7 @@ export class AnalyzeFileHandler extends BaseHandler {
     try {
       // 1. Read the target file (Claude never sees this content)
       const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
-      const content = await fs.readFile(absolutePath, 'utf8');
+      const content = await this.safeReadFile(absolutePath);
       const fileStats = await fs.stat(absolutePath);
 
       // 2. Read context files if provided
@@ -92,7 +91,7 @@ export class AnalyzeFileHandler extends BaseHandler {
       let contextLimit;
       let localSlotInfo = null; // Store for output token calculation
       if (selectedBackend === 'local') {
-        const { charLimit, model: loadedModel, context, slots } = await getLocalContextLimit();
+        const { charLimit, model: loadedModel, context, slots } = await this.getContextLimit();
         contextLimit = charLimit;
         localSlotInfo = { context, slots }; // Save for calculateDynamicTokens
         console.error(`[AnalyzeFile] 📊 Local model: ${loadedModel} (${context} ctx / ${slots} slots = ${charLimit} char limit)`);
@@ -111,7 +110,7 @@ export class AnalyzeFileHandler extends BaseHandler {
         } else {
           // Cloud backend can't handle it - try local as fallback (might have larger context)
           console.error(`[AnalyzeFile] ⚠️ File size (${content.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
-          const { charLimit: localLimit, model: loadedModel } = await getLocalContextLimit();
+          const { charLimit: localLimit, model: loadedModel } = await this.getContextLimit();
           if (content.length <= localLimit) {
             console.error(`[AnalyzeFile] 🔄 Falling back to local (${localLimit} char limit via ${loadedModel})`);
             selectedBackend = 'local';

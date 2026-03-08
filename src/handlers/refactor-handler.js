@@ -19,7 +19,7 @@ import { smartContext } from '../context/smart-context.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
-import { getLocalContextLimit } from '../utils/model-discovery.js';
+
 
 // Refactoring complexity determines backend
 const REFACTOR_BACKEND_MAP = {
@@ -114,7 +114,7 @@ export class RefactorHandler extends BaseHandler {
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
-      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await getLocalContextLimit();
+      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
 
       // Calculate total input size (instructions + target files for context)

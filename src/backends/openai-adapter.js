@@ -38,31 +38,7 @@ class OpenAIAdapter extends BackendAdapter {
       temperature: options.temperature || 0.7
     };
 
-    const response = await fetch(this.config.url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      const errorDetails = {
-        statusCode: response.status,
-        message: error,
-        url: this.config.url,
-        model: this.model,
-        suggestions: this.getErrorSuggestions(response.status)
-      };
-
-      let enhancedError = `Backend Error: ${response.status} - ${error}\n\n`;
-      enhancedError += `Possible causes:\n`;
-      enhancedError += errorDetails.suggestions.map(s => `- ${s}`).join('\n');
-
-      throw new Error(enhancedError);
-    }
-
-    const data = await response.json();
+    const data = await this.makeAPICall(body, 'OpenAI error');
     return this.parseResponse(data);
   }
 
@@ -100,38 +76,8 @@ class OpenAIAdapter extends BackendAdapter {
     return suggestions;
   }
 
-  async checkHealth() {
-    const startTime = Date.now();
-
-    try {
-      const response = await fetch(this.config.url, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 5
-        }),
-        signal: AbortSignal.timeout(5000)
-      });
-
-      this.lastHealth = {
-        healthy: response.ok,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: response.ok ? null : `Status ${response.status}`
-      };
-
-      return this.lastHealth;
-    } catch (error) {
-      this.lastHealth = {
-        healthy: false,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: error.message
-      };
-      return this.lastHealth;
-    }
+  getHealthCheckBody() {
+    return { model: this.model, messages: [{ role: 'user', content: 'ping' }], max_tokens: 5 };
   }
 }
 

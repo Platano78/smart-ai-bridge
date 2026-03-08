@@ -12,6 +12,7 @@
 
 import { BaseHandler } from './base-handler.js';
 import { configManager, VALID_TOPICS } from '../config/council-config-manager.js';
+import { CouncilMetrics } from '../monitoring/council-metrics.js';
 
 /**
  * Available council modes
@@ -59,49 +60,6 @@ const DEFAULT_COUNCIL_BACKENDS = [
   'local'
 ];
 
-/**
- * Council execution metrics
- */
-class CouncilMetrics {
-  constructor() {
-    this.totalCouncils = 0;
-    this.successfulCouncils = 0;
-    this.failedCouncils = 0;
-    this.avgBackendsUsed = 0;
-    this.avgProcessingTime = 0;
-    this.modeDistribution = {};
-  }
-
-  recordCouncil(mode, backendsUsed, processingTime, success) {
-    this.totalCouncils++;
-    if (success) {
-      this.successfulCouncils++;
-    } else {
-      this.failedCouncils++;
-    }
-    
-    // Update averages
-    this.avgBackendsUsed = 
-      (this.avgBackendsUsed * (this.totalCouncils - 1) + backendsUsed) / this.totalCouncils;
-    this.avgProcessingTime = 
-      (this.avgProcessingTime * (this.totalCouncils - 1) + processingTime) / this.totalCouncils;
-    
-    // Track mode usage
-    this.modeDistribution[mode] = (this.modeDistribution[mode] || 0) + 1;
-  }
-
-  getSummary() {
-    return {
-      totalCouncils: this.totalCouncils,
-      successRate: this.totalCouncils > 0 
-        ? (this.successfulCouncils / this.totalCouncils * 100).toFixed(1) + '%'
-        : 'N/A',
-      avgBackendsUsed: this.avgBackendsUsed.toFixed(1),
-      avgProcessingTime: Math.round(this.avgProcessingTime) + 'ms',
-      modeDistribution: this.modeDistribution
-    };
-  }
-}
 
 /**
  * CouncilHandler - Orchestrates multi-AI consensus

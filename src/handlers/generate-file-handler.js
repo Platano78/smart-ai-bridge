@@ -11,19 +11,10 @@
  * 4. If review=false → writes directly, returns summary
  */
 
-import { BaseHandler } from './base-handler.js';
+import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
+import { detectOutputTruncation } from '../utils/truncation-detector.js';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { getLocalContextLimit } from '../utils/model-discovery.js';
-
-// Retry configuration for resilient generation
-const RETRY_CONFIG = {
-  maxLocalRetries: 2,           // Try local with increasing tokens
-  maxDualModeIterations: 3,     // Coding + reasoning model iterations
-  tokenScaleFactor: 1.5,        // Multiply tokens on retry
-  cloudFallbackEnabled: true,   // Enable cloud fallback by default
-  truncationThreshold: 0.7      // If output < 70% expected, likely truncated
-};
 
 export class GenerateFileHandler extends BaseHandler {
 
@@ -110,7 +101,7 @@ export class GenerateFileHandler extends BaseHandler {
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
-      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await getLocalContextLimit();
+      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (prompt.length > MAX_LOCAL_INPUT_CHARS && (selectedBackend === 'local' || selectedBackend === 'seed_coder')) {
         console.error(`[GenerateFile] ⚠️ Prompt size (${prompt.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
@@ -692,33 +683,7 @@ CODE:
    * @returns {boolean}
    */
   detectCodeTruncation(code, spec) {
-    if (!code || code.length < 50) return true;
-
-    // Check for common truncation indicators
-    const truncationMarkers = [
-      /\.\.\.$/,                           // Ends with ...
-      /\/\/\s*\.\.\./,                     // Comment with ...
-      /\/\*\s*\.\.\.\s*\*\/$/,             // Block comment with ...
-      /\/\/\s*(TODO|FIXME|incomplete)/i,   // Incomplete markers at end
-      /{\s*$/,                             // Unclosed brace at end
-      /\(\s*$/,                            // Unclosed paren at end
-    ];
-
-    const endsWithMarker = truncationMarkers.some(pattern =>
-      pattern.test(code.slice(-100))
-    );
-
-    // Check if spec mentions 'export' but code doesn't have complete exports
-    const specMentionsExport = /export/i.test(spec);
-    const hasCompleteExport = /export\s+(default\s+)?(class|function|const|let|var|interface|type)\s+\w+/i.test(code);
-    const missingExport = specMentionsExport && !hasCompleteExport && code.length > 100;
-
-    // Check brace balance
-    const openBraces = (code.match(/\{/g) || []).length;
-    const closeBraces = (code.match(/\}/g) || []).length;
-    const unbalancedBraces = openBraces > closeBraces + 1; // Allow 1 unclosed for partial
-
-    return endsWithMarker || missingExport || unbalancedBraces;
+    return detectOutputTruncation(code, { minLength: 50, format: 'code', spec });
   }
 }
 

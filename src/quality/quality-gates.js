@@ -13,6 +13,7 @@ import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
 import path from 'path';
+import { detectLanguageByPath } from '../utils/language-detector.js';
 
 export const ValidationStatus = {
   PASSED: 'passed',
@@ -514,21 +515,7 @@ export class QualityGates {
   }
 
   detectLanguage(filePath) {
-    const ext = path.extname(filePath).toLowerCase();
-    const languageMap = {
-      '.js': 'javascript',
-      '.mjs': 'javascript',
-      '.cjs': 'javascript',
-      '.jsx': 'javascript',
-      '.ts': 'typescript',
-      '.tsx': 'typescript',
-      '.py': 'python',
-      '.json': 'json',
-      '.go': 'go',
-      '.rs': 'rust',
-      '.java': 'java'
-    };
-    return languageMap[ext] || 'unknown';
+    return detectLanguageByPath(filePath);
   }
 
   extractLineNumber(message) {

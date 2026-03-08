@@ -162,6 +162,7 @@ class PatternRAGStore {
   constructor(options = {}) {
     this.storagePath = options.storagePath || path.join(__dirname, '../../data/patterns.json');
     this.similarityThreshold = options.similarityThreshold || 0.85;
+    this.maxPatterns = options.maxPatterns || 500;
     this.patterns = [];
     this.initialized = false;
   }
@@ -215,6 +216,13 @@ class PatternRAGStore {
     };
 
     this.patterns.push(newPattern);
+
+    // Evict oldest low-success patterns when cap exceeded
+    if (this.patterns.length > this.maxPatterns) {
+      this.patterns.sort((a, b) => (b.metadata?.successCount || 0) - (a.metadata?.successCount || 0));
+      this.patterns = this.patterns.slice(0, this.maxPatterns);
+    }
+
     return newPattern;
   }
 

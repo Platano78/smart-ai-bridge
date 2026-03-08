@@ -38,56 +38,21 @@ class GroqAdapter extends BackendAdapter {
       temperature: options.temperature || 0.7
     };
 
-    const response = await fetch(this.config.url, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Groq error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
+    const data = await this.makeAPICall(body, 'Groq error');
     return this.parseResponse(data);
   }
 
-  async checkHealth() {
-    const startTime = Date.now();
+  getHealthCheckBody() {
+    return {
+      model: this.model,
+      messages: [{ role: 'user', content: 'ok' }],
+      max_tokens: 1,
+      temperature: 0
+    };
+  }
 
-    try {
-      // Lightweight health probe: minimal token usage (1-2 tokens)
-      const response = await fetch(this.config.url, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{ role: 'user', content: 'ok' }], // 1 token instead of "ping" (4 tokens)
-          max_tokens: 1, // Minimal response
-          temperature: 0
-        }),
-        signal: AbortSignal.timeout(3000) // Quick 3s timeout for health checks
-      });
-
-      this.lastHealth = {
-        healthy: response.ok,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: response.ok ? null : `Status ${response.status}`
-      };
-
-      return this.lastHealth;
-    } catch (error) {
-      this.lastHealth = {
-        healthy: false,
-        latency: Date.now() - startTime,
-        checkedAt: new Date(),
-        error: error.message
-      };
-      return this.lastHealth;
-    }
+  getHealthCheckTimeout() {
+    return 3000;
   }
 }
 

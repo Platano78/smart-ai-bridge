@@ -11,11 +11,12 @@
  * 4. Returns diff for review or writes directly
  */
 
-import { BaseHandler } from './base-handler.js';
+import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
+import { detectOutputTruncation } from '../utils/truncation-detector.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createTwoFilesPatch } from 'diff';
-import { getLocalContextLimit } from '../utils/model-discovery.js';
+
 
 // FIM (Fill-in-the-Middle) token configurations for supported models
 // These models can use FIM for more reliable code insertion
@@ -61,12 +62,6 @@ const ROUTING_THRESHOLDS = {
 };
 
 // Retry configuration for resilient modification
-const RETRY_CONFIG = {
-  maxLocalRetries: 2,           // Try local with increasing tokens
-  maxDualModeIterations: 3,     // Coding + reasoning model iterations
-  tokenScaleFactor: 1.5,        // Multiply tokens on retry
-  cloudFallbackEnabled: true    // Enable cloud fallback by default
-};
 
 export class ModifyFileHandler extends BaseHandler {
 
@@ -129,7 +124,7 @@ export class ModifyFileHandler extends BaseHandler {
     try {
       // 1. Read the current file
       const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
-      const originalContent = await fs.readFile(absolutePath, 'utf8');
+      const originalContent = await this.safeReadFile(absolutePath);
       const fileStats = await fs.stat(absolutePath);
 
       // 2. Detect language
@@ -178,7 +173,7 @@ export class ModifyFileHandler extends BaseHandler {
       }
 
       // 8. INPUT size limit check - DYNAMIC based on actual loaded model
-      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await getLocalContextLimit();
+      const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (originalContent.length > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
         console.error(`[ModifyFile] ⚠️ File size (${originalContent.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
@@ -1066,58 +1061,7 @@ STATUS: FIXED
    * @returns {boolean} True if response appears truncated
    */
   detectModificationTruncation(responseText) {
-    if (!responseText || responseText.length < 20) return true;
-
-    // Check for incomplete SEARCH/REPLACE blocks
-    const searchCount = (responseText.match(/<<<<<<< SEARCH/g) || []).length;
-    const replaceCount = (responseText.match(/>>>>>>> REPLACE/g) || []).length;
-    const separatorCount = (responseText.match(/=======/g) || []).length;
-
-    // If we have more SEARCH markers than REPLACE markers, block is incomplete
-    if (searchCount > replaceCount) {
-      return true;
-    }
-
-    // Each SEARCH block needs a separator before REPLACE
-    if (searchCount > separatorCount) {
-      return true;
-    }
-
-    // Check brace/bracket balance in the replacement content
-    const replacementBlocks = responseText.match(/=======\n([\s\S]*?)>>>>>>> REPLACE/g) || [];
-    for (const block of replacementBlocks) {
-      const content = block.replace(/^=======\n/, '').replace(/>>>>>>> REPLACE$/, '');
-      const braces = (content.match(/\{/g) || []).length - (content.match(/\}/g) || []).length;
-      const brackets = (content.match(/\[/g) || []).length - (content.match(/\]/g) || []).length;
-      const parens = (content.match(/\(/g) || []).length - (content.match(/\)/g) || []).length;
-
-      if (braces !== 0 || brackets !== 0 || parens !== 0) {
-        return true; // Unbalanced structure in replacement
-      }
-    }
-
-    // Check for truncation markers at the end
-    const truncationMarkers = [
-      /\.\.\.$/,                           // Ends with ...
-      /<<<<<<< SEARCH\s*$/,                // Unclosed SEARCH block
-      /=======\s*$/,                       // Unclosed at separator
-      /```\s*$/,                           // Unclosed code block
-      /\{\s*$/,                            // Unclosed brace
-      /\[\s*$/,                            // Unclosed bracket
-      /\/\/\s*\.\.\./,                     // Comment with ... (truncation indicator)
-      /\/\*\s*\.\.\./,                     // Block comment with ...
-      /#\s*\.\.\./,                        // Python/shell comment with ...
-    ];
-
-    const last200 = responseText.slice(-200);
-    const endsWithMarker = truncationMarkers.some(pattern => pattern.test(last200));
-
-    // Check for incomplete sentences/code at the very end
-    const lastLine = responseText.trim().split('\n').pop() || '';
-    const incompleteEnd = /[,\(\[\{:]\s*$/.test(lastLine) ||
-                          /^\s*(if|for|while|function|class|const|let|var|import|export)\s+\w*$/.test(lastLine);
-
-    return endsWithMarker || incompleteEnd;
+    return detectOutputTruncation(responseText, { minLength: 20, format: 'modification' });
   }
 }
 
