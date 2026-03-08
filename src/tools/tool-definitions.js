@@ -826,7 +826,7 @@ const ALIAS_GROUP_DEFINITIONS = [
         }
       },
       { alias: 'SAB_review', coreTool: 'review' },
-      { alias: 'SAB_edit', coreTool: 'edit_file' },
+      { alias: 'SAB_edit', coreTool: 'modify_file' },
       { alias: 'SAB_health', coreTool: 'health' }
     ]
   },
@@ -874,7 +874,7 @@ const ALIAS_GROUP_DEFINITIONS = [
         }
       },
       { alias: 'deepseek_review', coreTool: 'review' },
-      { alias: 'deepseek_edit', coreTool: 'edit_file' },
+      { alias: 'deepseek_edit', coreTool: 'modify_file' },
       { alias: 'deepseek_health', coreTool: 'health' }
     ]
   }

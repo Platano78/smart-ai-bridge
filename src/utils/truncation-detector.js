@@ -57,7 +57,7 @@ function detectCodeTruncation(code, spec) {
 
   const openBraces = (code.match(/\{/g) || []).length;
   const closeBraces = (code.match(/\}/g) || []).length;
-  return openBraces > closeBraces + 1;
+  return openBraces > closeBraces;
 }
 
 function detectGeneralTruncation(content) {

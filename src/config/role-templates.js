@@ -38,9 +38,9 @@ Your review should cover:
 
 Provide constructive feedback with specific line numbers and improvement suggestions.`,
     suggested_tools: [
-      'read',           // Read files
+      'analyze_file',   // Read files
       'review',         // Deep code review
-      'edit_file',      // Suggest edits
+      'modify_file',    // Suggest edits
       'ask'             // Query AI for analysis
     ],
     output_format: `## Code Review
@@ -88,7 +88,7 @@ For each finding, provide:
 - Exploitation scenario
 - Remediation steps`,
     suggested_tools: [
-      'read',           // Read files
+      'analyze_file',   // Analyze files
       'review',         // Security review
       'validate_changes', // Validate fixes
       'ask'             // Deep analysis
@@ -133,7 +133,7 @@ Your role is to:
 
 Create clear, actionable plans that developers can follow immediately.`,
     suggested_tools: [
-      'read',           // Understand codebase
+      'analyze_file',   // Understand codebase
       'ask',            // Analysis and reasoning
       'get_analytics'   // Performance insights
     ],
@@ -192,9 +192,9 @@ Your mission is to:
 
 Provide refactored code with clear before/after comparisons and explanations.`,
     suggested_tools: [
-      'read',           // Read files
-      'edit_file',      // Apply refactoring
-      'multi_edit',     // Batch refactoring
+      'analyze_file',   // Read files
+      'modify_file',    // Apply refactoring
+      'batch_modify',   // Batch refactoring
       'ask'             // Design analysis
     ],
     output_format: `## Refactoring Proposal
@@ -239,7 +239,7 @@ Generate tests that cover:
 
 Use appropriate testing frameworks and follow testing best practices.`,
     suggested_tools: [
-      'read',           // Read code to test
+      'analyze_file',   // Analyze code to test
       'write_files_atomic', // Write test files
       'ask'             // Test strategy analysis
     ],
@@ -287,7 +287,7 @@ Your documentation should include:
 
 Write for developers with varying experience levels.`,
     suggested_tools: [
-      'read',           // Read code
+      'analyze_file',   // Analyze code
       'write_files_atomic', // Write docs
       'ask'             // Clarification
     ],
@@ -388,7 +388,7 @@ QUALITY REQUIREMENTS:
 
 OUTPUT: Complete, runnable test code with imports, fixtures, and comprehensive docstrings.`,
     suggested_tools: [
-      'read',           // Read existing code for context
+      'analyze_file',   // Read existing code for context
       'write_files_atomic'  // Write test files
     ],
     output_format: 'code',
@@ -427,7 +427,7 @@ QUALITY REQUIREMENTS:
 
 OUTPUT: Complete, working, production-quality implementation code with docstrings.`,
     suggested_tools: [
-      'read',           // Read tests and existing code
+      'analyze_file',   // Read tests and existing code
       'write_files_atomic'  // Write implementation
     ],
     output_format: 'code',

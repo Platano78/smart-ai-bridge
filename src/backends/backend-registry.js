@@ -93,10 +93,11 @@ function resolveApiKey(apiKey) {
     const resolved = process.env[varName];
 
     if (!resolved) {
-      console.warn(`[BackendRegistry] Environment variable ${varName} not found, using literal value`);
+      console.warn(`[BackendRegistry] Environment variable ${varName} not set — backend will be disabled`);
+      return undefined;
     }
 
-    return resolved || apiKey;
+    return resolved;
   }
 
   return apiKey;

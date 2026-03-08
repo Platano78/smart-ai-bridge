@@ -79,7 +79,7 @@ class PlaybookSystem {
     this.refreshInterval = 5 * 60 * 1000; // 5 minutes
 
     /** @type {string[]} */
-    this.reflectableTools = ['ask', 'review', 'edit_file', 'multi_edit', 'analyze'];
+    this.reflectableTools = ['ask', 'review', 'modify_file', 'batch_modify', 'analyze'];
   }
 
   /** @type {Lesson[]} - Accessor for shared cache */

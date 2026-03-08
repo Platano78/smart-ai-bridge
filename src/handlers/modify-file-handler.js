@@ -871,7 +871,7 @@ SUMMARY: [1-2 sentence description after all blocks]
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -891,7 +891,7 @@ SUMMARY: [1-2 sentence description after all blocks]
     // Backend speed estimates (tokens/sec)
     const backendSpeeds = {
       'local': 20,           // Conservative estimate for local models
-      'seed_coder': 132,     // Seed Coder on ai-utility
+      'seed_coder': 132,     // Seed Coder (local)
       'nvidia_deepseek': 40, // Cloud DeepSeek V3
       'nvidia_qwen': 35,     // Cloud Qwen3 480B
       'gemini': 50,          // Gemini Flash

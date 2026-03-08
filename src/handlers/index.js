@@ -40,10 +40,9 @@ import { DualIterateHandler } from './dual-iterate-handler.js';
 const HANDLER_REGISTRY = {
   // Original handlers
   'handleReview': ReviewHandler,
-'handleAsk': AskHandler,
+  'handleAsk': AskHandler,
   'handleWriteFilesAtomic': WriteFilesAtomicHandler,
   'handleBackupRestore': BackupRestoreHandler,
-  'handleHealth': HealthHandler,
   'handleCheckBackendHealth': HealthHandler,
   'handleValidateChanges': ValidateChangesHandler,
   'handleManageConversation': ManageConversationHandler,

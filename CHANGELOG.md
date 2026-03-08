@@ -93,7 +93,7 @@ All fixes are wiring-only — no behavioral changes to existing tools, no new de
 
 ### Added
 - **Centralized backend selection** via `BackendRegistry` — all handlers delegate routing through `BaseHandler.selectBackend()`
-- `seed_coder` backend config (OpenAI-compatible, `192.168.1.79:8084`, 132 t/s workhorse)
+- `seed_coder` backend config (OpenAI-compatible, `127.0.0.1:8084`, local inference workhorse)
 - Handler-specific routing overrides for security, architecture, complex generation, and large files
 
 ### Changed

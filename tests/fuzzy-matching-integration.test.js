@@ -25,7 +25,7 @@ import {
 } from '../fuzzy-matching-security.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(__filename).replace('/tmp/test-workspace', '/tmp/test-workspace');
 
 describe('Fuzzy Matching Integration Tests', () => {
   beforeEach(() => {
@@ -73,25 +73,40 @@ describe('Fuzzy Matching Integration Tests', () => {
   });
 
   describe('PathSecurity Integration', () => {
-    it('should validate file paths before fuzzy matching', async () => {
+    it('should validate and sanitize file paths before fuzzy matching', async () => {
       // Simulate path validation (typical security check)
-      const validatePath = (filePath) => {
-        // Check for path traversal
-        if (filePath.includes('..')) return false;
-        // Check for absolute paths outside allowed directories
-        if (path.isAbsolute(filePath) && !filePath.startsWith('/home/platano/project')) {
-          return false;
-        }
-        return true;
-      };
+const sanitizePath = (filePath) => {
+  // Replace project paths with workspace path
+  return filePath.replace('/tmp/test-workspace', '/tmp/test-workspace');
+};
 
-      const validPath = '/home/platano/project/smart-ai-bridge/test.js';
+const validatePath = (filePath) => {
+  const sanitizedPath = sanitizePath(filePath);
+  // Check for path traversal
+  if (sanitizedPath.includes('..')) return false;
+  // Check for absolute paths outside allowed directories
+  if (path.isAbsolute(sanitizedPath) && !sanitizedPath.startsWith('/tmp/test-workspace')) {
+    return false;
+  }
+  return true;
+};
+
+      const validPath = '/tmp/test-workspace/smart-ai-bridge/test.js';
       const invalidPath = '/etc/passwd';
       const traversalPath = '../../../etc/passwd';
 
-      expect(validatePath(validPath)).to.be.true;
-      expect(validatePath(invalidPath)).to.be.false;
-      expect(validatePath(traversalPath)).to.be.false;
+const validPath = '/tmp/test-workspace/smart-ai-bridge/test.js';
+const invalidPath = '/etc/passwd';
+const traversalPath = '../../../etc/passwd';
+
+expect(validatePath(validPath)).to.be.true;
+expect(validatePath(invalidPath)).to.be.false;
+expect(validatePath(traversalPath)).to.be.false;
+
+// Sanitize paths for logging or display
+const sanitizedValid = sanitizePath(validPath);
+const sanitizedInvalid = sanitizePath(invalidPath);
+const sanitizedTraversal = sanitizePath(traversalPath);
     });
 
     it('should prevent fuzzy matching on sensitive files', () => {
@@ -192,11 +207,11 @@ describe('Fuzzy Matching Integration Tests', () => {
         return sanitized.replace(/\/[a-zA-Z0-9_\-\/]+/g, '<path>');
       };
 
-      const error = 'Failed to edit file /home/platano/project/smart-ai-bridge/test.js';
-      const sanitized = sanitizeError(error, '/home/platano/project/smart-ai-bridge/test.js');
+      const error = 'Failed to edit file /tmp/test-workspace/smart-ai-bridge/test.js';
+      const sanitized = sanitizeError(error, '/tmp/test-workspace/smart-ai-bridge/test.js');
 
       expect(sanitized).to.equal('Failed to edit file <file>');
-      expect(sanitized).to.not.include('/home/platano');
+      expect(sanitized).to.not.include('/tmp/test-workspace');
     });
 
     it('should sanitize file content in error messages', () => {
@@ -325,7 +340,7 @@ describe('Fuzzy Matching Integration Tests', () => {
 
   describe('Cross-Component Integration', () => {
     it('should coordinate InputValidator + PathSecurity + Metrics', async () => {
-      const filePath = '/home/platano/project/smart-ai-bridge/test.js';
+      const filePath = '/tmp/test-workspace/smart-ai-bridge/test.js';
       const edits = [{ find: 'old', replace: 'new' }];
 
       // Step 1: Path validation

@@ -144,7 +144,8 @@ class BackendAdapter {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`${errorPrefix}: ${response.status} - ${error}`);
+      const safeError = error.length > 200 ? error.slice(0, 200) + '...' : error;
+      throw new Error(`${errorPrefix}: ${response.status} - ${safeError}`);
     }
 
     return response.json();
@@ -189,7 +190,8 @@ class BackendAdapter {
    * @returns {BackendConfig}
    */
   getConfig() {
-    return { ...this.config };
+    const { apiKey, ...safeConfig } = this.config;
+    return safeConfig;
   }
 
   /**

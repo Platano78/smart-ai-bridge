@@ -118,7 +118,7 @@ From the user's original request:
 ## Commands to Run Tests
 
 ```bash
-cd /home/platano/project/smart-ai-bridge
+cd /path/to/smart-ai-bridge
 
 # Run OWASP API Security tests
 node security/tests/owasp-api-security-tests.js

@@ -149,8 +149,14 @@ class NvidiaQwenAdapter extends BackendAdapter {
       || (process.env.NVIDIA_TIMEOUT ? parseInt(process.env.NVIDIA_TIMEOUT) : null)
       || calculateDynamicTimeout(requestedTokens, options.thinking);
 
-    const data = await this.makeAPICall(body, 'NVIDIA Qwen error');
-    return this.parseResponse(data);
+    const originalTimeout = this.config.timeout;
+    this.config.timeout = timeout;
+    try {
+      const data = await this.makeAPICall(body, 'NVIDIA Qwen error');
+      return this.parseResponse(data);
+    } finally {
+      this.config.timeout = originalTimeout;
+    }
   }
 
   getHealthCheckBody() {

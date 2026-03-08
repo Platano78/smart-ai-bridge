@@ -306,7 +306,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Context limits in tokens, converted to chars (~4 chars/token)
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars (ai-utility)
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
       'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
@@ -326,8 +326,8 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Backend speed estimates (tokens/sec) - used only for timeout calculation now
     // Token limits are now backend-based, not speed-based
     const backendSpeeds = {
-      'local': 50,             // RTX 5080 is fast - be generous
-      'seed_coder': 132,       // Seed Coder on ai-utility
+      'local': 50,             // Local GPU - be generous
+      'seed_coder': 132,       // Seed Coder (local)
       'nvidia_deepseek': 40,   // Cloud DeepSeek V3
       'nvidia_qwen': 35,       // Cloud Qwen3 480B
       'gemini': 50,            // Gemini Flash

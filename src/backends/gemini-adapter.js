@@ -37,10 +37,10 @@ class GeminiAdapter extends BackendAdapter {
   }
 
   async makeAPICall(body, errorPrefix = 'Gemini error') {
-    const url = `${this.config.url}?key=${this.config.apiKey}`;
+    const url = this.config.url;
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.config.timeout)
     });
@@ -55,6 +55,35 @@ class GeminiAdapter extends BackendAdapter {
     }
 
     return response.json();
+  }
+
+  async checkHealth() {
+    const startTime = Date.now();
+    try {
+      const body = this.getHealthCheckBody();
+      const response = await fetch(this.config.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.getHealthCheckTimeout())
+      });
+
+      this.lastHealth = {
+        healthy: response.ok,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: response.ok ? null : `Status ${response.status}`
+      };
+      return this.lastHealth;
+    } catch (error) {
+      this.lastHealth = {
+        healthy: false,
+        latency: Date.now() - startTime,
+        checkedAt: new Date(),
+        error: error.message
+      };
+      return this.lastHealth;
+    }
   }
 
   async makeRequest(prompt, options = {}) {

@@ -221,6 +221,7 @@ class PatternRAGStore {
     if (this.patterns.length > this.maxPatterns) {
       this.patterns.sort((a, b) => (b.metadata?.successCount || 0) - (a.metadata?.successCount || 0));
       this.patterns = this.patterns.slice(0, this.maxPatterns);
+      this.save().catch(err => console.error('[PatternRAGStore] Eviction save failed:', err.message));
     }
 
     return newPattern;

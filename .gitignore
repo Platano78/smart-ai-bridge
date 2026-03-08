@@ -47,6 +47,9 @@ temp/
 *-backup*
 *-backup-*
 
+# Runtime data (sessions, patterns, learning)
+data/
+
 # Cache
 .cache/
 .ip-cache/

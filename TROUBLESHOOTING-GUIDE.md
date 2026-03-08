@@ -28,7 +28,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 
 3. **Run npm install** -- Missing dependencies cause module resolution failures.
    ```bash
-   cd /home/platano/project/smart-ai-bridge
+   cd /path/to/smart-ai-bridge
    npm install
    ```
 
@@ -294,7 +294,7 @@ Error: Cannot find package 'openai'
 **Solutions:**
 
 ```bash
-cd /home/platano/project/smart-ai-bridge
+cd /path/to/smart-ai-bridge
 npm install
 ```
 

@@ -2,7 +2,7 @@
  * @fileoverview ConcurrentRequestManager - Priority-based request pool
  * @module utils/concurrent-request-manager
  *
- * RTX 5080 optimized with 250 concurrent request capacity
+ * Optimized for local GPU with 250 concurrent request capacity
  */
 
 /**
@@ -29,7 +29,7 @@
 class ConcurrentRequestManager {
   /**
    * Create a new ConcurrentRequestManager
-   * @param {number} [maxConcurrent=250] - Maximum concurrent requests (RTX 5080 optimized)
+   * @param {number} [maxConcurrent=250] - Maximum concurrent requests (optimized for local GPU inference)
    */
   constructor(maxConcurrent = 250) {
     this.maxConcurrent = maxConcurrent;

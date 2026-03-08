@@ -93,7 +93,7 @@
       "type": "openai",
       "enabled": true,
       "priority": 0,
-      "description": "Seed Coder 8B on ai-utility (132 t/s workhorse)",
+      "description": "Seed Coder 8B (local inference, 132 t/s)",
       "capabilities": [
         "code_specialized",
         "fast_generation"
@@ -101,7 +101,7 @@
       "context_limit": 24576,
       "strengths": "Fast code analysis, editing, small generation tasks",
       "config": {
-        "url": "http://192.168.1.79:8084/v1/chat/completions",
+        "url": "http://127.0.0.1:8084/v1/chat/completions",
         "model": "seed-coder-8b",
         "maxTokens": 24576,
         "timeout": 60000

@@ -93,14 +93,18 @@ class BaseHandler {
   }
 
   async safeReadFile(filePath, encoding = 'utf8') {
+    const resolved = path.resolve(filePath);
+    if (resolved.includes('\0')) {
+      throw new Error(`Invalid file path: null bytes not allowed`);
+    }
     try {
-      return await fs.readFile(filePath, encoding);
+      return await fs.readFile(resolved, encoding);
     } catch (error) {
       if (error.code === 'ENOENT') {
-        throw new Error(`File not found: ${filePath}`);
+        throw new Error(`File not found: ${resolved}`);
       }
       if (error.code === 'EACCES') {
-        throw new Error(`Permission denied: ${filePath}`);
+        throw new Error(`Permission denied: ${resolved}`);
       }
       throw error;
     }
