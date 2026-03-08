@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.0.0
+# Smart AI Bridge v2.3.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -8,7 +8,7 @@
 
 ## What It Does
 
-Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 20 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
+Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 19 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
 
 - **Any OpenAI-compatible provider works.** Local models (vLLM, LM Studio, Ollama), cloud APIs, or a mix of both. The included presets cover common providers, but adding your own is just a config entry.
 - **Smart routing** selects the best backend per task using a 4-tier system: forced selection, learned preferences, rule-based heuristics, and health-based fallback.
@@ -60,25 +60,24 @@ You only need at least one working backend (a local model or one cloud API key).
 
 ### 4. Restart Claude Code
 
-After restarting, all 20 tools will be available. Verify with:
+After restarting, all 19 tools will be available. Verify with:
 
 ```
 @check_backend_health({ "backend": "local" })
 ```
 
-## Tools (20)
+## Tools (19)
 
 ### Token-Saving File Operations
 
 | Tool | Savings | Description |
 |------|---------|-------------|
-| `analyze_file` | 90% | Backend reads and analyzes files, returns structured findings |
-| `modify_file` | 95% | Backend applies natural-language edits, returns diff |
-| `batch_analyze` | 90%/file | Analyze multiple files via glob patterns |
-| `batch_modify` | 95%/file | Apply same instructions across multiple files |
-| `generate_file` | 80% | Generate code from a natural-language spec |
-| `explore` | 90% | Answer codebase questions using intelligent search |
-| `read` | -- | Raw file content (prefer `analyze_file`) |
+| `analyze_file` | ~90% | Backend reads and analyzes files, returns structured findings |
+| `modify_file` | ~95% | Backend applies natural-language edits, returns diff |
+| `batch_analyze` | ~90%/file | Analyze multiple files via glob patterns |
+| `batch_modify` | ~95%/file | Apply same instructions across multiple files |
+| `generate_file` | ~80% | Generate code from a natural-language spec |
+| `explore` | ~90% | Answer codebase questions using intelligent search |
 
 ### Multi-AI Workflows
 
@@ -166,6 +165,12 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 - Node.js >= 18.0.0
 - At least one backend configured (local model or cloud API key)
 - Claude Code or Claude Desktop for MCP integration
+
+## Security Notes
+
+- Never commit API keys to version control. Use environment variables exclusively.
+- The Claude Code config examples above use placeholder values -- replace them with your actual keys or reference a `.env` file.
+- Rotate any accidentally leaked keys immediately.
 
 ## License
 

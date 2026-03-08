@@ -1,6 +1,6 @@
-import { logger } from '../mcp-logger.js';
-
 #!/usr/bin/env node
+
+import { logger } from '../mcp-logger.js';
 
 /**
  * HYBRID SERVER v7.0.0 - Startup Validation Script

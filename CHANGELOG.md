@@ -5,6 +5,37 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-03-07
+
+### Removed
+- **read-handler.js** (468 lines) — deprecated `read` tool fully removed
+- **background-analysis-queue.js** (376 lines) — completely unused module
+- **EditFileHandler + MultiEditHandler** (~265 lines) — deprecated passthrough handlers removed from file-handlers.js
+- Deprecated `read` tool definition removed from tool-definitions.js (27 lines)
+
+### Added
+- **language-detector.js** — shared `detectLanguage()` consolidating 4 duplicate implementations
+- **truncation-detector.js** — shared truncation detection for modify-file and generate-file handlers
+- **council-metrics.js** — extracted CouncilMetrics from council-handler for separation of concerns
+- `safeReadFile()` utility in base-handler.js, adopted at 4 unprotected call sites
+- `makeAPICall()` template method in backend-adapter.js base class
+- `checkHealth()` template method in backend-adapter.js base class
+- PatternRAGStore bounded at 500 patterns with LRU eviction
+
+### Changed
+- Centralized `RETRY_CONFIG` in base-handler.js (was duplicated in 2 handlers)
+- Centralized `getContextLimit()` with 30s cache in base-handler.js (was duplicated in 6 handlers)
+- Simplified groq, openai, nvidia, gemini adapters to use base class `makeAPICall()` and `checkHealth()`
+- local-adapter `parseResponse()` simplified to call `super.parseResponse()`
+
+### Fixed
+- Cache eviction bug in model-discovery.js
+- NVIDIA DeepSeek fallback model logic restored after prior refactor regression
+
+### Stats
+- 25 files changed, 230 insertions, 1,683 deletions (net **-1,453 lines**)
+- Codebase reduced from 24,094 to 22,848 lines
+
 ## [2.2.1] - 2026-03-07
 
 ### Fixed — Subsystem Wiring & Runtime Correctness
