@@ -175,10 +175,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     console.error(`[SAB] ${name} completed in ${elapsed}ms`);
 
     // Normalize result format
+    // If handler already returns MCP-formatted content array, pass through directly
+    if (typeof result === 'object' && result !== null && Array.isArray(result.content)
+        && result.content.length > 0 && result.content[0].type === 'text') {
+      return result;
+    }
+
     const content = typeof result === 'string'
       ? result
       : typeof result === 'object' && result !== null
-        ? (result.content || JSON.stringify(sanitizeForJSON(result), null, 2))
+        ? JSON.stringify(sanitizeForJSON(result), null, 2)
         : String(result);
 
     return {
@@ -187,6 +193,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         text: content
       }]
     };
+
   } catch (error) {
     const elapsed = Date.now() - startTime;
     console.error(`[SAB] ${name} failed after ${elapsed}ms: ${error.message}`);
