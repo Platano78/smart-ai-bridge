@@ -30,6 +30,8 @@ const STOP_WORDS = new Set([
   'when', 'while', 'if', 'because', 'as', 'until', 'although', 'unless', 'since', 'being', 'been', 'being'
 ]);
 
+const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', qwen3: 'nvidia_qwen', groq: 'groq_llama' };
+
 export class ExploreHandler extends BaseHandler {
   constructor(context) {
     super(context);
@@ -277,8 +279,9 @@ export class ExploreHandler extends BaseHandler {
     }
 
     // Select backend: groq for shallow (fast), nvidia_qwen for deep (thorough)
-    const backend = requestedBackend !== 'auto' 
-      ? requestedBackend 
+    const normalizedBackend = BACKEND_ALIASES[requestedBackend] || requestedBackend;
+    const backend = normalizedBackend !== 'auto'
+      ? normalizedBackend
       : (depth === 'deep' ? 'nvidia_qwen' : 'groq_llama');
 
     // Build evidence summary for prompt
@@ -310,7 +313,7 @@ Provide a concise answer to the question based on the search results. Include sp
       });
 
       // Extract content from response
-      const content = response?.content || response?.choices?.[0]?.message?.content || response;
+      const content = this.extractResponseText(response);
       return typeof content === 'string' ? content.trim() : 'Unable to generate summary';
 
     } catch (error) {

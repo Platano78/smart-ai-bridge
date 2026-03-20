@@ -223,7 +223,7 @@ export class ModifyFileHandler extends BaseHandler {
             timeout: timeoutMs
           });
 
-          const responseText = response.content || response;
+          const responseText = this.extractResponseText(response);
 
           // Check for truncation via BOTH finish_reason AND response structure
           const finishReason = response.metadata?.finishReason || response.finish_reason;
@@ -241,7 +241,7 @@ export class ModifyFileHandler extends BaseHandler {
               if (dualResult.success) {
                 response = dualResult.response;
                 // Re-check structure after dual mode
-                const dualText = response.content || response;
+                const dualText = this.extractResponseText(response);
                 wasTruncated = this.detectModificationTruncation(dualText);
                 if (!wasTruncated) {
                   console.error(`[ModifyFile] ✅ Dual-mode iteration succeeded`);
@@ -290,7 +290,7 @@ export class ModifyFileHandler extends BaseHandler {
       }
 
       const processingTime = Date.now() - startTime;
-      const responseText = response.content || response;
+      const responseText = this.extractResponseText(response);
 
       // 11. Parse response based on mode used
       let modifiedCode;

@@ -324,7 +324,7 @@ class CouncilHandler extends BaseHandler {
         
         return {
           backend,
-          content: response.content || response,
+          content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true
         };
@@ -401,7 +401,7 @@ CONSENSUS: [High/Medium/Low] - [brief explanation of agreement level]
 SYNTHESIS: [Your unified answer]`;
 
     const result = await this.makeRequest(synthesisPrompt, chairman, { maxTokens });
-    const content = result.content || result;
+    const content = this.extractResponseText(result);
     
     // Parse consensus level
     const consensusMatch = content.match(/CONSENSUS:\s*(High|Medium|Low)/i);
@@ -446,7 +446,7 @@ CONSENSUS: [High/Medium/Low]
 SYNTHESIS: [Your unified answer]`;
 
     const result = await this.makeRequest(synthesisPrompt, chairman, { maxTokens });
-    const content = result.content || result;
+    const content = this.extractResponseText(result);
     
     const consensusMatch = content.match(/CONSENSUS:\s*(High|Medium|Low)/i);
     const confidence = consensusMatch 
@@ -493,7 +493,7 @@ EVOLUTION: [How positions changed across rounds]
 SYNTHESIS: [Final unified answer]`;
 
     const result = await this.makeRequest(synthesisPrompt, chairman, { maxTokens });
-    const content = result.content || result;
+    const content = this.extractResponseText(result);
     
     const consensusMatch = content.match(/CONSENSUS:\s*(High|Medium|Low)/i);
     const confidence = consensusMatch 
@@ -533,7 +533,7 @@ SYNTHESIS: [Final unified answer]`;
 
         responses.push({
           backend,
-          content: response.content || response,
+          content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true,
           order: responses.length + 1
@@ -590,7 +590,7 @@ SYNTHESIS: [Final unified answer]`;
 
         responses.push({
           backend,
-          content: response.content || response,
+          content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true
         });

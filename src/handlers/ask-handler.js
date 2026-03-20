@@ -138,6 +138,11 @@ class AskHandler extends BaseHandler {
       selectedBackend = await this.routeRequest(prompt, { forceBackend: force_backend || requestedBackend });
     }
 
+    if (!selectedBackend) {
+      console.error('[SAB] ⚠️ No backend selected after routing, falling back to local');
+      selectedBackend = 'local';
+    }
+
     // Dynamic token optimization
     const dynamicTokens = this.calculateDynamicTokens(prompt, selectedBackend);
     const finalMaxTokens = max_tokens || dynamicTokens;
@@ -155,7 +160,7 @@ class AskHandler extends BaseHandler {
 
     try {
       const response = await this.makeRequest(prompt, selectedBackend, options);
-      const responseContent = response.content || response;
+      const responseContent = this.extractResponseText(response);
       const responseHeaders = response.headers || {};
       const processingTime = Date.now() - startTime;
 
@@ -335,7 +340,7 @@ class AskHandler extends BaseHandler {
         maxTokens: options.maxTokens || 4096
       });
 
-      const content = response.content || response;
+      const content = this.extractResponseText(response);
       chunks.push(content);
 
       // Check if complete

@@ -421,19 +421,24 @@ Rules:
     ];
 
     // Execute with timeout - pass routerModel for 8081 router model selection
-    const result = await Promise.race([
-      adapter.execute(userPrompt, {
-        messages,
-        maxTokens: 4096,
-        temperature: 0.7,
-        routerModel // LocalAdapter uses this to select specific model on router
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Backend timeout')), this.timeoutMs)
-      )
-    ]);
+    let timeoutId;
+    try {
+      const result = await Promise.race([
+        adapter.execute(userPrompt, {
+          messages,
+          maxTokens: 4096,
+          temperature: 0.7,
+          routerModel // LocalAdapter uses this to select specific model on router
+        }),
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Backend timeout')), this.timeoutMs);
+        })
+      ]);
 
-    return result;
+      return result;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**

@@ -148,7 +148,7 @@ export class AnalyzeFileHandler extends BaseHandler {
       const processingTime = Date.now() - startTime;
 
       // 7. Parse structured response from LLM
-      const analysis = this.parseAnalysisResponse(response.content || response);
+      const analysis = this.parseAnalysisResponse(this.extractResponseText(response));
 
       // 8. Record execution for learning
       this.recordExecution(
@@ -262,6 +262,11 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
    * Parse the LLM response into structured format
    */
   parseAnalysisResponse(responseText) {
+    // Type coercion guard
+    if (typeof responseText !== 'string') {
+      responseText = responseText == null ? '' : String(responseText);
+    }
+
     try {
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -269,13 +274,28 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
         const parsed = JSON.parse(jsonMatch[0]);
         return {
           summary: parsed.summary || 'Analysis complete',
-          findings: Array.isArray(parsed.findings) ? parsed.findings : [],
+          findings: this.sanitizeTextList(Array.isArray(parsed.findings) ? parsed.findings : [], 20),
           confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.75,
-          suggestedActions: Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions : []
+          suggestedActions: this.sanitizeTextList(Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions : [], 10)
         };
       }
     } catch (error) {
       console.error(`[AnalyzeFile] Could not parse JSON response, using fallback`);
+    }
+
+    // Fallback: extract bullet points as findings
+    const bulletFindings = responseText
+      .split('\n')
+      .filter(line => /^\s*[-*•]\s+/.test(line))
+      .map(line => line.replace(/^\s*[-*•]\s+/, '').trim());
+
+    if (bulletFindings.length > 0) {
+      return {
+        summary: responseText.substring(0, 500),
+        findings: this.sanitizeTextList(bulletFindings, 20),
+        confidence: 0.6,
+        suggestedActions: []
+      };
     }
 
     // Fallback: treat entire response as summary

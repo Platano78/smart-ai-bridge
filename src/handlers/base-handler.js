@@ -112,6 +112,123 @@ class BaseHandler {
   }
 
   /**
+   * Collapse excessive repeated lines while preserving first occurrence order.
+   * Triggers when any line repeats 6+ times. Caps output at 400 lines.
+   * Fixes a real bug where ANY local LLM can get stuck repeating lines
+   * when analyzing structured files (ini, yaml, json).
+   * @param {string} text - Raw LLM output
+   * @returns {string} Compacted output
+   */
+  collapseRepetitiveOutput(text) {
+    if (!text || typeof text !== 'string') return '';
+    const lines = text.split('\n');
+    if (lines.length < 20) return text;
+
+    const normalized = lines.map(l => l.trim().toLowerCase().replace(/\s+/g, ' '));
+    const freq = new Map();
+    for (const line of normalized) {
+      if (!line) continue;
+      freq.set(line, (freq.get(line) || 0) + 1);
+    }
+
+    const maxRepeat = Math.max(0, ...freq.values());
+    if (maxRepeat < 6) return text;
+
+    const seen = new Set();
+    const compact = [];
+    for (const line of lines) {
+      const key = line.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!key) { compact.push(line); continue; }
+      if (seen.has(key)) continue;
+      seen.add(key);
+      compact.push(line);
+      if (compact.length >= 400) break;
+    }
+    compact.push('[Output compacted: repetitive lines removed]');
+    return compact.join('\n');
+  }
+
+  /**
+   * Deduplicate repeated findings/actions and cap list size.
+   * @param {Array} items - Array of string items to deduplicate
+   * @param {number} maxItems - Maximum number of items to return
+   * @returns {string[]} Deduplicated list
+   */
+  sanitizeTextList(items, maxItems) {
+    const unique = [];
+    const seen = new Set();
+    for (const item of items || []) {
+      if (typeof item !== 'string') continue;
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase().replace(/\s+/g, ' ').slice(0, 220);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(trimmed);
+      if (unique.length >= maxItems) break;
+    }
+    return unique;
+  }
+
+  /**
+   * Extract text from any LLM response shape.
+   * Handles: raw strings, content strings, reasoning_content (thinking models),
+   * array content parts (Gemini, Claude), OpenAI choices format,
+   * Gemini candidates format, and generic fallbacks.
+   * @param {*} response - Raw response from any backend
+   * @returns {string} Extracted text content
+   */
+  extractResponseText(response) {
+    if (typeof response === 'string') return response;
+    if (response === null || response === undefined) return '';
+    if (typeof response !== 'object') return String(response);
+
+    const readParts = (parts) => {
+      if (!Array.isArray(parts)) return '';
+      return parts
+        .map(part => typeof part === 'string' ? part : (part?.text || ''))
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+    };
+
+    // Direct content string
+    if (typeof response.content === 'string' && response.content.trim().length > 0) {
+      return response.content;
+    }
+    // Thinking model fallback (reasoning_content)
+    if (typeof response.reasoning_content === 'string' && response.reasoning_content.trim().length > 0) {
+      return response.reasoning_content;
+    }
+    // Array content parts
+    const contentParts = readParts(response.content);
+    if (contentParts.length > 0) return contentParts;
+
+    // OpenAI choices format
+    const choiceContent = response.choices?.[0]?.message?.content;
+    if (typeof choiceContent === 'string' && choiceContent.trim().length > 0) return choiceContent;
+    const choiceReasoning = response.choices?.[0]?.message?.reasoning_content;
+    if (typeof choiceReasoning === 'string' && choiceReasoning.trim().length > 0) return choiceReasoning;
+    const choiceParts = readParts(choiceContent);
+    if (choiceParts.length > 0) return choiceParts;
+
+    // Gemini candidates format
+    const geminiParts = response.candidates?.[0]?.content?.parts;
+    const geminiText = readParts(geminiParts);
+    if (geminiText.length > 0) return geminiText;
+
+    // Legacy completions format (choices[0].text)
+    const choiceText = response.choices?.[0]?.text;
+    if (typeof choiceText === 'string' && choiceText.trim().length > 0) return choiceText;
+
+    // Generic fallbacks
+    if (typeof response.text === 'string' && response.text.trim().length > 0) return response.text;
+    if (typeof response.result === 'string' && response.result.trim().length > 0) return response.result;
+
+    try { return JSON.stringify(response); } catch { return String(response); }
+  }
+
+  /**
    * Execute the handler - must be implemented by subclasses
    * @abstract
    * @param {Object} args - Handler arguments

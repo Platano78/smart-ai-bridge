@@ -19,6 +19,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 
+const REPO_ROOT = path.resolve(new URL('.', import.meta.url).pathname, '..', '..');
+
 export class BatchAnalyzeHandler extends BaseHandler {
 
   constructor(context) {
@@ -43,7 +45,12 @@ export class BatchAnalyzeHandler extends BaseHandler {
   async execute(args) {
     const { filePatterns, question, options = {} } = args;
 
-    if (!filePatterns || filePatterns.length === 0) {
+    // Normalize patterns: accept string or array
+    const normalizedPatterns = Array.isArray(filePatterns)
+      ? filePatterns
+      : (typeof filePatterns === 'string' && filePatterns.trim() ? [filePatterns] : []);
+
+    if (normalizedPatterns.length === 0) {
       throw new Error('filePatterns is required');
     }
     if (!question) {
@@ -62,13 +69,13 @@ export class BatchAnalyzeHandler extends BaseHandler {
 
     try {
       // 1. Expand glob patterns to actual files
-      const files = await this.expandPatterns(filePatterns, maxFiles);
+      const files = await this.expandPatterns(normalizedPatterns, maxFiles);
 
       if (files.length === 0) {
         return this.buildSuccessResponse({
           status: 'no_files',
           message: 'No files matched the provided patterns',
-          patterns: filePatterns
+          patterns: normalizedPatterns
         });
       }
 
@@ -104,9 +111,12 @@ export class BatchAnalyzeHandler extends BaseHandler {
       }
 
       // 2. Analyze each file
-      const results = parallel
+      const rawResults = parallel
         ? await this.analyzeParallel(files, question, { backend: effectiveBackend, analysisType })
         : await this.analyzeSequential(files, question, { backend: effectiveBackend, analysisType });
+
+      // Filter out null/invalid results
+      const results = rawResults.filter(r => r && typeof r === 'object' && (r.filePath || r.error || r.summary));
 
       const processingTime = Date.now() - startTime;
 
@@ -125,14 +135,14 @@ export class BatchAnalyzeHandler extends BaseHandler {
           {
             tool: 'batch_analyze',
             taskType: analysisType,
-            patterns: filePatterns.join(', ')
+            patterns: normalizedPatterns.join(', ')
           }
         );
 
         return this.buildSuccessResponse({
           status: 'completed',
           filesAnalyzed: files.length,
-          patterns: filePatterns,
+          patterns: normalizedPatterns,
           question,
           aggregatedSummary: aggregated.summary,
           aggregatedFindings: aggregated.findings,
@@ -153,7 +163,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
       return this.buildSuccessResponse({
         status: 'completed',
         filesAnalyzed: files.length,
-        patterns: filePatterns,
+        patterns: normalizedPatterns,
         question,
         results,
         processing_time: processingTime
@@ -171,33 +181,64 @@ export class BatchAnalyzeHandler extends BaseHandler {
   async expandPatterns(patterns, maxFiles) {
     const files = new Set();
 
-    for (const pattern of patterns) {
+    for (const rawPattern of patterns) {
+      // Skip non-string entries
+      const pattern = typeof rawPattern === 'string' ? rawPattern : String(rawPattern);
       // Check if it's a direct file path
       if (!pattern.includes('*') && !pattern.includes('?')) {
-        try {
-          const stat = await fs.stat(pattern);
-          if (stat.isFile()) {
-            files.add(path.resolve(pattern));
-          } else if (stat.isDirectory()) {
-            // If directory, get code files in it
-            const dirFiles = await glob(path.join(pattern, '**/*.{js,ts,jsx,tsx,py,go,rs}'), {
-              ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
-            });
-            dirFiles.forEach(f => files.add(path.resolve(f)));
+        let resolved = null;
+
+        // Try path.resolve(pattern) first (cwd-relative), then REPO_ROOT-relative
+        for (const candidate of [path.resolve(pattern), path.resolve(REPO_ROOT, pattern)]) {
+          try {
+            const stat = await fs.stat(candidate);
+            if (stat.isFile()) {
+              resolved = candidate;
+              break;
+            } else if (stat.isDirectory()) {
+              // If directory, get code files in it
+              const dirFiles = await glob(path.join(candidate, '**/*.{js,ts,jsx,tsx,py,go,rs,ini,toml,yaml,yml,json,md}'), {
+                ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
+              });
+              dirFiles.forEach(f => files.add(path.resolve(f)));
+              resolved = 'directory';
+              break;
+            }
+          } catch {
+            // Try next candidate
           }
-        } catch {
-          // Path doesn't exist, skip
+        }
+
+        if (resolved && resolved !== 'directory') {
+          files.add(resolved);
+        } else if (!resolved) {
+          console.error('[BatchAnalyze] \u26a0\ufe0f No matches for pattern: ' + pattern);
         }
         continue;
       }
 
-      // Expand glob pattern
-      const matches = await glob(pattern, {
-        ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
-        nodir: true
+      // Expand glob pattern — try cwd first, then REPO_ROOT
+      let matches = await glob(pattern, {
+        cwd: process.cwd(),
+        absolute: true,
+        nodir: true,
+        ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
       });
 
-      matches.forEach(f => files.add(path.resolve(f)));
+      if (matches.length === 0) {
+        matches = await glob(pattern, {
+          cwd: REPO_ROOT,
+          absolute: true,
+          nodir: true,
+          ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
+        });
+      }
+
+      if (matches.length === 0) {
+        console.error('[BatchAnalyze] \u26a0\ufe0f No matches for pattern: ' + pattern);
+      }
+
+      matches.forEach(f => files.add(f));
 
       if (files.size >= maxFiles) break;
     }

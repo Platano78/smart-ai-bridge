@@ -184,14 +184,24 @@ class HealthMonitor {
 
     const checkInterval = interval || this.options.checkInterval;
     this.intervalId = setInterval(async () => {
+      if (this._checking) return;
+      this._checking = true;
       try {
         await this.checkAll();
       } catch (error) {
         console.error('[HealthMonitor] Check failed:', error.message);
+      } finally {
+        this._checking = false;
       }
     }, checkInterval);
 
-    this.checkAll();
+    // Initial check also guarded against overlap
+    this._checking = true;
+    this.checkAll().catch(err => {
+      console.error('[HealthMonitor] Initial check failed:', err.message);
+    }).finally(() => {
+      this._checking = false;
+    });
   }
 
   stopMonitoring() {

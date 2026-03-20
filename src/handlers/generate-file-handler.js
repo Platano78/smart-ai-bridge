@@ -148,7 +148,7 @@ export class GenerateFileHandler extends BaseHandler {
         });
 
         // Parse the response immediately so we can check structure
-        generated = this.parseGeneratedCode(response.content || response, detectedLanguage);
+        generated = this.parseGeneratedCode(this.extractResponseText(response), detectedLanguage);
 
         // Check for truncation via BOTH finish_reason AND code structure
         const finishReason = response.metadata?.finishReason || response.finish_reason;
@@ -165,7 +165,7 @@ export class GenerateFileHandler extends BaseHandler {
             const dualResult = await this.tryDualModeGeneration(prompt, currentTokens, modelProfile);
             if (dualResult.success && !dualResult.truncated) {
               response = dualResult.response;
-              generated = this.parseGeneratedCode(response.content || response, detectedLanguage);
+              generated = this.parseGeneratedCode(this.extractResponseText(response), detectedLanguage);
               // Re-check structure after dual mode
               wasTruncated = this.detectCodeTruncation(generated.code, spec);
               if (!wasTruncated) {
