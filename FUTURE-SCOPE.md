@@ -2,10 +2,10 @@
 
 ## Project Status
 
-**Current Version:** v2.0.0
+**Current Version:** v2.4.0
 **Architecture:** Modular (61 source files in src/)
 **Status:** Production-Ready
-**Last Updated:** February 2026
+**Last Updated:** March 2026
 
 ---
 

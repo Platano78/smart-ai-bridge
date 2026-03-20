@@ -34,6 +34,32 @@ GEMINI_API_KEY="YOUR-GEMINI-KEY-HERE"
 - Fast responses
 - Good for analysis tasks
 
+### OpenAI (Optional)
+
+Sign up at: https://platform.openai.com/api-keys
+
+```bash
+OPENAI_API_KEY="YOUR-OPENAI-KEY-HERE"
+```
+
+**Features**:
+- GPT-4o and GPT-5 model access
+- 128K token context
+- Best for complex reasoning tasks
+
+### Groq (Optional)
+
+Sign up at: https://console.groq.com/keys
+
+```bash
+GROQ_API_KEY="YOUR-GROQ-KEY-HERE"
+```
+
+**Features**:
+- Ultra-fast inference (500+ tokens/sec)
+- Llama 3.3 70B model
+- Free tier available
+
 ## 🔧 Configuration Methods
 
 ### Method 1: Environment File (.env)
@@ -46,6 +72,8 @@ NVIDIA_API_KEY=nvapi-YOUR-KEY-HERE
 
 # Optional
 GEMINI_API_KEY=YOUR-GEMINI-KEY-HERE
+OPENAI_API_KEY=YOUR-OPENAI-KEY-HERE
+GROQ_API_KEY=YOUR-GROQ-KEY-HERE
 
 # Server configuration
 NODE_ENV=production
@@ -65,10 +93,12 @@ Edit your Claude Desktop config file:
   "mcpServers": {
     "smart-ai-bridge": {
       "command": "node",
-      "args": ["/path/to/smart-ai-bridge/smart-ai-bridge.js"],
+      "args": ["/path/to/smart-ai-bridge/src/server.js"],
       "env": {
         "NVIDIA_API_KEY": "nvapi-YOUR-KEY-HERE",
         "GEMINI_API_KEY": "YOUR-GEMINI-KEY-HERE",
+        "OPENAI_API_KEY": "YOUR-OPENAI-KEY-HERE",
+        "GROQ_API_KEY": "YOUR-GROQ-KEY-HERE",
         "NODE_ENV": "production",
         "MCP_SERVER_MODE": "true"
       }
@@ -76,6 +106,10 @@ Edit your Claude Desktop config file:
   }
 }
 ```
+
+### Method 4: Web Dashboard
+
+Start the server with `SAB_DASHBOARD=true` and use the web UI at `http://localhost:3000` to add and configure backends without editing files. API keys set via environment variables are automatically used by backends added through the dashboard.
 
 ### Method 3: System Environment Variables
 

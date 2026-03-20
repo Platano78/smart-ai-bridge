@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.0.0 - Extension Guide
+# Smart AI Bridge v2.4.0 - Extension Guide
 
 ## Adding New Backends
 

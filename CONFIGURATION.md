@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.0.0 - Configuration Guide
+# Smart AI Bridge v2.4.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -8,8 +8,8 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 
 ```json
 {
-  "version": "2.0.0",
-  "description": "Smart AI Bridge v2.0.0 Backend Configuration",
+  "version": "2.4.0",
+  "description": "Smart AI Bridge v2.4.0 Backend Configuration",
   "backends": {
     "local": {
       "type": "local",

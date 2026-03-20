@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.0.0 - Usage Examples
+# Smart AI Bridge v2.4.0 - Usage Examples
 
 ## Token-Saving File Operations
 

@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.3.0
+# Smart AI Bridge v2.4.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -118,6 +118,10 @@ The router selects backends using a 4-tier priority system:
 
 When a backend fails, requests automatically fall to the next healthy backend. Circuit breakers protect each backend (5 consecutive failures trigger a 30-second cooldown).
 
+### Response Reliability (v2.4.0)
+
+All handlers use a unified response pipeline (`extractResponseText`) that correctly handles every known LLM response shape -- raw strings, OpenAI chat/completion formats, thinking model `reasoning_content`, array content parts, and Gemini candidates. Repetitive output from local models is automatically collapsed, and analysis findings are deduplicated and capped.
+
 ## Council System
 
 The council queries multiple backends on the same prompt and returns all responses for Claude to synthesize. Topics like `coding`, `architecture`, and `security` each map to a set of backends and a strategy (parallel, sequential, debate, or fallback).
@@ -132,7 +136,9 @@ See [docs/DASHBOARD.md](docs/DASHBOARD.md) for setup and API reference.
 
 ## Adding a Backend
 
-Any OpenAI-compatible provider can be added as a config entry in `src/config/backends.json`:
+**Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3000` to add, remove, enable/disable, and re-prioritize backends without editing JSON.
+
+**Via Config File**: Any OpenAI-compatible provider can be added as a config entry in `src/config/backends.json`:
 
 ```json
 {

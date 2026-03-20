@@ -5,6 +5,32 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-03-20
+
+### Added
+- **`extractResponseText()`** in base-handler.js — universal response pipeline handling all LLM response shapes (raw strings, OpenAI chat/completions, thinking model `reasoning_content`, array content parts, Gemini candidates, legacy `choices[0].text`)
+- **`collapseRepetitiveOutput()`** in base-handler.js — detects and collapses lines repeated 6+ times (any LLM)
+- **`sanitizeTextList()`** in base-handler.js — deduplicates findings/actions with configurable caps
+- **`complexity-scorer.js`** — pure-logic module scoring prompt complexity 0.0–1.0 (model-agnostic)
+- Backend alias normalization in explore-handler (`deepseek`, `qwen3`, `groq` resolve to internal names)
+- Null backend guard in ask-handler (falls back to `local` when routing returns null)
+- Health check overlap guard prevents concurrent `checkAll()` runs
+
+### Changed
+- All 9 tool handlers migrated from `response.content || response` to `this.extractResponseText(response)`
+- `batch_analyze`: accepts string or array for `filePatterns`, multi-root glob resolution (cwd + repo root), extended file types (.ini, .toml, .yaml, .yml, .json, .md), result filtering
+- `parseAnalysisResponse()` now includes type coercion, sanitizeTextList for findings/actions, bullet-point fallback parser
+
+### Fixed
+- Timer leak in dual-iterate-executor (`clearTimeout` in `finally` block)
+- Silent catch blocks in model-discovery now log to `console.debug`
+- Non-string array elements in batch-analyze patterns no longer crash
+
+### Stats
+- 13 files changed, 357 insertions, 64 deletions
+- 1 new file (`complexity-scorer.js`)
+- Zero new dependencies
+
 ## [2.3.0] - 2026-03-07
 
 ### Removed

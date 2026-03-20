@@ -1,8 +1,8 @@
-# Smart AI Bridge v2.0.0 - Troubleshooting Guide
+# Smart AI Bridge v2.4.0 - Troubleshooting Guide
 
 ## Overview
 
-This guide covers common issues when running Smart AI Bridge v2.0.0, the modular MCP server with 20 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
+This guide covers common issues when running Smart AI Bridge v2.0.0, the modular MCP server with 19 tools, 7 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
