@@ -53,26 +53,27 @@ Migrate the entire src/ codebase from JavaScript to TypeScript.
 
 The current learning engine (src/intelligence/learning-engine.js) and pattern RAG store are in-memory only. Data is lost on server restart.
 
-- Add SQLite or JSON-file persistence for routing decisions, pattern scores, and compound learning data
+- ~~Add SQLite or JSON-file persistence for routing decisions, pattern scores, and compound learning data~~ **Done in v2.4.0** — PatternRAGStore auto-saves to `data/patterns.json`
 - Implement import/export for learning data (backup, transfer between environments)
 - Add decay/pruning for stale patterns
 - Track per-backend success rates over time with persistent counters
 
-**Effort:** 1-2 weeks
+**Effort:** ~~1-2 weeks~~ Core persistence done; remaining items ~1 week
 **Impact:** Routing intelligence survives restarts and accumulates across sessions
 
 #### 3. Test Coverage Expansion
 
 Current test infrastructure is minimal (validate-hybrid-server.js, feature tests).
 
-- Add unit tests for every handler class (18 handlers)
+- ~~Add unit tests for every handler class (18 handlers)~~ **Started in v2.4.0** — 35 tests covering BaseHandler, ModifyFileHandler, and complexity scorer
 - Add integration tests for each backend adapter with mock responses
 - Add router tests covering all 4 tiers (forced, learning, rules, fallback)
 - Add intelligence layer tests (learning engine, diff-context optimizer, self-review)
+- ~~Performance benchmarks~~ **Done in v2.4.0** — 25 benchmarks across 6 categories (`npm run test:bench`)
 - Target 80%+ line coverage
 - Integrate with CI (GitHub Actions or similar)
 
-**Effort:** 2-3 weeks
+**Effort:** ~~2-3 weeks~~ Foundation laid; remaining coverage ~2 weeks
 **Impact:** Enables confident refactoring and feature development
 
 #### 4. Streaming Responses

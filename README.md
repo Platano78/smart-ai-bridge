@@ -172,6 +172,14 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 - At least one backend configured (local model or cloud API key)
 - Claude Code or Claude Desktop for MCP integration
 
+## Testing
+
+```bash
+npm test              # Run 35 unit tests (Vitest)
+npm run test:watch    # Watch mode
+npm run test:bench    # Performance benchmarks (25 benchmarks, 6 categories)
+```
+
 ## Security Notes
 
 - Never commit API keys to version control. Use environment variables exclusively.

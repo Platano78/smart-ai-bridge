@@ -26,10 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Silent catch blocks in model-discovery now log to `console.debug`
 - Non-string array elements in batch-analyze patterns no longer crash
 
+### Added (post-release)
+- **Persistent learning** — PatternRAGStore auto-saves to `data/patterns.json` after `addPattern()` and `incrementSuccess()`; patterns survive server restarts
+- **Vitest test suite** — 35 tests across 3 files (base-handler, complexity-scorer, modify-handler); `npm test` runs Vitest
+- **Performance benchmarks** — 25 benchmarks across 6 categories; `npm run test:bench`
+
 ### Stats
-- 13 files changed, 357 insertions, 64 deletions
-- 1 new file (`complexity-scorer.js`)
-- Zero new dependencies
+- 21 files changed, 834 insertions, 65 deletions
+- 6 new files (`complexity-scorer.js`, `vitest.config.js`, 3 test files, benchmark)
+- 1 new devDependency (`vitest`)
 
 ## [2.3.0] - 2026-03-07
 
