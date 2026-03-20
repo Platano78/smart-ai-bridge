@@ -7,10 +7,14 @@
   "scripts": {
     "start": "node src/server.js",
     "start:legacy": "node smart-ai-bridge-v1.1.0.js",
-    "test": "node scripts/validate-hybrid-server.js",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:legacy": "node scripts/validate-hybrid-server.js",
     "test:features": "node run-comprehensive-feature-tests.js",
     "test:conversation": "node test-conversation-threading.js",
     "test:analytics": "node test-usage-analytics.js",
+    "test:bench": "node tests/benchmark.js",
     "audit": "npm audit",
     "audit:fix": "npm audit fix"
   },
@@ -48,5 +52,8 @@
   "repository": {
     "type": "git",
     "url": ""
+  },
+  "devDependencies": {
+    "vitest": "^4.1.0"
   }
 }

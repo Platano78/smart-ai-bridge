@@ -175,6 +175,8 @@ class PatternRAGStore {
     if (this.initialized) return;
     await this.load();
     this.initialized = true;
+    console.error(`[PatternRAGStore] Loaded ${this.patterns.length} patterns from ${this.storagePath}`);
+    return this;
   }
 
   /**
@@ -216,6 +218,9 @@ class PatternRAGStore {
     };
 
     this.patterns.push(newPattern);
+
+    // Persist new pattern
+    this.save().catch(err => console.error('[PatternRAGStore] Save failed:', err.message));
 
     // Evict oldest low-success patterns when cap exceeded
     if (this.patterns.length > this.maxPatterns) {
@@ -278,6 +283,7 @@ class PatternRAGStore {
     if (pattern) {
       pattern.metadata.successCount += 1;
       pattern.metadata.lastUsed = Date.now();
+      this.save().catch(err => console.error('[PatternRAGStore] Save failed:', err.message));
       return true;
     }
     return false;

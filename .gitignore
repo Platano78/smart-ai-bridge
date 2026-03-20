@@ -71,6 +71,7 @@ ATOMIC-TASK-*.md
 MKG-SERENA-*.md
 PHASE*.md
 SESSION-*.md
+MIGRATION-PROMPT.md
 
 # WSL/Docker specific
 dev_context_storage/
