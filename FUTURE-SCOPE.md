@@ -51,7 +51,7 @@ Migrate the entire src/ codebase from JavaScript to TypeScript.
 
 #### 2. Persistent Learning Engine
 
-The current learning engine (src/intelligence/learning-engine.js) and pattern RAG store are in-memory only. Data is lost on server restart.
+The learning engine (src/intelligence/learning-engine.js) and pattern RAG store now persist to disk (v2.4.0). Remaining work focuses on import/export, decay, and per-backend tracking.
 
 - ~~Add SQLite or JSON-file persistence for routing decisions, pattern scores, and compound learning data~~ **Done in v2.4.0** — PatternRAGStore auto-saves to `data/patterns.json`
 - Implement import/export for learning data (backup, transfer between environments)
@@ -63,7 +63,7 @@ The current learning engine (src/intelligence/learning-engine.js) and pattern RA
 
 #### 3. Test Coverage Expansion
 
-Current test infrastructure is minimal (validate-hybrid-server.js, feature tests).
+Test infrastructure established in v2.4.0 with Vitest (35 tests, 25 benchmarks). Needs expansion to full coverage.
 
 - ~~Add unit tests for every handler class (18 handlers)~~ **Started in v2.4.0** — 35 tests covering BaseHandler, ModifyFileHandler, and complexity scorer
 - Add integration tests for each backend adapter with mock responses
