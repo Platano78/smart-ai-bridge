@@ -1,0 +1,11 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "smart-ai-bridge",
+  "description": "MCP server for Claude Code that orchestrates multiple AI backends (local and cloud) with intelligent routing, token-saving file operations, council-driven multi-AI workflows, and a config-driven backend system that accepts any OpenAI-compatible provider.",
+  "repository": "https://github.com/Platano78/smart-ai-bridge",
+  "homepage": "https://glama.ai/mcp/servers/Platano78/Smart-AI-Bridge",
+  "license": "Apache-2.0",
+  "runtime": "node",
+  "transport": ["stdio"],
+  "maintainers": ["Platano78"]
+}

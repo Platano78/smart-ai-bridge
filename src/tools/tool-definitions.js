@@ -39,58 +39,79 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'write_files_atomic',
-    description: 'Write multiple files atomically with backup - Enterprise-grade file modification with safety mechanisms',
+    description: 'Write a batch of files in a single atomic operation with automatic backup. All files succeed or all roll back on any failure. Use this when several file writes must land together (config changes across modules, multi-file generation output). For natural-language edits to a single file, use `modify_file` instead. For appending to a log or accumulator file, use the `append` operation here. Each overwrite produces a `<path>.backup.<timestamp>` file when create_backup is true (default).',
     handler: 'handleWriteFilesAtomic',
     schema: {
       type: 'object',
       properties: {
         file_operations: {
           type: 'array',
+          description: 'Array of write operations to apply atomically. If any operation fails, all previously written files are restored from their backups.',
           items: {
             type: 'object',
             properties: {
-              path: { type: 'string' },
-              content: { type: 'string' },
+              path: {
+                type: 'string',
+                description: 'Absolute or relative file path. Parent directories are auto-created if missing.'
+              },
+              content: {
+                type: 'string',
+                description: "Full file content (for operation 'write') or content to append (for operation 'append')."
+              },
               operation: {
                 type: 'string',
-                enum: ['write', 'append', 'modify'],
-                default: 'write'
+                enum: ['write', 'append'],
+                default: 'write',
+                description: "'write' overwrites the file with content; 'append' adds content to the end. The legacy 'modify' value is no longer accepted — use the `modify_file` tool for search/replace edits."
               }
             },
             required: ['path', 'content']
           }
         },
-        create_backup: { type: 'boolean', default: true }
+        create_backup: {
+          type: 'boolean',
+          default: true,
+          description: 'When true, each file that would be overwritten is first copied to `<path>.backup.<timestamp>`. Set false only when you know the prior content is recoverable from version control.'
+        }
       },
       required: ['file_operations']
     }
   },
   {
     name: 'backup_restore',
-    description: 'Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
+    description: "Manage the timestamped backup files produced by `modify_file` and `write_files_atomic`. Four actions: `create` (manually snapshot a file before a risky native edit), `list` (enumerate known backups, optionally filtered to one file), `restore` (overwrite a file with a specific backup_id), `cleanup` (delete old backups per the policy in cleanup_options). The cleanup policy applies BOTH thresholds — a backup is deleted only when it exceeds max_age_days OR when its file already has more than max_count_per_file newer backups. Use dry_run to preview before applying.",
     handler: 'handleBackupRestore',
     schema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['create', 'restore', 'list', 'cleanup']
+          enum: ['create', 'restore', 'list', 'cleanup'],
+          description: 'Required. Operation to perform on the backup store.'
         },
-        file_path: { type: 'string' },
-        backup_id: { type: 'string' },
+        file_path: {
+          type: 'string',
+          description: "For `create`: file to snapshot (required). For `list`: optional filter to one file. Ignored for `restore` (use backup_id) and `cleanup` (operates on the whole store)."
+        },
+        backup_id: {
+          type: 'string',
+          description: "Identifier of the backup to restore (timestamp from `<path>.backup.<timestamp>`). Required for `restore`, ignored for other actions."
+        },
         metadata: {
           type: 'object',
+          description: 'Optional tags and description attached to a `create` snapshot for later identification via `list`.',
           properties: {
-            description: { type: 'string' },
-            tags: { type: 'array', items: { type: 'string' } }
+            description: { type: 'string', description: 'Human-readable note attached to this backup.' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'String labels for filtering in `list`.' }
           }
         },
         cleanup_options: {
           type: 'object',
+          description: 'Policy controls for the `cleanup` action. Ignored by other actions.',
           properties: {
-            max_age_days: { type: 'number', default: 30 },
-            max_count_per_file: { type: 'number', default: 10 },
-            dry_run: { type: 'boolean', default: false }
+            max_age_days: { type: 'number', default: 30, description: 'Backups older than this many days are eligible for deletion.' },
+            max_count_per_file: { type: 'number', default: 10, description: 'When a file has more than this many backups, the oldest extras are deleted.' },
+            dry_run: { type: 'boolean', default: false, description: 'When true, report what would be deleted without actually removing files.' }
           }
         }
       },
@@ -146,7 +167,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'manage_conversation',
-    description: 'Manage conversation threading across sessions. Start new conversations, continue existing ones, search conversation history, or get analytics.',
+    description: "Manage long-running conversation threads across sessions. The conversation state machine: call `start` (topic is recommended but not required — used for search/grouping) to receive a thread_id + continuation_id; pass `continuation_id` on each follow-up turn with `continue` to extend the thread; use `resume` with a stored thread_id to pick up an old thread from any session. `history` returns the messages in one thread; `search` queries across all stored conversations by free-text query; `analytics` reports per-thread/per-user usage stats. Each action requires only the parameters listed in its description below — extra fields are ignored.",
     handler: 'handleManageConversation',
     schema: {
       type: 'object',
