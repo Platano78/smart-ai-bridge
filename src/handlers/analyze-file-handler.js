@@ -14,6 +14,14 @@
 import { BaseHandler } from './base-handler.js';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { parseLLMJSON } from '../utils/llm-json-parser.js';
+
+const ANALYZE_FIELD_SPECS = {
+  summary: 'string',
+  findings: 'array',
+  confidence: 'number',
+  suggestedActions: 'array'
+};
 
 export class AnalyzeFileHandler extends BaseHandler {
 
@@ -66,6 +74,10 @@ export class AnalyzeFileHandler extends BaseHandler {
       const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
       const content = await this.safeReadFile(absolutePath);
       const fileStats = await fs.stat(absolutePath);
+
+      // 2. Verbatim line request detection — skip LLM, extract directly
+      const verbatimResult = this.tryVerbatimExtraction(question, content, absolutePath, fileStats, startTime);
+      if (verbatimResult) return verbatimResult;
 
       // 2. Read context files if provided
       const contextContents = await this.gatherContextFiles(includeContext);
@@ -142,7 +154,9 @@ export class AnalyzeFileHandler extends BaseHandler {
       const response = await this.makeRequest(prompt, selectedBackend, {
         maxTokens: allocatedTokens,
         routerModel: modelProfile,  // Pass model profile for llama-swap router
-        timeout: timeoutMs
+        timeout: timeoutMs,
+        disableThinking: true  // Suppress qwen3/reasoning-default thinking that
+                               // burns the token budget and never closes </think>
       });
 
       const processingTime = Date.now() - startTime;
@@ -262,45 +276,44 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
    * Parse the LLM response into structured format
    */
   parseAnalysisResponse(responseText) {
-    // Type coercion guard
     if (typeof responseText !== 'string') {
       responseText = responseText == null ? '' : String(responseText);
     }
 
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          summary: parsed.summary || 'Analysis complete',
-          findings: this.sanitizeTextList(Array.isArray(parsed.findings) ? parsed.findings : [], 20),
-          confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.75,
-          suggestedActions: this.sanitizeTextList(Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions : [], 10)
-        };
-      }
-    } catch (error) {
-      console.error(`[AnalyzeFile] Could not parse JSON response, using fallback`);
+    // Stage 1: robust JSON extraction — handles <think> tags, markdown fences,
+    // truncated/unclosed reasoning blocks, field-level recovery on partial JSON.
+    const parsed = parseLLMJSON(responseText, ANALYZE_FIELD_SPECS);
+    if (parsed) {
+      return {
+        summary: parsed.summary || 'Analysis complete',
+        findings: this.sanitizeTextList(Array.isArray(parsed.findings) ? parsed.findings : [], 20),
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.75,
+        suggestedActions: this.sanitizeTextList(Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions : [], 10)
+      };
     }
 
-    // Fallback: extract bullet points as findings
-    const bulletFindings = responseText
+    console.error(`[AnalyzeFile] Could not parse JSON response, using prose fallback`);
+
+    // Strip <think>...</think> from prose path too so bullet-finding works on
+    // reasoning models that wrote analysis after their thinking block.
+    const proseText = responseText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || responseText;
+
+    const bulletFindings = proseText
       .split('\n')
       .filter(line => /^\s*[-*•]\s+/.test(line))
       .map(line => line.replace(/^\s*[-*•]\s+/, '').trim());
 
     if (bulletFindings.length > 0) {
       return {
-        summary: responseText.substring(0, 500),
+        summary: proseText.substring(0, 500),
         findings: this.sanitizeTextList(bulletFindings, 20),
         confidence: 0.6,
         suggestedActions: []
       };
     }
 
-    // Fallback: treat entire response as summary
     return {
-      summary: responseText.substring(0, 500),
+      summary: proseText.substring(0, 500),
       findings: [],
       confidence: 0.5,
       suggestedActions: []
@@ -395,6 +408,30 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     console.error(`[AnalyzeFile] 🎟️ Token limit for ${backendName}: ${limit} (fixed backend limit)`);
     
     return limit;
+  }
+
+  /**
+   * Detect line range requests and extract directly — no LLM needed.
+   */
+  tryVerbatimExtraction(question, content, absolutePath, fileStats, startTime) {
+    // Match: "lines 437-490", "lines 1 to 60", "lines 437 through 490", "lines 437–490 verbatim"
+    const rangeMatch = question.match(/lines?\s+(\d+)\s*(?:[-–—]|to|through)\s*(\d+)/i);
+    // Match: "line 42", "what's on line 42", "at line 360"
+    const singleMatch = !rangeMatch && question.match(/(?:at\s+)?lines?(\d+)(?!\s*[-–—to])/i);
+    // Skip if question is analysis-oriented despite having line refs
+    if (/(?:explain|how\s+does|why\s+does|what\s+does\s+\w+\s+do|purpose|walk.*through)/i.test(question)) return null;
+    const match = rangeMatch || singleMatch;
+    if (!match) return null;
+    const start = parseInt(match[1], 10), end = match[2] ? parseInt(match[2], 10) : Math.min(start + 20, content.split('\n').length);
+    const lines = content.split('\n');
+    const extracted = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`).join('\n');
+    return this.buildSuccessResponse({
+      filePath: absolutePath, fileSize: fileStats.size, lineCount: lines.length,
+      language: this.detectLanguage(absolutePath), analysisType: 'verbatim', question,
+      summary: extracted, findings: [`Extracted lines ${start}-${end} (${end - start + 1} lines)`],
+      confidence: 1.0, suggestedActions: [], backend_used: 'direct_extraction',
+      processing_time: Date.now() - startTime, tokens_saved: this.estimateTokensSaved(content.length)
+    });
   }
 }
 

@@ -437,12 +437,16 @@ export class ModifyFileHandler extends BaseHandler {
         });
       }
 
-      // Auto-write mode (review=false)
-      // Create backup if enabled
+      // Auto-write mode (review=false): write directly without human review.
+      // SAB respects the caller's `backup` flag (default true). MKG forces it;
+      // we don't — but we DO warn loudly when both safety nets are off, since
+      // there is no recovery path if the modification turns out wrong.
       if (backup) {
         const backupPath = `${absolutePath}.backup.${Date.now()}`;
         await fs.writeFile(backupPath, originalContent, 'utf8');
         console.error(`[ModifyFile] 💾 Backup created: ${backupPath}`);
+      } else {
+        console.error(`[ModifyFile] ⚠️  WARNING: auto-write (review:false) with backup:false — destructive, no recovery if the edit is wrong`);
       }
 
       // Write the modified file

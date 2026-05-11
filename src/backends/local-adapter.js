@@ -432,6 +432,16 @@ class LocalAdapter extends BackendAdapter {
       stream: false
     };
 
+    // Opt-in: suppress reasoning/thinking emission for qwen3-family + similar
+    // models whose chat template defaults thinking=true. Without this, max_tokens
+    // can land mid-<think>, the closing tag never arrives, and the parser sees
+    // raw reasoning prose instead of a structured answer.
+    if (options.disableThinking) {
+      if (!body.chat_template_kwargs) body.chat_template_kwargs = {};
+      body.chat_template_kwargs.enable_thinking = false;
+      body.reasoning_format = 'none';
+    }
+
     const timeout = options.timeout
       || (requestedTokens > 4000 ? this.calculateDynamicTimeout(requestedTokens) : this.config.timeout);
 
