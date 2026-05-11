@@ -181,7 +181,9 @@ MCP_LOG_LEVEL=info                     # silent | error | warn | info | debug
 LOCAL_MODEL_ENDPOINT=http://localhost:8081/v1
 
 # Local model port (for auto-discovery)
-MKG_SERVER_PORT=8081
+# Note: this is documentation-only; the active port is read from
+# src/config/backends.json (default http://localhost:8081).
+LOCAL_SERVER_PORT=8081
 ```
 
 ### API Key References in backends.json

@@ -27,7 +27,7 @@ This document consolidates all external validation sources used to verify the se
 
 ---
 
-### 2. MKG Security-Auditor Subagent
+### 2. AI Security-Auditor Subagent
 
 **Agent Type**: Specialized Security Auditor  
 **Backend**: NVIDIA DeepSeek (deepseek3.1)  
@@ -127,7 +127,7 @@ This document consolidates all external validation sources used to verify the se
 - Community-maintained (100+ contributors)
 - No affiliation with Smart AI Bridge project
 
-### MKG Security-Auditor
+### AI Security-Auditor
 - AI-powered independent analysis
 - Backend: NVIDIA DeepSeek (external service)
 - No training on Smart AI Bridge codebase

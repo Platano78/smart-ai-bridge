@@ -45,7 +45,7 @@ Smart AI Bridge implements controls across all four functions.
 // config/role-templates.js - Security-auditor subagent
 'security-auditor': {
   description: 'Security vulnerability detection specialist',
-  tools: ['mkg:read', 'mkg:review', 'mcp__serena__*'],
+  tools: ['local:read', 'local:review', 'mcp__serena__*'],
   capabilities: ['vulnerability detection', 'security analysis']
 }
 ```

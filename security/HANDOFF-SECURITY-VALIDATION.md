@@ -139,13 +139,12 @@ node validate-security-score.js
 
 ## Token Efficiency Note
 
-**Issue**: This session used native Read/Write tools instead of MKG tools.
+**Issue**: This session used native Read/Write tools instead of MCP-based file tools.
 
 **Recommendation for continuation**:
-- Use `mcp__mecha-king-ghidorah-global__read` instead of native Read
-- Use `mcp__mecha-king-ghidorah-global__write_files_atomic` instead of native Write
-- Use `mcp__mecha-king-ghidorah-global__ask model=qwen3` for document generation
-- Use `mcp__mecha-king-ghidorah-global__spawn_subagent role='security-auditor'` for Phase 5
+- Use the project's MCP read/write/analyze tools instead of native filesystem calls
+- Offload document generation and audit work to the local LLM layer where possible
+- Spawn a `security-auditor` role via `spawn_subagent` for the next audit phase
 
 ---
 
@@ -166,7 +165,7 @@ STATUS:
 Read security/HANDOFF-SECURITY-VALIDATION.md for full context.
 
 Complete Phases 3-5 using:
-- mcp__mecha-king-ghidorah-global tools for token efficiency
+- The project's MCP read/write/analyze tools for token efficiency
 - spawn_subagent role='security-auditor' for external validation
 - Context7 for security best practices
 

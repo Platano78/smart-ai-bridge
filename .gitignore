@@ -69,6 +69,7 @@ public-repo/
 # Documentation drafts
 ATOMIC-TASK-*.md
 MKG-SERENA-*.md
+PORT-FROM-*.md
 PHASE*.md
 SESSION-*.md
 MIGRATION-PROMPT.md

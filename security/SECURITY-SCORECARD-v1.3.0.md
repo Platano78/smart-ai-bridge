@@ -132,7 +132,7 @@ D        Priority: Critical/Critical (1) > Critical/High (2) > High/High (5)
 
 ## External Audit Findings
 
-**Auditor**: MKG Security-Auditor Subagent  
+**Auditor**: AI Security-Auditor Subagent  
 **Date**: December 9, 2025
 
 ### Vulnerabilities Identified

@@ -328,7 +328,7 @@ The following modules were removed as unnecessary for stdio MCP servers (Claude 
 - **Coding Backend**: Generates code (e.g., Seed-Coder)
 - **Reasoning Backend**: Reviews and validates (e.g., DeepSeek-R1)
 - **Quality Threshold**: Iterates until quality score met (0.5-1.0)
-- **Token Savings**: Entire workflow runs in MKG, returns only final code
+- **Token Savings**: Entire workflow runs locally, returns only final code
 
 #### Parallel Agents (TDD Workflow)
 - **Decomposition**: Breaks high-level tasks into atomic subtasks
@@ -365,7 +365,7 @@ Tools that offload work to local LLMs, providing massive token savings:
 
 #### Workflow
 ```
-Claude -> NL instructions -> MKG -> Local LLM -> diff -> Claude reviews -> approve/reject
+Claude -> NL instructions -> SAB -> Local LLM -> diff -> Claude reviews -> approve/reject
 ```
 
 - Claude sends only instructions (not file content)

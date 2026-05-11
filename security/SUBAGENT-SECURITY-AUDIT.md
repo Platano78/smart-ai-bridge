@@ -1,6 +1,6 @@
 # External Security Audit Report
 
-**Auditor**: MKG Security-Auditor Subagent (NVIDIA DeepSeek Backend)  
+**Auditor**: AI Security-Auditor Subagent (NVIDIA DeepSeek Backend)  
 **Audit Date**: December 9, 2025  
 **Target**: Smart AI Bridge v1.3.0  
 **Files Analyzed**: 28
@@ -269,7 +269,7 @@ Smart AI Bridge v1.3.0 demonstrates solid security fundamentals with room for en
 
 ## Auditor Information
 
-- **Agent Type**: MKG Security-Auditor Subagent
+- **Agent Type**: AI Security-Auditor Subagent
 - **Backend**: NVIDIA DeepSeek (deepseek3.1)
 - **Processing Time**: 17.1 seconds
 - **Files Analyzed**: 28
