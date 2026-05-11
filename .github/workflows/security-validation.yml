@@ -7,9 +7,10 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - '*.js'
+      - '**/*.js'
       - 'security/**'
       - 'package*.json'
+      - '.github/workflows/security-validation.yml'
   pull_request:
     branches: [main]
   schedule:
