@@ -20,7 +20,7 @@
 const CORE_TOOL_DEFINITIONS = [
   {
     name: 'review',
-    description: 'Comprehensive code review - Security audit, performance analysis, best practices validation. Multi-file correlation analysis. Automated quality scoring and improvement suggestions.',
+    description: "Review a code blob you already have in context and return structured findings + a quality score + improvement suggestions. Pass the code itself in `content`; this tool does not read any file from disk. Use when Claude already has the code in hand. For a review of a file Claude has NOT seen (so the file content stays out of context, ~90% token savings), use `analyze_file` with analysisType:'security' instead. For multiple AI perspectives on the same code, use `council`.",
     handler: 'handleReview',
     schema: {
       type: 'object',
@@ -120,7 +120,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'ask',
-    description: 'MULTI-AI Direct Query - Ask any backend with smart fallback chains. Features automatic Unity detection, dynamic token scaling, and response headers with backend tracking.',
+    description: "Send one prompt to one AI backend and return the response. `model:'auto'` lets SAB's router pick the best backend by task complexity + current health; passing a specific model name forces that provider. Use this for direct LLM queries that don't fit a more specialized tool. For multi-backend consensus on the same prompt, use `council`. For agentic multi-step work with a defined role, use `spawn_subagent`. For LLM-driven file generation or editing, use `generate_file` / `modify_file` so the file content stays out of Claude's context window.",
     handler: 'handleAsk',
     schema: {
       type: 'object',
@@ -212,7 +212,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'get_analytics',
-    description: 'Get usage analytics, performance metrics, cost analysis, and optimization recommendations. View current session stats, historical data, backend performance, and detailed reports.',
+    description: "Inspect SAB's internal telemetry: backend invocation counts, success/failure rates, latency distributions, estimated token spend per provider, and recent routing decisions. Read-only — never calls an LLM. Use to diagnose 'why did SAB pick backend X', tune routing rules, or understand cost trade-offs across providers. Report types are cumulative: `full_report` includes everything from the other types.",
     handler: 'handleGetAnalytics',
     schema: {
       type: 'object',
@@ -220,24 +220,24 @@ const CORE_TOOL_DEFINITIONS = [
         report_type: {
           type: 'string',
           enum: ['current', 'historical', 'cost', 'recommendations', 'full_report'],
-          description: 'Type of analytics to retrieve: current (session stats), historical (time-series data), cost (cost analysis), recommendations (optimization tips), full_report (comprehensive report)'
+          description: '`current` = stats since this server started (invocation counts, success rate, p50/p95 latency per backend). `historical` = time-bucketed series over `time_range`. `cost` = estimated token spend per backend, with cost-per-1K-tokens projections. `recommendations` = SAB heuristics on backend selection (e.g. "switch coding tasks to qwen3 — 18% faster on your traces"). `full_report` = all of the above.'
         },
         time_range: {
           type: 'string',
           enum: ['1h', '24h', '7d', '30d'],
-          description: 'Time range for historical data (default: 7d)'
+          description: 'Lookback window for `historical` and `cost` reports. Ignored for `current` and `recommendations`. Default: 7d.'
         },
         format: {
           type: 'string',
           enum: ['json', 'markdown'],
-          description: 'Output format for reports (default: json)'
+          description: '`json` = machine-readable nested object. `markdown` = human-readable summary with tables. Default: json.'
         }
       }
     }
   },
   {
     name: 'check_backend_health',
-    description: 'Manual backend health check - On-demand health diagnostics for specific backend with 5-minute result caching. Only runs when explicitly requested.',
+    description: "On-demand ping of one backend's API endpoint to verify reachability and capture latency. Results are cached for 5 minutes; pass `force:true` to bypass the cache. SAB already runs periodic auto-health checks in the background, so most callers don't need this — reach for it when troubleshooting a routing decision that failed unexpectedly or before kicking off a long batch call against a particular backend.",
     handler: 'handleCheckBackendHealth',
     schema: {
       type: 'object',
@@ -257,7 +257,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'spawn_subagent',
-    description: 'Spawn specialized AI subagent - Create subagents with predefined roles (code-reviewer, security-auditor, planner, refactor-specialist, test-generator, documentation-writer). Each role has customized prompts, tools, and behavior for specific tasks.',
+    description: 'Spawn one AI agent with a predefined role + system prompt and run it to completion on a single task. The agent runs once and returns its verdict; there is no memory between calls. Use when the work fits a clear role (security audit on one module, generate tests for one function, write docs for one API). For multi-agent TDD parallelism with quality gates, use `parallel_agents`. For multi-backend consensus on a question, use `council`. Pass file paths and acceptance criteria in `task` — the agent has no other context.',
     handler: 'handleSpawnSubagent',
     schema: {
       type: 'object',
@@ -284,16 +284,16 @@ const CORE_TOOL_DEFINITIONS = [
           type: 'string',
           enum: ['summary', 'full'],
           default: 'summary',
-          description: 'Verdict parsing mode: summary (extract key fields only) or full (return complete verdict data)'
+          description: '`summary` returns the agent\'s key findings + recommended actions only (faster, less for Claude to read). `full` returns the agent\'s complete structured verdict including reasoning trace.'
         },
         write_files: {
           type: 'boolean',
           default: false,
-          description: 'Write generated code blocks to files (default: false). Set to true to save output code to work_directory.'
+          description: 'When true, code blocks the agent emits are saved into `work_directory` as separate files. Default false — code is returned inline in the response, which keeps disk state clean but adds tokens.'
         },
         work_directory: {
           type: 'string',
-          description: 'Directory for generated files (default: /tmp/subagent-{role}-{timestamp})'
+          description: 'Destination directory when `write_files:true`. Auto-created if missing. Defaults to `/tmp/subagent-<role>-<timestamp>`.'
         }
       },
       required: ['role', 'task']
@@ -301,7 +301,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'parallel_agents',
-    description: 'Execute multiple TDD agents in parallel with quality gate iteration. Decomposes high-level tasks into atomic subtasks, executes them in parallel groups (RED before GREEN), and iterates based on quality review.',
+    description: 'Run a test-first development workflow as a graph of parallel agents: a decomposer splits the task into atomic subtasks, RED-phase agents write failing tests, GREEN-phase agents implement to pass them, then a quality reviewer iterates the cycle until a threshold is met or `max_iterations` runs out. Use for self-contained features that benefit from test-first discipline and can be parallelized. For a single agent on a single task, use `spawn_subagent`. For a generate→review→fix loop on one code blob (no test infrastructure), use `dual_iterate`.',
     handler: 'handleParallelAgents',
     schema: {
       type: 'object',
@@ -344,7 +344,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'council',
-    description: 'Multi-AI Council - Get consensus from multiple AI backends on complex questions. Claude explicitly selects topic and confidence level, backends provide diverse perspectives, Claude synthesizes the final answer. Use for architectural decisions, controversial topics, or when you need validation from multiple viewpoints.',
+    description: 'Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to qwen + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`.',
     handler: 'handleCouncil',
     schema: {
       type: 'object',
@@ -388,7 +388,7 @@ const CORE_TOOL_DEFINITIONS = [
 
   {
     name: 'analyze_file',
-    description: 'Local LLM File Analysis - Reads and analyzes files using local LLM. Claude never sees full file content, only structured findings. Token savings: 2000+ to ~150 tokens per file.',
+    description: "Read ONE file and answer a question about it using a local or cloud LLM — Claude never sees the file contents, only the structured findings the LLM returns (~90% token savings). Use when you have one specific file and a specific question (security check, bug hunt, architectural concern). For the same question across many files (glob patterns), use `batch_analyze`. For a natural-language search across the codebase with no specific file in mind, use `explore`. Pure line-range questions like 'show me lines 437–490' short-circuit the LLM entirely and return the requested lines verbatim at zero token cost.",
     handler: 'handleAnalyzeFile',
     schema: {
       type: 'object',
@@ -414,7 +414,7 @@ const CORE_TOOL_DEFINITIONS = [
               type: 'string',
               enum: ['general', 'bug', 'security', 'performance', 'architecture'],
               default: 'general',
-              description: 'Type of analysis to perform'
+              description: '`general` = open-ended question (default). `bug` = look for defects, off-by-ones, race conditions. `security` = vulnerability-focused (SQLi, XSS, secret leaks, OWASP-style review). `performance` = bottlenecks, hot loops, allocation churn. `architecture` = design issues, coupling, layering. The choice also influences which backend is preferred for the analysis.'
             },
             includeContext: {
               type: 'array',
@@ -434,7 +434,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'explore',
-    description: 'Codebase Exploration - Answer questions about the codebase using intelligent search. Returns only a summary, never raw file contents. Token savings: 90%+ for exploration tasks.',
+    description: "Natural-language search across the codebase: combines grep-style matching with optional LLM summarization to answer 'where is X handled?' or 'what files implement Y?' Returns a summary + the matching file:line list, not raw file contents. Use when you DON'T already know which file to look at. For a deep analysis of ONE known file, use `analyze_file`. For a structured question across a known set of files (glob patterns), use `batch_analyze`. `depth:'shallow'` is fast grep; `depth:'deep'` adds LLM-generated context per match.",
     handler: 'handleExplore',
     schema: {
       type: 'object',
@@ -476,7 +476,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_file',
-    description: 'Local LLM Code Generation - Generates code from natural language spec using local LLM. Claude reviews or auto-approves. Token savings: 500+ to ~50 tokens.',
+    description: 'Generate a new file from a natural-language spec. The local LLM writes the code; Claude either reviews the proposed content (`review:true`, default) or it gets written directly to `outputPath` (`review:false`). Use for fresh files you can describe by goal — boilerplate, scaffolding, test fixtures, single-file utilities. For editing an EXISTING file, use `modify_file`. For writing a known content string to disk with no LLM involved, use `write_files_atomic`. Optionally pass `contextFiles` to anchor the generated style on existing code.',
     handler: 'handleGenerateFile',
     schema: {
       type: 'object',
@@ -525,7 +525,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'modify_file',
-    description: 'Local LLM File Modification - Applies edits using natural language instructions. Local LLM understands code and applies changes. Token savings: 1500+ to ~100 tokens.',
+    description: 'Edit an existing file by describing the change in natural language. The local LLM reads the file, applies the edit using SEARCH/REPLACE blocks (with a size-ratio safety net that refuses writes <50% of the original), and returns a unified diff for Claude to approve (`review:true`, default) or writes directly (`review:false`). Use for non-trivial edits where the AI does the work. For a known string→string replacement Claude can do itself, use native Edit. For writing a fully-specified content string to a file, use `write_files_atomic`. For the same instruction across MANY files, use `batch_modify`. For symbol renames + cross-file reference updates, use `refactor`.',
     handler: 'handleModifyFile',
     schema: {
       type: 'object',
@@ -575,7 +575,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'batch_analyze',
-    description: 'Batch File Analysis - Analyze multiple files using glob patterns. Aggregates findings across files. Massive token savings for multi-file analysis.',
+    description: "Run the SAME question against a glob of files, then aggregate the findings into one cross-file summary. Returns aggregated findings + per-file confidence + a token-savings estimate. Use for codebase-wide audits ('any SQL injection under src/**/handlers/*.js?'), per-feature reviews, or pre-merge sweeps. For ONE file, use `analyze_file` (cheaper). For NL search without a known file set, use `explore`. Set `aggregateResults:false` to get raw per-file results instead of the aggregated summary.",
     handler: 'handleBatchAnalyze',
     schema: {
       type: 'object',
@@ -625,7 +625,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'batch_modify',
-    description: 'Batch File Modification - Apply same instructions to multiple files with atomic rollback. Supports transaction mode (all or nothing).',
+    description: "Apply the SAME natural-language instruction independently to each file in `files`. Use for sweeping consistent edits — 'add JSDoc to every exported function in lib/', 'replace console.log with logger.info'. `transactionMode:'all_or_nothing'` (default) rolls every file back if any one fails; `'best_effort'` keeps the successful edits and reports failures. This tool does NOT find cross-file references — each file is edited in isolation. For symbol renames that must update callers, use `refactor`. For one file with custom instructions, use `modify_file`.",
     handler: 'handleBatchModify',
     schema: {
       type: 'object',
@@ -661,7 +661,7 @@ const CORE_TOOL_DEFINITIONS = [
               type: 'string',
               enum: ['all_or_nothing', 'best_effort'],
               default: 'all_or_nothing',
-              description: 'Transaction mode for atomic operations'
+              description: '`all_or_nothing` (default, safer): if ANY file fails, every successfully-modified file is restored from its backup and the batch reports failure. `best_effort`: keep the files that succeeded, report which ones failed. Use best_effort only when partial success is acceptable.'
             },
             backend: {
               type: 'string',
@@ -676,7 +676,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'refactor',
-    description: 'Cross-File Refactoring - Apply refactoring across files with intelligent scope detection. Supports function, class, module, and project-level refactoring.',
+    description: "Cross-file refactoring with automatic reference tracking. Locates where `target` is defined and where it's used, then applies the instruction consistently across the matched scope. Use for renames, signature changes, API migrations — any edit where consistency between definition and callers matters. `scope` bounds how wide the search goes: 'function' / 'class' / 'module' / 'project'. For the same blind edit across files without reference-awareness (cheaper), use `batch_modify`. For a single-file change, use `modify_file`. Returns a refactoring plan for Claude to approve when `review:true` (default).",
     handler: 'handleRefactor',
     schema: {
       type: 'object',
@@ -684,7 +684,7 @@ const CORE_TOOL_DEFINITIONS = [
         scope: {
           type: 'string',
           enum: ['function', 'class', 'module', 'project'],
-          description: 'Refactoring scope: function (single function), class (class and members), module (module-level), project (project-wide)'
+          description: 'How wide the reference search goes. `function` = the target function and its direct callers in the same module. `class` = the class definition, its methods, and call sites within the same module. `module` = the file containing `target` plus any file that imports from it. `project` = whole-repo search (slowest, most thorough). Pick the narrowest scope that covers your actual change.'
         },
         target: {
           type: 'string',
@@ -734,7 +734,7 @@ const CORE_TOOL_DEFINITIONS = [
 
   {
     name: 'dual_iterate',
-    description: 'Dual Iterative Code Generation - Internal generate->review->fix loop using dual backends. Generator creates code, reviewer validates, generator fixes. Runs entirely within Smart AI Bridge, returning only final approved code to Claude. Massive token savings for complex generation.',
+    description: 'Code generation with an internal review loop: a generator backend writes code, a reviewer backend scores it against `quality_threshold`, the generator fixes flagged issues, and the cycle repeats until the threshold is met or `max_iterations` runs out. The whole loop runs inside SAB; Claude sees only the final accepted code (~1 turn of output instead of 3-5). Use for complex single-file generation where you would otherwise pay the token cost of reviewing iterations in-chat. For multi-agent TDD with parallelism + tests, use `parallel_agents`. For one-shot generation without iteration, use `generate_file`.',
     handler: 'handleDualIterate',
     schema: {
       type: 'object',
@@ -760,7 +760,7 @@ const CORE_TOOL_DEFINITIONS = [
           minimum: 0.5,
           maximum: 1.0,
           default: 0.7,
-          description: 'Quality threshold for accepting code (0.5-1.0)'
+          description: 'Minimum reviewer score (0.5–1.0) needed to accept and stop iterating. 0.7 (default) = balanced. 0.85+ = strict (more iterations, better code, may exhaust `max_iterations`). 0.5 = lenient (returns first plausible attempt). The loop also stops at `max_iterations` regardless of threshold.'
         }
       },
       required: ['task']
