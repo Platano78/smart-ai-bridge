@@ -81,3 +81,9 @@ agno-serena*/
 __pycache__/
 *.pyc
 *.pyo
+
+# Local runtime DB state (SQLite WAL/SHM sidecars)
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm

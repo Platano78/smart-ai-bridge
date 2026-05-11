@@ -320,6 +320,17 @@ export class ModifyFileHandler extends BaseHandler {
             console.error(`[ModifyFile] ⚠️ ${failedBlocks.length} blocks failed to apply`);
           }
 
+          // SAFETY: catch S/R blocks that hallucinated "replace with empty" and shrank the file.
+          const srSizeRatio = modifiedCode.length / originalContent.length;
+          if (srSizeRatio < 0.5) {
+            console.error(`[ModifyFile] ❌ Safety check failed: result is ${(srSizeRatio * 100).toFixed(1)}% of original after S/R blocks`);
+            return this.buildErrorResponse(
+              `Safety check failed: result (${modifiedCode.length} chars) is ` +
+              `${(srSizeRatio * 100).toFixed(1)}% of original (${originalContent.length} chars) ` +
+              `after applying SEARCH/REPLACE blocks. Refusing to write — likely truncated or over-deleting.`
+            );
+          }
+
           console.error(`[ModifyFile] ✅ Applied ${appliedCount}/${blocks.length} blocks`);
         } else {
           // Fallback: try old full-file parsing

@@ -14,7 +14,6 @@ import {
 } from './file-handlers.js';
 import {
   HealthHandler,
-  ValidateChangesHandler,
   ManageConversationHandler,
   GetAnalyticsHandler
 } from './system-handlers.js';
@@ -44,7 +43,6 @@ const HANDLER_REGISTRY = {
   'handleWriteFilesAtomic': WriteFilesAtomicHandler,
   'handleBackupRestore': BackupRestoreHandler,
   'handleCheckBackendHealth': HealthHandler,
-  'handleValidateChanges': ValidateChangesHandler,
   'handleManageConversation': ManageConversationHandler,
   'handleGetAnalytics': GetAnalyticsHandler,
   'handleSpawnSubagent': SubagentHandler,
@@ -161,7 +159,6 @@ export {
   WriteFilesAtomicHandler,
   BackupRestoreHandler,
   HealthHandler,
-  ValidateChangesHandler,
   ManageConversationHandler,
   GetAnalyticsHandler,
   SubagentHandler,

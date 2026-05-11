@@ -95,7 +95,6 @@ After restarting, all 19 tools will be available. Verify with:
 |------|-------------|
 | `review` | Security, performance, and quality review |
 | `refactor` | Cross-file refactoring with reference updates |
-| `validate_changes` | Pre-flight validation for proposed changes |
 
 ### Infrastructure
 

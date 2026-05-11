@@ -90,7 +90,7 @@ test('Expected tools present', () => {
     'ask', 'analyze_file', 'modify_file', 'batch_analyze', 'batch_modify',
     'council', 'dual_iterate', 'explore', 'generate_file', 'refactor',
     'review', 'spawn_subagent', 'parallel_agents', 'read',
-    'write_files_atomic', 'validate_changes', 'backup_restore',
+    'write_files_atomic', 'backup_restore',
     'check_backend_health', 'get_analytics', 'manage_conversation'
   ];
   const toolNames = CORE_TOOL_DEFINITIONS.map(t => t.name);

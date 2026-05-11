@@ -57,9 +57,11 @@ class WriteFilesAtomicHandler extends BaseHandler {
             await fs.appendFile(op.path, op.content, 'utf8');
             break;
           case 'modify':
-            // For modify, content should be the full new content
-            await fs.writeFile(op.path, op.content, 'utf8');
-            break;
+            throw new Error(
+              `write_files_atomic does not support operation "modify". ` +
+              `Use operation "write" (overwrite) or "append" (add to end), ` +
+              `or use the modify_file tool for search/replace edits.`
+            );
         }
 
         results.push({

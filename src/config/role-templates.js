@@ -90,7 +90,6 @@ For each finding, provide:
     suggested_tools: [
       'analyze_file',   // Analyze files
       'review',         // Security review
-      'validate_changes', // Validate fixes
       'ask'             // Deep analysis
     ],
     output_format: `## Security Audit Report

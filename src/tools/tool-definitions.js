@@ -66,36 +66,6 @@ const CORE_TOOL_DEFINITIONS = [
     }
   },
   {
-    name: 'validate_changes',
-    description: 'Pre-flight validation for code changes - AI-powered syntax checking and impact analysis. Validates proposed modifications before implementation.',
-    handler: 'handleValidateChanges',
-    schema: {
-      type: 'object',
-      properties: {
-        file_path: { type: 'string' },
-        proposed_changes: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              find: { type: 'string' },
-              replace: { type: 'string' },
-              line_number: { type: 'number' }
-            },
-            required: ['find', 'replace']
-          }
-        },
-        language: { type: 'string' },
-        validation_rules: {
-          type: 'array',
-          items: { type: 'string' },
-          default: ['syntax', 'logic', 'security', 'performance']
-        }
-      },
-      required: ['file_path', 'proposed_changes']
-    }
-  },
-  {
     name: 'backup_restore',
     description: 'Enhanced backup management - Timestamped backup tracking with metadata, restore capability, and intelligent cleanup. Extends existing backup patterns with enterprise-grade management.',
     handler: 'handleBackupRestore',

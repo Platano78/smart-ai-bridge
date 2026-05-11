@@ -199,44 +199,6 @@ class HealthHandler extends BaseHandler {
 }
 
 /**
- * Validate changes handler
- */
-class ValidateChangesHandler extends BaseHandler {
-  async execute(args) {
-    const { file_path, proposed_changes, validation_rules = ['syntax'] } = args;
-
-    const validationResults = [];
-
-    for (const change of proposed_changes) {
-      const result = {
-        find: change.find,
-        replace: change.replace,
-        valid: true,
-        warnings: [],
-        suggestions: []
-      };
-
-      // Basic validation
-      if (validation_rules.includes('syntax')) {
-        if (change.replace.includes('undefined') || change.replace.includes('null')) {
-          result.warnings.push('Potential null/undefined values detected');
-        }
-      }
-
-      validationResults.push(result);
-    }
-
-    return {
-      success: true,
-      file_path,
-      total_changes: proposed_changes.length,
-      valid_changes: validationResults.filter(r => r.valid).length,
-      validation_results: validationResults
-    };
-  }
-}
-
-/**
  * Manage conversation handler
  */
 class ManageConversationHandler extends BaseHandler {
@@ -441,7 +403,6 @@ class GetAnalyticsHandler extends BaseHandler {
 
 export {
   HealthHandler,
-  ValidateChangesHandler,
   ManageConversationHandler,
   GetAnalyticsHandler
 };
