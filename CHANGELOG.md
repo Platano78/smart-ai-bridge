@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`modify_file` SEARCH/REPLACE size safety** — the `<50%`-of-original sanity check was only applied to the full-file fallback path; SEARCH/REPLACE blocks that hallucinated "replace with empty" could shrink the file past the threshold without any abort. Check now runs on both code paths.
 
 ### Changed
-- **`modify_file` auto-write warning** — when called with `review:false` AND `backup:false`, now logs a loud `⚠️ WARNING` instead of silently writing without a recovery path. SAB's API contract is preserved (caller still controls `backup`), unlike MKG which forces it; the warning compensates for the dropped safety net.
+- **`modify_file` auto-write warning** — when called with `review:false` AND `backup:false`, now logs a loud `⚠️ WARNING` instead of silently writing without a recovery path. The caller still controls `backup`; the warning surfaces the destructive-no-recovery combination so it's not invisible in logs.
 
 ### Removed
-- **`validate_changes` tool** — advertised "AI-powered syntax checking using DialoGPT-small" but the handler was 30 lines of regex looking for `"undefined"` / `"null"` string literals. No LLM call. Removed from `system-handlers.js`, `index.js` registry, `tool-definitions.js`, `role-templates.js` `suggested_tools`, README tool table, and integration-test expected-tools list. **Breaking** for any client that called this tool — but the call would have returned a regex grep result, not validation.
+- **`validate_changes` tool** — advertised "AI-powered syntax checking using DialoGPT-small" but the handler was 30 lines of regex looking for `"undefined"` / `"null"` string literals. No LLM call. Removed from `system-handlers.js`, `index.js` registry, `tool-definitions.js`, `role-templates.js` `suggested_tools`, README tool table, and integration-test expected-tools list. **Breaking** for any client that called this tool — but the call would have returned a regex grep result, not real validation.
 
 ### Stats
 - 14 files changed, 385 insertions, 101 deletions
