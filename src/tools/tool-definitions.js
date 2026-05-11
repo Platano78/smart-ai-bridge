@@ -20,7 +20,7 @@
 const CORE_TOOL_DEFINITIONS = [
   {
     name: 'review',
-    description: "Review a code blob you already have in context and return structured findings + a quality score + improvement suggestions. Pass the code itself in `content`; this tool does not read any file from disk. Use when Claude already has the code in hand. For a review of a file Claude has NOT seen (so the file content stays out of context, ~90% token savings), use `analyze_file` with analysisType:'security' instead. For multiple AI perspectives on the same code, use `council`.",
+    description: "Review a code blob you already have in context and return structured findings + a quality score + improvement suggestions. Pass the code itself in `content`; this tool does not read any file from disk. Use when Claude already has the code in hand. For a review of a file Claude has NOT seen (so the file content stays out of context, ~90% token savings), use `analyze_file` with analysisType:'security' instead. For multiple AI perspectives on the same code, use `council`. Read-only: never writes to disk. Returns: `{success, file_path, language, review_type, review (full review text from the LLM, includes findings + severity + suggestions), endpoint_used}`.",
     handler: 'handleReview',
     schema: {
       type: 'object',
@@ -39,7 +39,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'write_files_atomic',
-    description: 'Write a batch of files in a single atomic operation with automatic backup. All files succeed or all roll back on any failure. Use this when several file writes must land together (config changes across modules, multi-file generation output). For natural-language edits to a single file, use `modify_file` instead. For appending to a log or accumulator file, use the `append` operation here. Each overwrite produces a `<path>.backup.<timestamp>` file when create_backup is true (default).',
+    description: "Write a batch of files in a single atomic operation with automatic backup. All files succeed or all roll back on any failure. Use this when several file writes must land together (config changes across modules, multi-file generation output). For natural-language edits to a single file, use `modify_file` instead. For appending to a log or accumulator file, use the `append` operation here. Each overwrite produces a `<path>.backup.<timestamp>` file when create_backup is true (default). ⚠️ DESTRUCTIVE: every operation writes (or appends to) a real file on disk. The rollback path runs only when a LATER operation in the same batch fails — earlier successful writes are reverted from their backups, but if every operation succeeds, the new files stand and the backups remain on disk. Returns: `{success, files_written, results:[{path, operation, success, size}], backups_created, backups:[{original, backup}]}`. On a mid-batch failure the call throws after restoring earlier files (rollback is not reflected in a success response).",
     handler: 'handleWriteFilesAtomic',
     schema: {
       type: 'object',
@@ -79,7 +79,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'backup_restore',
-    description: "Manage the timestamped backup files produced by `modify_file` and `write_files_atomic`. Four actions: `create` (manually snapshot a file before a risky native edit), `list` (enumerate known backups, optionally filtered to one file), `restore` (overwrite a file with a specific backup_id), `cleanup` (delete old backups per the policy in cleanup_options). The cleanup policy applies BOTH thresholds — a backup is deleted only when it exceeds max_age_days OR when its file already has more than max_count_per_file newer backups. Use dry_run to preview before applying.",
+    description: "Manage the timestamped backup files produced by `modify_file` and `write_files_atomic`. Four actions: `create` (manually snapshot a file before a risky native edit), `list` (enumerate known backups, optionally filtered to one file), `restore` (overwrite a file with a specific backup_id), `cleanup` (delete old backups per the policy in cleanup_options). The cleanup policy applies BOTH thresholds — a backup is deleted only when it exceeds max_age_days OR when its file already has more than max_count_per_file newer backups. Use dry_run to preview before applying. ⚠️ DESTRUCTIVE: `restore` overwrites the current file (the prior state is auto-snapshotted to `<path>.pre_restore_<timestamp>`, so the restore itself is reversible); `cleanup` permanently deletes backup files from disk. `create` and `list` are read-only. Returns: `{ success, action, ...action-specific fields }`. `create`→`{backup_id, backup_path, original_path, size}`. `restore`→`{backup_id, restored_to, pre_restore_backup}`. `list`→`{file_path, backups:[{path, backup_id, size, created, metadata}]}`. `cleanup`→`{dry_run, backups_deleted, deleted:[{path, reason:'age'|'count'}]}`.",
     handler: 'handleBackupRestore',
     schema: {
       type: 'object',
@@ -120,7 +120,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'ask',
-    description: "Send one prompt to one AI backend and return the response. `model:'auto'` lets SAB's router pick the best backend by task complexity + current health; passing a specific model name forces that provider. Use this for direct LLM queries that don't fit a more specialized tool. For multi-backend consensus on the same prompt, use `council`. For agentic multi-step work with a defined role, use `spawn_subagent`. For LLM-driven file generation or editing, use `generate_file` / `modify_file` so the file content stays out of Claude's context window.",
+    description: "Send one prompt to one AI backend and return the response. `model:'auto'` lets SAB's router pick the best backend by task complexity + current health; passing a specific model name forces that provider. Use this for direct LLM queries that don't fit a more specialized tool. For multi-backend consensus on the same prompt, use `council`. For agentic multi-step work with a defined role, use `spawn_subagent`. For LLM-driven file generation or editing, use `generate_file` / `modify_file` so the file content stays out of Claude's context window. Read-only: makes one HTTP call to the chosen backend. Returns: `{success, model, requested_backend, actual_backend, prompt (truncated preview), response (the LLM output), backend_used, fallback_chain, response_time, cache_status, thinking_enabled, max_tokens, was_truncated, smart_routing_applied, routing, processing_time}`.",
     handler: 'handleAsk',
     schema: {
       type: 'object',
@@ -167,7 +167,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'manage_conversation',
-    description: "Manage long-running conversation threads across sessions. The conversation state machine: call `start` (topic is recommended but not required — used for search/grouping) to receive a thread_id + continuation_id; pass `continuation_id` on each follow-up turn with `continue` to extend the thread; use `resume` with a stored thread_id to pick up an old thread from any session. `history` returns the messages in one thread; `search` queries across all stored conversations by free-text query; `analytics` reports per-thread/per-user usage stats. Each action requires only the parameters listed in its description below — extra fields are ignored.",
+    description: "Manage long-running conversation threads across sessions. The conversation state machine: call `start` (topic is recommended but not required — used for search/grouping) to receive a thread_id + continuation_id; pass `continuation_id` on each follow-up turn with `continue` to extend the thread; use `resume` with a stored thread_id to pick up an old thread from any session. `history` returns the messages in one thread; `search` queries across all stored conversations by free-text query; `analytics` reports per-thread/per-user usage stats. Each action requires only the parameters listed in its description below — extra fields are ignored. Persists conversation state to the configured threading store (non-destructive to user files; the threading store grows over time). Returns: `{success, action, data}` where `data` shape varies — start: `{thread_id, continuation_id, topic, created_at}`. continue: `{thread_id, continuation_id, response, message_count}`. resume: `{thread_id, topic, last_message_at, message_count}`. history: `{thread_id, messages:[{role, content, timestamp}]}` (capped at `limit`, default 10). search: `{query, matches:[{thread_id, topic, snippet, score}]}`. analytics: `{total_threads, threads_by_user, avg_messages_per_thread, recent_topics}`.",
     handler: 'handleManageConversation',
     schema: {
       type: 'object',
@@ -212,7 +212,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'get_analytics',
-    description: "Inspect SAB's internal telemetry: backend invocation counts, success/failure rates, latency distributions, estimated token spend per provider, and recent routing decisions. Read-only — never calls an LLM. Use to diagnose 'why did SAB pick backend X', tune routing rules, or understand cost trade-offs across providers. Report types are cumulative: `full_report` includes everything from the other types.",
+    description: "Inspect SAB's internal telemetry: backend invocation counts, success/failure rates, latency distributions, estimated token spend per provider, and recent routing decisions. Read-only — never calls an LLM, never writes to disk. Use to diagnose 'why did SAB pick backend X', tune routing rules, or understand cost trade-offs across providers. Report types are cumulative: `full_report` includes everything from the other types. Returns: `{success, report_type, data}` where `data` depends on report_type — current: `{backends:{[name]:{invocations, success_rate, p50_ms, p95_ms}}, session_uptime, timestamp}`. historical: `{time_range, series:[{timestamp, backend, calls, errors, latency}]}`. cost: `{by_backend:{[name]:{tokens_in, tokens_out, estimated_usd}}, total_estimated_usd}`. recommendations: `{recommendations:[{type, suggestion, confidence}]}`. full_report: a merged object with all sections. If analytics hasn't initialized, returns `{message, basic_stats:{uptime, memory, timestamp}}`.",
     handler: 'handleGetAnalytics',
     schema: {
       type: 'object',
@@ -237,7 +237,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'check_backend_health',
-    description: "On-demand ping of one backend's API endpoint to verify reachability and capture latency. Results are cached for 5 minutes; pass `force:true` to bypass the cache. SAB already runs periodic auto-health checks in the background, so most callers don't need this — reach for it when troubleshooting a routing decision that failed unexpectedly or before kicking off a long batch call against a particular backend.",
+    description: "On-demand ping of one backend's API endpoint to verify reachability and capture latency. Results are cached for 5 minutes; pass `force:true` to bypass the cache. SAB already runs periodic auto-health checks in the background, so most callers don't need this — reach for it when troubleshooting a routing decision that failed unexpectedly or before kicking off a long batch call against a particular backend. Read-only: makes one HTTP request to the backend's health endpoint. Returns: `{status:'online'|'offline'|'degraded', latency_ms, backend, last_check_iso, error?, models?:[{id, name, size, quantization}] (router only), available_presets? (router only), cache_status:'HIT'|'MISS', total_check_time}`.",
     handler: 'handleCheckBackendHealth',
     schema: {
       type: 'object',
@@ -257,7 +257,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'spawn_subagent',
-    description: 'Spawn one AI agent with a predefined role + system prompt and run it to completion on a single task. The agent runs once and returns its verdict; there is no memory between calls. Use when the work fits a clear role (security audit on one module, generate tests for one function, write docs for one API). For multi-agent TDD parallelism with quality gates, use `parallel_agents`. For multi-backend consensus on a question, use `council`. Pass file paths and acceptance criteria in `task` — the agent has no other context.',
+    description: "Spawn one AI agent with a predefined role + system prompt and run it to completion on a single task. The agent runs once and returns its verdict; there is no memory between calls. Use when the work fits a clear role (security audit on one module, generate tests for one function, write docs for one API). For multi-agent TDD parallelism with quality gates, use `parallel_agents`. For multi-backend consensus on a question, use `council`. Pass file paths and acceptance criteria in `task` — the agent has no other context. ⚠️ DESTRUCTIVE when `write_files:true`: code blocks the agent emits are saved into `work_directory` (auto-created if missing, defaults to `/tmp/subagent-<role>-<timestamp>`). The default `write_files:false` is non-destructive — code is returned inline in the response. Returns: `{success, role, task, backend_used, response (agent's full output), verdict (structured findings, depth controlled by verdict_mode), files_analyzed (paths the agent read), files_written:[paths] (only when write_files), work_directory, suggested_tools:[follow-up tool names], processing_time_ms, metrics}`.",
     handler: 'handleSpawnSubagent',
     schema: {
       type: 'object',
@@ -301,7 +301,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'parallel_agents',
-    description: 'Run a test-first development workflow as a graph of parallel agents: a decomposer splits the task into atomic subtasks, RED-phase agents write failing tests, GREEN-phase agents implement to pass them, then a quality reviewer iterates the cycle until a threshold is met or `max_iterations` runs out. Use for self-contained features that benefit from test-first discipline and can be parallelized. For a single agent on a single task, use `spawn_subagent`. For a generate→review→fix loop on one code blob (no test infrastructure), use `dual_iterate`.',
+    description: "Run a test-first development workflow as a graph of parallel agents: a decomposer splits the task into atomic subtasks, RED-phase agents write failing tests, GREEN-phase agents implement to pass them, then a quality reviewer iterates the cycle until a threshold is met or `max_iterations` runs out. Use for self-contained features that benefit from test-first discipline and can be parallelized. For a single agent on a single task, use `spawn_subagent`. For a generate→review→fix loop on one code blob (no test infrastructure), use `dual_iterate`. ⚠️ DESTRUCTIVE when `write_files:true` (default): generated tests, implementation, and refactor outputs are written under `work_directory` in `red/`, `green/`, `refactor/` subdirectories (defaults to `/tmp/parallel-agents-<timestamp>`). Returns: `{success, task, decomposition (decomposer's plan), execution:{groups_executed, tasks_completed, tasks_failed, max_parallel_used, files_written, write_files_enabled}, router_info:{slots, model, status}, quality:{verdict, score, iterations}, synthesis (combined output), files:[absolute paths written], work_directory, processing_time_ms, metrics}`.",
     handler: 'handleParallelAgents',
     schema: {
       type: 'object',
@@ -344,7 +344,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'council',
-    description: 'Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to qwen + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`.',
+    description: "Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to qwen + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`. Read-only: makes N parallel HTTP calls; never writes to disk. Returns: `{success, topic, strategy, confidence_needed, backends_queried:[names], backends_responded:[names of those that succeeded], responses:[{backend, success, content, response_time, error?}], processing_time_ms, metrics, synthesis_hint (suggestion to Claude on how to synthesize)}`.",
     handler: 'handleCouncil',
     schema: {
       type: 'object',
@@ -388,7 +388,7 @@ const CORE_TOOL_DEFINITIONS = [
 
   {
     name: 'analyze_file',
-    description: "Read ONE file and answer a question about it using a local or cloud LLM — Claude never sees the file contents, only the structured findings the LLM returns (~90% token savings). Use when you have one specific file and a specific question (security check, bug hunt, architectural concern). For the same question across many files (glob patterns), use `batch_analyze`. For a natural-language search across the codebase with no specific file in mind, use `explore`. Pure line-range questions like 'show me lines 437–490' short-circuit the LLM entirely and return the requested lines verbatim at zero token cost.",
+    description: "Read ONE file and answer a question about it using a local or cloud LLM — Claude never sees the file contents, only the structured findings the LLM returns (~90% token savings). Use when you have one specific file and a specific question (security check, bug hunt, architectural concern). For the same question across many files (glob patterns), use `batch_analyze`. For a natural-language search across the codebase with no specific file in mind, use `explore`. Pure line-range questions like 'show me lines 437–490' short-circuit the LLM entirely and return the requested lines verbatim at zero token cost. Read-only: reads filePath, optionally reads includeContext files, makes one LLM call. Returns: `{success, filePath, fileSize, lineCount, language, analysisType, question, summary, findings:[strings], confidence (0-1), suggestedActions:[strings], backend_used, processing_time, tokens_saved}`. Verbatim short-circuit returns the same shape with `analysisType:'verbatim'`, `backend_used:'direct_extraction'`, and the requested lines in `summary`.",
     handler: 'handleAnalyzeFile',
     schema: {
       type: 'object',
@@ -434,7 +434,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'explore',
-    description: "Natural-language search across the codebase: combines grep-style matching with optional LLM summarization to answer 'where is X handled?' or 'what files implement Y?' Returns a summary + the matching file:line list, not raw file contents. Use when you DON'T already know which file to look at. For a deep analysis of ONE known file, use `analyze_file`. For a structured question across a known set of files (glob patterns), use `batch_analyze`. `depth:'shallow'` is fast grep; `depth:'deep'` adds LLM-generated context per match.",
+    description: "Natural-language search across the codebase: combines grep-style matching with optional LLM summarization to answer 'where is X handled?' or 'what files implement Y?' Returns a summary + the matching file:line list, not raw file contents. Use when you DON'T already know which file to look at. For a deep analysis of ONE known file, use `analyze_file`. For a structured question across a known set of files (glob patterns), use `batch_analyze`. `depth:'shallow'` is fast grep; `depth:'deep'` adds LLM-generated context per match. Read-only: walks the filesystem and reads matched files but never writes. Returns: `{success, summary (LLM- or template-generated answer), files_found:[paths], search_patterns:[strings actually grepped], evidence:[{file, line, match}] (capped at 15), tokens_saved, processing_time_ms, depth, backend_used}`.",
     handler: 'handleExplore',
     schema: {
       type: 'object',
@@ -476,7 +476,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_file',
-    description: 'Generate a new file from a natural-language spec. The local LLM writes the code; Claude either reviews the proposed content (`review:true`, default) or it gets written directly to `outputPath` (`review:false`). Use for fresh files you can describe by goal — boilerplate, scaffolding, test fixtures, single-file utilities. For editing an EXISTING file, use `modify_file`. For writing a known content string to disk with no LLM involved, use `write_files_atomic`. Optionally pass `contextFiles` to anchor the generated style on existing code.',
+    description: "Generate a new file from a natural-language spec. The local LLM writes the code; Claude either reviews the proposed content (`review:true`, default) or it gets written directly to `outputPath` (`review:false`). Use for fresh files you can describe by goal — boilerplate, scaffolding, test fixtures, single-file utilities. For editing an EXISTING file, use `modify_file`. For writing a known content string to disk with no LLM involved, use `write_files_atomic`. Optionally pass `contextFiles` to anchor the generated style on existing code. ⚠️ DESTRUCTIVE when `review:false`: writes (and creates parent directories of) `outputPath`. If `includeTests:true`, also writes a sibling test file. The default (`review:true`) is non-destructive — returns the generated content for Claude to inspect first. Returns: `{success, status:'written'|'written_truncated'|'pending_review', outputPath, summary, linesOfCode, language, testPath (when includeTests), backend_used, processing_time, retry_attempts, was_truncated}`. In review mode the response also carries the generated `content` for Claude to apply via write_files_atomic.",
     handler: 'handleGenerateFile',
     schema: {
       type: 'object',
@@ -525,7 +525,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'modify_file',
-    description: 'Edit an existing file by describing the change in natural language. The local LLM reads the file, applies the edit using SEARCH/REPLACE blocks (with a size-ratio safety net that refuses writes <50% of the original), and returns a unified diff for Claude to approve (`review:true`, default) or writes directly (`review:false`). Use for non-trivial edits where the AI does the work. For a known string→string replacement Claude can do itself, use native Edit. For writing a fully-specified content string to a file, use `write_files_atomic`. For the same instruction across MANY files, use `batch_modify`. For symbol renames + cross-file reference updates, use `refactor`.',
+    description: "Edit an existing file by describing the change in natural language. The local LLM reads the file, applies the edit using SEARCH/REPLACE blocks (with a size-ratio safety net that refuses writes <50% of the original), and returns a unified diff for Claude to approve (`review:true`, default) or writes directly (`review:false`). Use for non-trivial edits where the AI does the work. For a known string→string replacement Claude can do itself, use native Edit. For writing a fully-specified content string to a file, use `write_files_atomic`. For the same instruction across MANY files, use `batch_modify`. For symbol renames + cross-file reference updates, use `refactor`. ⚠️ DESTRUCTIVE when `review:false`: writes directly to `filePath`. A backup at `<path>.backup.<timestamp>` is created unless `backup:false` is also passed (a warning is logged in that case). `dryRun:true` produces the diff without writing. Returns: shape depends on mode. review (default): `{success, status:'pending_review'|'pending_review_truncated', filePath, diff, modifiedContent, summary, stats, warnings, was_truncated, approval_options, retry_attempts}`. dryRun: `{success, status:'dry_run', filePath, diff, summary, stats, warnings, backend_used, processing_time}`. auto-write: `{success, status:'written', filePath, diff, summary, stats, backupCreated, backend_used, processing_time, tokens_saved}`.",
     handler: 'handleModifyFile',
     schema: {
       type: 'object',
@@ -575,7 +575,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'batch_analyze',
-    description: "Run the SAME question against a glob of files, then aggregate the findings into one cross-file summary. Returns aggregated findings + per-file confidence + a token-savings estimate. Use for codebase-wide audits ('any SQL injection under src/**/handlers/*.js?'), per-feature reviews, or pre-merge sweeps. For ONE file, use `analyze_file` (cheaper). For NL search without a known file set, use `explore`. Set `aggregateResults:false` to get raw per-file results instead of the aggregated summary.",
+    description: "Run the SAME question against a glob of files, then aggregate the findings into one cross-file summary. Use for codebase-wide audits ('any SQL injection under src/**/handlers/*.js?'), per-feature reviews, or pre-merge sweeps. For ONE file, use `analyze_file` (cheaper). For NL search without a known file set, use `explore`. Set `aggregateResults:false` to get raw per-file results instead of the aggregated summary. Read-only: reads every matched file (capped by `maxFiles`) and makes one LLM call per file (parallel by default). Returns: shape depends on aggregateResults. aggregateResults:true (default): `{success, status:'completed', filesAnalyzed, patterns, question, aggregatedSummary, aggregatedFindings:[strings], aggregatedActions:[strings], overallConfidence, perFileResults:[{filePath, summary, findingCount, confidence}], processing_time, tokens_saved}`. aggregateResults:false: `{success, status:'completed', filesAnalyzed, patterns, question, results:[full per-file analysis objects], processing_time}`. Empty pattern match: `{success, status:'no_files', message, patterns}`.",
     handler: 'handleBatchAnalyze',
     schema: {
       type: 'object',
@@ -625,7 +625,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'batch_modify',
-    description: "Apply the SAME natural-language instruction independently to each file in `files`. Use for sweeping consistent edits — 'add JSDoc to every exported function in lib/', 'replace console.log with logger.info'. `transactionMode:'all_or_nothing'` (default) rolls every file back if any one fails; `'best_effort'` keeps the successful edits and reports failures. This tool does NOT find cross-file references — each file is edited in isolation. For symbol renames that must update callers, use `refactor`. For one file with custom instructions, use `modify_file`.",
+    description: "Apply the SAME natural-language instruction independently to each file in `files`. Use for sweeping consistent edits — 'add JSDoc to every exported function in lib/', 'replace console.log with logger.info'. `transactionMode:'all_or_nothing'` (default) rolls every file back if any one fails; `'best_effort'` keeps the successful edits and reports failures. This tool does NOT find cross-file references — each file is edited in isolation. For symbol renames that must update callers, use `refactor`. For one file with custom instructions, use `modify_file`. ⚠️ DESTRUCTIVE when `review:false`: writes to every file in the batch (per-file backups at `<path>.backup.<timestamp>`). The default `review:true` returns the proposed diffs without writing. Returns: shape depends on review. review:true (default): `{success, status:'pending_review', filesProcessed, patterns, instructions, modifications:[{filePath, status:'pending_review'|'error', summary, diff, stats, error?}], successCount, failureCount, approval_instructions, tokens_saved}`. review:false (auto-write): `{success, status:'completed'|'partial', filesProcessed, modifications:[{filePath, status:'written'|'error', summary, stats, error?}], successCount, failureCount}`.",
     handler: 'handleBatchModify',
     schema: {
       type: 'object',
@@ -676,7 +676,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'refactor',
-    description: "Cross-file refactoring with automatic reference tracking. Locates where `target` is defined and where it's used, then applies the instruction consistently across the matched scope. Use for renames, signature changes, API migrations — any edit where consistency between definition and callers matters. `scope` bounds how wide the search goes: 'function' / 'class' / 'module' / 'project'. For the same blind edit across files without reference-awareness (cheaper), use `batch_modify`. For a single-file change, use `modify_file`. Returns a refactoring plan for Claude to approve when `review:true` (default).",
+    description: "Cross-file refactoring with automatic reference tracking. Locates where `target` is defined and where it's used, then applies the instruction consistently across the matched scope. Use for renames, signature changes, API migrations — any edit where consistency between definition and callers matters. `scope` bounds how wide the search goes: 'function' / 'class' / 'module' / 'project'. For the same blind edit across files without reference-awareness (cheaper), use `batch_modify`. For a single-file change, use `modify_file`. ⚠️ DESTRUCTIVE when `review:false`: writes to every file touched by the refactor. `dryRun:true` produces the plan without writing. Returns: shape depends on mode. review:true (default) or dryRun:true: `{success, status:'pending_review'|'dry_run', scope, target, instructions, plan:{filesToModify, references}, modifications:[{filePath, diff, summary}], backend_used, processing_time}`. Auto-apply (review:false): `{success, status:'completed'|'partial', scope, target, instructions, filesModified, filesTotal, modifications:[{filePath, status:'written'|'error', summary, error?}], backend_used, processing_time}`.",
     handler: 'handleRefactor',
     schema: {
       type: 'object',
@@ -734,7 +734,7 @@ const CORE_TOOL_DEFINITIONS = [
 
   {
     name: 'dual_iterate',
-    description: 'Code generation with an internal review loop: a generator backend writes code, a reviewer backend scores it against `quality_threshold`, the generator fixes flagged issues, and the cycle repeats until the threshold is met or `max_iterations` runs out. The whole loop runs inside SAB; Claude sees only the final accepted code (~1 turn of output instead of 3-5). Use for complex single-file generation where you would otherwise pay the token cost of reviewing iterations in-chat. For multi-agent TDD with parallelism + tests, use `parallel_agents`. For one-shot generation without iteration, use `generate_file`.',
+    description: "Code generation with an internal review loop: a generator backend writes code, a reviewer backend scores it against `quality_threshold`, the generator fixes flagged issues, and the cycle repeats until the threshold is met or `max_iterations` runs out. The whole loop runs inside SAB; Claude sees only the final accepted code (~1 turn of output instead of 3-5). Use for complex single-file generation where you would otherwise pay the token cost of reviewing iterations in-chat. For multi-agent TDD with parallelism + tests, use `parallel_agents`. For one-shot generation without iteration, use `generate_file`. Read-only: returns the generated code to the caller; does NOT write to disk (pass the result to `write_files_atomic` to persist). Returns: `{success, code (final accepted code as a string), mode (the iteration mode used), iterations (number actually run), execution_time_ms, metadata:{task_preview, code_length, timestamp}, history (full per-iteration log, only when include_history:true), final_review:{status, notes}, self_review_applied}`.",
     handler: 'handleDualIterate',
     schema: {
       type: 'object',
