@@ -5,6 +5,31 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-05-11
+
+### Added
+- **`src/utils/llm-json-parser.js`** — robust LLM JSON extraction pipeline: strips `<think>` blocks and markdown fences, extracts the first balanced JSON object via depth-counting (handles braces inside string values), recovers individual fields via regex when `JSON.parse` fails on truncation, and retries from a synthesized "before-the-think" segment when only an unclosed `<think>` is present.
+- **`tryVerbatimExtraction()`** in `analyze-file-handler.js` — short-circuits `analyze_file` when the question is a pure line-range request ("show me lines 437–490", "what's on line 42"). Returns 1.0-confidence direct extraction with zero LLM tokens spent. Skips questions that look analytical ("explain", "walk through") even when they contain line references.
+- **`disableThinking` opt-in** on `LocalAdapter.makeRequest` — when set, injects `chat_template_kwargs.enable_thinking=false` and `reasoning_format='none'` into the request body. Defense-in-depth against qwen3-family models whose chat template defaults `thinking=true`.
+- **`tests/llm-json-parser.test.js`** — 11 new tests covering closed `<think>` blocks, answer-before-think, code-fenced JSON, literal `"<think>"` inside field values, JSON started inside an unclosed `<think>`, pure truncated reasoning, and reasoning-with-braces-but-no-JSON.
+
+### Fixed
+- **qwen3 `<think>`-block empty findings** — `analyze_file` against Qwen3.5 / Qwen3.6 / qwen3-coder-next was returning empty findings + 0.5 prose-fallback confidence. Root cause: llama.cpp's chat template defaulted `thinking=true`; `max_tokens` landed mid-`<think>`, the closing tag never arrived, and SAB's greedy `/\{[\s\S]*\}/` matcher saw prose only. `parseAnalysisResponse` now routes through `parseLLMJSON` first; the prose fallback path also strips `<think>` blocks so bullet extraction works on reasoning models that wrote analysis after thinking.
+- **`write_files_atomic` "modify" operation** — was identical to `"write"` and silently overwrote the entire file with whatever the caller passed, destroying anything not in the payload. Now throws with guidance to use `"write"` / `"append"` / `modify_file`.
+- **`modify_file` SEARCH/REPLACE size safety** — the `<50%`-of-original sanity check was only applied to the full-file fallback path; SEARCH/REPLACE blocks that hallucinated "replace with empty" could shrink the file past the threshold without any abort. Check now runs on both code paths.
+
+### Changed
+- **`modify_file` auto-write warning** — when called with `review:false` AND `backup:false`, now logs a loud `⚠️ WARNING` instead of silently writing without a recovery path. SAB's API contract is preserved (caller still controls `backup`), unlike MKG which forces it; the warning compensates for the dropped safety net.
+
+### Removed
+- **`validate_changes` tool** — advertised "AI-powered syntax checking using DialoGPT-small" but the handler was 30 lines of regex looking for `"undefined"` / `"null"` string literals. No LLM call. Removed from `system-handlers.js`, `index.js` registry, `tool-definitions.js`, `role-templates.js` `suggested_tools`, README tool table, and integration-test expected-tools list. **Breaking** for any client that called this tool — but the call would have returned a regex grep result, not validation.
+
+### Stats
+- 14 files changed, 385 insertions, 101 deletions
+- 2 new files (`src/utils/llm-json-parser.js`, `tests/llm-json-parser.test.js`)
+- Tool count: 19 → 18 (validate_changes removed)
+- Test count: 35 → 46 (11 new llm-json-parser tests)
+
 ## [2.4.0] - 2026-03-20
 
 ### Added
