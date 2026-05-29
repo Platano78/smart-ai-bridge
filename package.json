@@ -1,7 +1,7 @@
 {
   "name": "smart-ai-bridge",
-  "version": "2.5.0",
-  "description": "Enterprise-grade MCP server with multi-AI orchestration, modular handler architecture, intelligent routing, and local AI auto-discovery",
+  "version": "2.6.0",
+  "description": "MCP server for Claude Code — multi-AI orchestration across local + cloud LLMs, intelligent backend routing, council-driven workflows, and token-saving file operations.",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -19,22 +19,33 @@
     "audit:fix": "npm audit fix"
   },
   "keywords": [
-    "ai",
-    "bridge",
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "ai",
+    "llm",
+    "local-llm",
+    "llama-cpp",
+    "ollama",
+    "multi-agent",
+    "ai-orchestration",
+    "routing",
+    "anthropic",
+    "openai",
+    "gemini",
     "deepseek",
     "nvidia",
-    "gemini",
-    "openai",
     "groq",
-    "llm",
-    "model-context-protocol"
+    "bridge"
   ],
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
     "acorn": "^8.14.0",
+    "ajv": "^8.20.0",
     "diff": "^8.0.3",
     "express": "^5.2.1",
     "glob": "^13.0.0",
@@ -51,8 +62,12 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/Platano78/smart-ai-bridge.git"
   },
+  "bugs": {
+    "url": "https://github.com/Platano78/smart-ai-bridge/issues"
+  },
+  "homepage": "https://github.com/Platano78/smart-ai-bridge#readme",
   "devDependencies": {
     "vitest": "^4.1.0"
   }

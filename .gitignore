@@ -74,6 +74,9 @@ PHASE*.md
 SESSION-*.md
 MIGRATION-PROMPT.md
 
+# Internal strategy notes (competitive intel, positioning drafts)
+/notes/
+
 # WSL/Docker specific
 dev_context_storage/
 agno-serena*/

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Smart AI Bridge v2.0.0 - Modular MCP Server
+ * Smart AI Bridge - Modular MCP Server
  *
  * Thin entry point that wires together:
  * - Tool definitions (tools/tool-definitions.js)
@@ -10,6 +10,10 @@
  * - Intelligence layer (intelligence/index.js)
  * - StdioServerTransport (MCP SDK)
  */
+
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -21,6 +25,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { CORE_TOOL_DEFINITIONS } from './tools/tool-definitions.js';
+import Ajv from 'ajv';
 import { HandlerFactory } from './handlers/index.js';
 import { BackendRegistry } from './backends/backend-registry.js';
 import { sanitizeForJSON } from './json-sanitizer.js';
@@ -36,7 +41,26 @@ import { UsageAnalytics } from './monitoring/usage-analytics.js';
 import { setBackendRegistry } from './config/council-config-manager.js';
 import { DashboardServer } from './dashboard/index.js';
 
-const VERSION = '2.0.1';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
+const VERSION = pkg.version;
+if (!VERSION) {
+  throw new Error('package.json is missing a "version" field');
+}
+
+// ── Tool argument validators ─────────────────────────────────────
+const ajv = new Ajv({ allErrors: true, strict: false });
+const toolValidators = new Map();
+for (const def of CORE_TOOL_DEFINITIONS) {
+  try { toolValidators.set(def.name, ajv.compile(def.schema)); }
+  catch (e) { console.error(`[SAB] schema compile failed for ${def.name}: ${e.message}`); }
+}
+// Fail loud rather than silently pass-through unvalidated tool calls.
+if (toolValidators.size !== CORE_TOOL_DEFINITIONS.length) {
+  throw new Error(
+    `Tool schema validation incomplete: only ${toolValidators.size}/${CORE_TOOL_DEFINITIONS.length} schemas compiled`
+  );
+}
 
 console.error(`Smart AI Bridge v${VERSION} starting...`);
 
@@ -167,6 +191,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ErrorCode.MethodNotFound,
       `Unknown tool: ${name}. Available: ${[...toolToHandler.keys()].join(', ')}`
     );
+  }
+
+  const validate = toolValidators.get(name);
+  if (validate && !validate(args || {})) {
+    const detail = (validate.errors || []).map(e => `${e.instancePath || '/'} ${e.message}`).join('; ');
+    throw new McpError(ErrorCode.InvalidParams, `Invalid arguments for ${name}: ${detail}`);
   }
 
   try {

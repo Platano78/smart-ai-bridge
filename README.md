@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.5.0
+# Smart AI Bridge v2.6.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -8,7 +8,7 @@
 
 ## What It Does
 
-Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 19 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
+Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 18 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
 
 - **Any OpenAI-compatible provider works.** Local models (vLLM, LM Studio, Ollama), cloud APIs, or a mix of both. The included presets cover common providers, but adding your own is just a config entry.
 - **Smart routing** selects the best backend per task using a 4-tier system: forced selection, learned preferences, rule-based heuristics, and health-based fallback.
@@ -60,13 +60,13 @@ You only need at least one working backend (a local model or one cloud API key).
 
 ### 4. Restart Claude Code
 
-After restarting, all 19 tools will be available. Verify with:
+After restarting, all 18 tools will be available. Verify with:
 
 ```
 @check_backend_health({ "backend": "local" })
 ```
 
-## Tools (19)
+## Tools (18)
 
 ### Token-Saving File Operations
 
@@ -116,6 +116,29 @@ The router selects backends using a 4-tier priority system:
 4. **Fallback** -- health-based fallback through the priority chain
 
 When a backend fails, requests automatically fall to the next healthy backend. Circuit breakers protect each backend (5 consecutive failures trigger a 30-second cooldown).
+
+### Backend Names
+
+There are two layers of backend naming, and both are intentional:
+
+- **Friendly names** are what you pass to tools (e.g. `backend: "qwen3"` or
+  `model="groq"`). They are stable, provider-neutral aliases.
+- **Internal names** are the registry/config identifiers used in
+  `src/config/backends.json` and analytics.
+
+The presets map as follows:
+
+| Friendly name | Internal name | Adapter type |
+|---------------|---------------|--------------|
+| `local` | `local` | `local` |
+| `deepseek` | `nvidia_deepseek` | `nvidia_deepseek` |
+| `qwen3` | `nvidia_qwen` | `nvidia_qwen` |
+| `gemini` | `gemini` | `gemini` |
+| `groq` | `groq_llama` | `groq` |
+
+The OpenAI-compatible backend ships under the internal name `openai_chatgpt` (adapter
+type `openai`) and is reached through smart routing rather than a friendly alias. Custom
+backends you add via config use their `name` field directly as the internal name.
 
 ### Response Reliability (v2.4.0)
 
@@ -174,7 +197,7 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 ## Testing
 
 ```bash
-npm test              # Run 35 unit tests (Vitest)
+npm test              # Run the unit + integration suite (Vitest)
 npm run test:watch    # Watch mode
 npm run test:bench    # Performance benchmarks (25 benchmarks, 6 categories)
 ```
@@ -184,6 +207,30 @@ npm run test:bench    # Performance benchmarks (25 benchmarks, 6 categories)
 - Never commit API keys to version control. Use environment variables exclusively.
 - The Claude Code config examples above use placeholder values -- replace them with your actual keys or reference a `.env` file.
 - Rotate any accidentally leaked keys immediately.
+
+### Threat Model
+
+Smart AI Bridge is a **trusted-local MCP server**. It is designed to run as a stdio
+subprocess of a single client you control (Claude Code or Claude Desktop) on your own
+machine, and it assumes that client is trusted.
+
+Within that boundary:
+
+- **The file tools have full filesystem access by design.** `write_files_atomic`,
+  `modify_file`, `backup_restore`, and the read/analyze tools operate on whatever paths
+  the calling client supplies. They are not sandboxed to a project root. `safeReadFile`
+  resolves paths and rejects null bytes (defense against path-injection tricks), but it
+  does **not** confine access to a workspace.
+- **Argument validation happens at the tool boundary.** Tool calls are validated against
+  each tool's JSON Schema (via Ajv) before dispatch; malformed calls are rejected with a
+  structured error. This protects against malformed input, not against a hostile client.
+- **Tool calls run with the privileges of the server process.** Run it as your normal
+  user, not as root.
+
+This posture is appropriate for the intended single-user, local-agent use case. It is
+**not** suitable for exposing the server to untrusted or multi-tenant callers over a
+network. If you need that, put an authenticating proxy in front of it and add
+workspace-root confinement to the file handlers first -- neither is provided here.
 
 ## License
 

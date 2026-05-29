@@ -5,6 +5,32 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-05-29
+
+Repo-hygiene and reliability pass — addresses an external review that flagged version/tool-count drift, stale tests, an undocumented security boundary, and thin runtime validation.
+
+### Added
+- **Runtime argument validation (Ajv)** at the MCP dispatch boundary (`src/server.js`). Every tool's JSON Schema is compiled at startup; `CallTool` validates incoming `args` against the tool schema before dispatch and returns a structured `McpError(InvalidParams)` on failure. Validation-only (no `useDefaults`, no arg mutation). The server now **fails loud at startup** if any schema fails to compile (rather than silently disabling validation for that tool).
+- **`tests/integration.test.js`** — current smoke/integration suite asserting the real server shape: 18 tools, exact tool-name set, package.json semver, every schema compiles under Ajv (schema-lint), and every tool has a non-empty handler + description.
+- **Threat Model** section in README documenting the trusted-local stdio posture: file tools have full filesystem access by design (`safeReadFile` resolves paths and rejects null bytes but does not confine to a workspace root); not intended for untrusted or multi-tenant callers.
+- **Backend Names** table in README documenting the two-tier naming system (friendly aliases like `deepseek`/`qwen3`/`groq` → internal `nvidia_deepseek`/`nvidia_qwen`/`groq_llama`).
+- **`CONTRIBUTING.md`** — issue filing, dev setup, and test instructions.
+- CI test job now runs a **Node 18 / 20 / 22 matrix**.
+
+### Fixed
+- **Version drift** — `src/server.js` hardcoded `VERSION = '2.0.1'` while `package.json` was `2.5.0`; the startup banner, `health`, and MCP server-info all reported the wrong version. `VERSION` is now read from `package.json` at startup (single source of truth) and validated as present.
+- **README tool count** — corrected `19 → 18` (matching the actual tool set since `validate_changes` was removed in 2.5.0).
+- **`ask` tool backend enum inconsistency** — `ask` was the only tool exposing internal backend names (`nvidia_deepseek`, `nvidia_qwen`, `openai`) instead of the friendly aliases every other tool uses. With runtime validation now enforcing enums, this would have rejected friendly names like `qwen3` on `ask`. The enum is now a union of both tiers (back-compatible; friendly aliases resolve via `MODEL_ALIASES` in `ask-handler.js`).
+
+### Changed
+- **Test hygiene** — moved stale/broken node-script and fuzzy-matching test files to `archive/tests/` (they targeted a removed module API and an uninstalled `chai` dependency, and were silently excluded from the runner). Removed the `tests/fuzzy-matching-*.test.js` exclusion from `vitest.config.js`. `npm test` now reflects the real suite without hidden exclusions.
+- `.gitignore` now excludes `/notes/` (internal strategy notes).
+
+### Stats
+- Tool count: 18 (unchanged)
+- Test count: 46 → 51 (5 new integration tests)
+- New runtime dependency: `ajv`
+
 ## [2.5.0] - 2026-05-11
 
 ### Added
