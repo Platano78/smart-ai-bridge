@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Version:** v2.4.0
+**Current Version:** v2.6.0
 **Architecture:** Modular (65 source files in src/)
 **Status:** Production-Ready
 **Last Updated:** March 2026
@@ -20,7 +20,7 @@ The following items from the v1.0.0 roadmap have been implemented:
 - **Intelligent routing** -- 4-tier routing (forced, learning, rules, fallback) in MultiAIRouter
 - **Learning engine** -- In-memory learning engine, compound learning, pattern RAG store for routing optimization
 - **Intelligence layer** -- Dual-iterate executor, diff-context optimizer, enhanced self-review, playbook system, background analysis queue
-- **Expanded tool set** -- 20 tools (up from 11): explore, generate_file, refactor, write_files_atomic, validate_changes, backup_restore, batch_analyze, check_backend_health, read, plus original tools
+- **Expanded tool set** -- 18 tools (up from 11): explore, generate_file, refactor, write_files_atomic, backup_restore, batch_analyze, check_backend_health, plus original tools
 - **New backends** -- OpenAI (GPT-5.2) and Groq (Llama 3.3 70B) added alongside local, NVIDIA DeepSeek, NVIDIA Qwen, Gemini
 - **Real-time monitoring dashboard** -- Express-based dashboard with health monitoring and spawn metrics
 - **Advanced content analysis** -- Smart context system, capability matcher, model discovery
@@ -221,4 +221,4 @@ Items that score high on multiple criteria should be prioritized first.
 ---
 
 *Last Updated: March 2026*
-*System Version: v2.4.0*
+*System Version: v2.6.0*

@@ -1,8 +1,8 @@
-# Smart AI Bridge v2.4.0 - Troubleshooting Guide
+# Smart AI Bridge v2.6.0 - Troubleshooting Guide
 
 ## Overview
 
-This guide covers common issues when running Smart AI Bridge v2.0.0, the modular MCP server with 19 tools, 7 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
+This guide covers common issues when running Smart AI Bridge v2.6.0, the modular MCP server with 18 tools, 7 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
@@ -18,7 +18,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 
 **Diagnosis and Solutions:**
 
-1. **Check Node.js version** -- v2.0.0 requires Node.js 18.0.0 or later (ESM support).
+1. **Check Node.js version** -- v2.6.0 requires Node.js 18.0.0 or later (ESM support).
    ```bash
    node --version
    # Must be >= 18.0.0
@@ -32,7 +32,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
    npm install
    ```
 
-4. **Check the entry point path** -- The v2.0.0 entry point is `src/server.js`, not the legacy monolithic file.
+4. **Check the entry point path** -- The v2.6.0 entry point is `src/server.js`, not the legacy monolithic file.
    ```bash
    # Correct
    node src/server.js
@@ -218,12 +218,12 @@ McpError: Unknown tool: my_tool. Available: ask, review, analyze_file, ...
 
 **Solutions:**
 
-1. **Check tool name** -- v2.0.0 has 20 tools. The complete list:
+1. **Check tool name** -- v2.6.0 has 18 tools. The complete list:
    - `ask`, `review`, `analyze_file`, `modify_file`, `batch_modify`
-   - `explore`, `generate_file`, `refactor`, `write_files_atomic`, `validate_changes`
-   - `backup_restore`, `batch_analyze`, `check_backend_health`, `read`
+   - `explore`, `generate_file`, `refactor`, `write_files_atomic`
+   - `backup_restore`, `batch_analyze`, `check_backend_health`
    - `dual_iterate`, `council`, `spawn_subagent`, `parallel_agents`
-   - `health`, `clear_all_caches`
+   - `manage_conversation`, `get_analytics`
 
 2. **Tool names are exact** -- No aliases, no prefixes. Use exactly the names listed above.
 
@@ -516,4 +516,4 @@ When something is not working, run through this checklist:
 ---
 
 *Last Updated: February 2026*
-*System Version: v2.0.0*
+*System Version: v2.6.0*

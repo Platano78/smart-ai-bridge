@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.4.0 - Configuration Guide
+# Smart AI Bridge v2.6.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -8,8 +8,8 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 
 ```json
 {
-  "version": "2.4.0",
-  "description": "Smart AI Bridge v2.4.0 Backend Configuration",
+  "version": "2.6.0",
+  "description": "Smart AI Bridge v2.6.0 Backend Configuration",
   "backends": {
     "local": {
       "type": "local",
@@ -433,10 +433,10 @@ After modifying `backends.json`, verify the server starts correctly:
 ```bash
 node src/server.js 2>&1 | head -5
 # Expected output:
-# Smart AI Bridge v2.0.0 starting...
+# Smart AI Bridge v2.6.0 starting...
 # [BackendRegistry] Initialized 6 backends from backends.json
 # [Router] MultiAIRouter initialized
-# Smart AI Bridge v2.0.0 connected via stdio
+# Smart AI Bridge v2.6.0 connected via stdio
 # Tools: 20 | Backends: 6
 ```
 
