@@ -61,3 +61,24 @@ describe('integration smoke tests', () => {
     });
   });
 });
+
+describe('documentation consistency (drift guards)', () => {
+  const readme = readFileSync(join(__dirname, '../README.md'), 'utf8');
+  const changelog = readFileSync(join(__dirname, '../CHANGELOG.md'), 'utf8');
+
+  it('README title version matches package.json', () => {
+    const m = readme.match(/^# Smart AI Bridge v(\d+\.\d+\.\d+)/m);
+    expect(m, 'README must start with "# Smart AI Bridge vX.Y.Z"').not.toBeNull();
+    expect(m[1]).toBe(pkg.version);
+  });
+
+  it('CHANGELOG has an entry for the current version', () => {
+    expect(changelog).toContain(`## [${pkg.version}]`);
+  });
+
+  it('README "Tools (N)" heading matches the actual tool count', () => {
+    const m = readme.match(/##\s*Tools\s*\((\d+)\)/);
+    expect(m, 'README must have a "## Tools (N)" heading').not.toBeNull();
+    expect(Number(m[1])).toBe(CORE_TOOL_DEFINITIONS.length);
+  });
+});

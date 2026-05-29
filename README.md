@@ -137,8 +137,10 @@ The presets map as follows:
 | `groq` | `groq_llama` | `groq` |
 
 The OpenAI-compatible backend ships under the internal name `openai_chatgpt` (adapter
-type `openai`) and is reached through smart routing rather than a friendly alias. Custom
-backends you add via config use their `name` field directly as the internal name.
+type `openai`) and is reached through smart routing rather than a friendly alias. For the
+`ask` tool, `openai` is accepted as a compatibility alias for the configured
+OpenAI-compatible backend. Custom backends you add via config use their `name` field
+directly as the internal name.
 
 ### Response Reliability (v2.4.0)
 

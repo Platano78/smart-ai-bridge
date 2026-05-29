@@ -10,6 +10,7 @@ on:
       - '**/*.js'
       - 'tests/**'
       - 'package*.json'
+      - '**/*.md'
       - '.github/workflows/security-validation.yml'
   pull_request:
     branches: [main]
