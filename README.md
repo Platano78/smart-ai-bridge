@@ -158,6 +158,35 @@ An optional web dashboard provides UI for backend management (enable/disable, pr
 
 See [docs/DASHBOARD.md](docs/DASHBOARD.md) for setup and API reference.
 
+## SmartCrusher (Tool-Result Compression)
+
+Large tool results — long file analyses, council responses, batch outputs — can fill Claude's context window quickly. SmartCrusher trims oversized arrays before serialization using a salience-weighted keep/drop strategy, inserting a sentinel row so Claude knows data was offloaded.
+
+**Disabled by default.** Enable only after running the fidelity eval against your own local model.
+
+### Enable
+
+```bash
+# One-time env override (no config edit needed)
+SAB_COMPRESSION_ENABLED=true node src/server.js
+
+# Or permanently in src/config/backends.json:
+# "compression": { "enabled": true }
+```
+
+### Fidelity Eval (run before enabling)
+
+The eval probes whether crushed responses preserve factual accuracy compared to originals. It requires an OpenAI-compatible local API — use whatever model you normally run:
+
+```bash
+RUN_CRUSH_EVAL=1 \
+  CRUSH_EVAL_BASE_URL=http://127.0.0.1:<port>/v1 \
+  CRUSH_EVAL_MODEL=<your-model-id> \
+  npx vitest run tests/compression/probeFidelity.test.js
+```
+
+Check the output for `original=N/15` vs `crushed=M/15` per dimension. If crushed scores drop more than 2 points on any dimension, leave compression disabled — the model grades differently than the reference setup.
+
 ## Adding a Backend
 
 **Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3000` to add, remove, enable/disable, and re-prioritize backends without editing JSON.
@@ -202,6 +231,12 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 npm test              # Run the unit + integration suite (Vitest)
 npm run test:watch    # Watch mode
 npm run test:bench    # Performance benchmarks (25 benchmarks, 6 categories)
+
+# SmartCrusher fidelity eval (opt-in, requires a running local model):
+RUN_CRUSH_EVAL=1 \
+  CRUSH_EVAL_BASE_URL=http://127.0.0.1:<port>/v1 \
+  CRUSH_EVAL_MODEL=<your-model-id> \
+  npx vitest run tests/compression/probeFidelity.test.js
 ```
 
 ## Security Notes
