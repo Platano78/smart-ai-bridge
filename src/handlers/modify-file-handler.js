@@ -220,7 +220,8 @@ export class ModifyFileHandler extends BaseHandler {
           response = await this.makeRequest(prompt, usedBackend, {
             maxTokens: currentTokens,
             routerModel: modelProfile,
-            timeout: timeoutMs
+            timeout: timeoutMs,
+            disableThinking: true
           });
 
           const responseText = this.extractResponseText(response);
@@ -341,7 +342,11 @@ export class ModifyFileHandler extends BaseHandler {
           warnings = modified.warnings || [];
 
           if (!modifiedCode || modifiedCode.trim() === '') {
-            return this.buildErrorResponse('Failed to parse modification response: no code extracted');
+            return this.buildErrorResponse(
+              'Failed to parse modification response: no code extracted. ' +
+              'The model may have returned only an explanation. ' +
+              'Try again with a more specific instruction, or use analyze_file first to understand the current structure, then retry modify_file.'
+            );
           }
 
           // SAFETY CHECK: Prevent catastrophic file replacement
@@ -353,7 +358,8 @@ export class ModifyFileHandler extends BaseHandler {
             return this.buildErrorResponse(
               `Safety check failed: Model returned a snippet (${modifiedCode.length} chars) instead of ` +
               `SEARCH/REPLACE blocks for a ${originalContent.length} char file. ` +
-              `Try again with a clearer instruction or use native Edit tool.`
+              `Next steps: (1) call analyze_file first to understand the structure, then retry modify_file with a more specific instruction; ` +
+              `(2) or use the native Edit tool for a targeted in-context change.`
             );
           }
         }
@@ -987,7 +993,8 @@ SUMMARY: [1-2 sentence description after all blocks]
       const scaledTokens = Math.min(tokens * RETRY_CONFIG.tokenScaleFactor, 6000);
       const codingResponse = await this.makeRequest(prompt, 'local', {
         maxTokens: scaledTokens,
-        timeout: 90000
+        timeout: 90000,
+        disableThinking: true
       });
 
       const codingText = codingResponse.content || codingResponse;
@@ -1011,7 +1018,8 @@ STATUS: FIXED
 
       const validationResponse = await this.makeRequest(validatePrompt, 'local', {
         maxTokens: scaledTokens,
-        timeout: 90000
+        timeout: 90000,
+        disableThinking: true
       });
 
       const validationText = validationResponse.content || validationResponse;

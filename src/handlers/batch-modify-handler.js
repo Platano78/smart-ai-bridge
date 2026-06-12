@@ -128,16 +128,18 @@ export class BatchModifyHandler extends BaseHandler {
         // Rollback all changes
         await this.rollback(backups);
 
-        return this.buildErrorResponse({
-          status: 'rolled_back',
-          message: `${failures.length} modifications failed. All changes rolled back.`,
-          failures: failures.map(f => ({
-            filePath: f.filePath,
-            error: f.error
-          })),
-          successes: successes.length,
-          processing_time: processingTime
-        });
+        return this.buildErrorResponse(
+          `${failures.length} modifications failed. All changes rolled back.`,
+          {
+            status: 'rolled_back',
+            failures: failures.map(f => ({
+              filePath: f.filePath,
+              error: f.error
+            })),
+            successes: successes.length,
+            processing_time: processingTime
+          }
+        );
       }
 
       // 6. Build response
