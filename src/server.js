@@ -40,6 +40,7 @@ import ConversationThreading from './threading/conversation-threading.js';
 import { UsageAnalytics } from './monitoring/usage-analytics.js';
 import { setBackendRegistry } from './config/council-config-manager.js';
 import { DashboardServer } from './dashboard/index.js';
+import { crushToolResult, DEFAULT_CRUSHER_CONFIG } from './compression/smartCrush.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
@@ -47,6 +48,16 @@ const VERSION = pkg.version;
 if (!VERSION) {
   throw new Error('package.json is missing a "version" field');
 }
+
+// ── Compression config (disabled by default — enable after fidelity eval) ─
+const _backendsConfig = JSON.parse(readFileSync(join(__dirname, 'config/backends.json'), 'utf8'));
+const compressionConfig = {
+  ...DEFAULT_CRUSHER_CONFIG,
+  ...(_backendsConfig.compression || {}),
+  // Env override: SAB_COMPRESSION_ENABLED=true enables at runtime without a config edit
+  ...(process.env.SAB_COMPRESSION_ENABLED === 'true' ? { enabled: true } :
+      process.env.SAB_COMPRESSION_ENABLED === 'false' ? { enabled: false } : {})
+};
 
 // ── Tool argument validators ─────────────────────────────────────
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -205,17 +216,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     console.error(`[SAB] ${name} completed in ${elapsed}ms`);
 
     // Normalize result format
-    // If handler already returns MCP-formatted content array, pass through directly
+    // If handler already returns MCP-formatted content array, pass through directly.
+    // NOTE: compression is intentionally NOT applied here. A pre-formatted content[]
+    // is a {type,text} block whose payload is already JSON.stringify'd — crushing it
+    // would mean re-parsing serialized text and risk double-wrapping/sentinel injection,
+    // defeating the purpose. Crushing happens only on the raw-result path (b) below.
     if (typeof result === 'object' && result !== null && Array.isArray(result.content)
         && result.content.length > 0 && result.content[0].type === 'text') {
       return result;
     }
 
-    const content = typeof result === 'string'
-      ? result
-      : typeof result === 'object' && result !== null
-        ? JSON.stringify(sanitizeForJSON(result), null, 2)
-        : String(result);
+    // Apply SmartCrusher compression to the raw result before serialization.
+    // On any compression error, fall back to the uncrushed result (no behavior change).
+    let payload = result;
+    try {
+      payload = crushToolResult(result, compressionConfig).value;
+    } catch (compressionError) {
+      console.error(`[SAB] ${name} compression skipped: ${compressionError.message}`);
+      payload = result;
+    }
+
+    const content = typeof payload === 'string'
+      ? payload
+      : typeof payload === 'object' && payload !== null
+        ? JSON.stringify(sanitizeForJSON(payload), null, 2)
+        : String(payload);
 
     return {
       content: [{

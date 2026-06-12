@@ -121,5 +121,8 @@
       "medium": 0.6,
       "complex": 0.8
     }
+  },
+  "compression": {
+    "enabled": false
   }
 }
