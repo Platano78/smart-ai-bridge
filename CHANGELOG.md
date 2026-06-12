@@ -5,6 +5,60 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-06-12
+
+Port of MKG v10.5.0 + v10.6.0 — bug fixes, quality-of-life improvements, and
+SmartCrusher tool-result compression infrastructure (inert by default).
+
+### Added
+- **SmartCrusher compression** (`src/compression/`): LZSM-style array compression
+  that trims large tool results before serialization. Disabled by default
+  (`compression.enabled: false` in `backends.json`); enable after running the
+  probe-fidelity eval against your local model
+  (`RUN_CRUSH_EVAL=1 CRUSH_EVAL_BASE_URL=... CRUSH_EVAL_MODEL=... npx vitest run
+  tests/compression/probeFidelity.test.js`). Pure stdlib — no new dependencies.
+  Wired into the CallTool chokepoint (path b, raw-result path only; pre-formatted
+  `content[]` passthroughs are intentionally left uncrushed).
+- **`SAB_COMPRESSION_ENABLED` env override**: flip compression on/off at runtime
+  without editing config.
+- **23 new compression unit tests** (`tests/compression/`): unit coverage for
+  `smartCrush.js` and `adaptiveSizer.js`; `probeFidelity.test.js` requires opt-in
+  via `RUN_CRUSH_EVAL=1` and user-configured `CRUSH_EVAL_BASE_URL`/`CRUSH_EVAL_MODEL`.
+- **`spawn_subagent` role suggestions**: invalid-role errors now include
+  `did_you_mean` + `suggestions` fields (uses the existing but previously unwired
+  `suggestSimilarRoles()` in `role-validator.js`).
+- **`disableThinking: true`** on all `makeRequest` calls in `generate-file-handler`
+  and `modify-file-handler` — suppresses qwen3/reasoning-model thinking overhead
+  (30–100s) that brings no quality gain for mechanical generation/edit tasks.
+  Matches what `analyze-file-handler` already did.
+
+### Fixed
+- **`batch_modify` rollback data loss**: `buildErrorResponse` was called with a
+  plain object as the first argument — only `.message` was captured; `status`,
+  `failures`, `successes`, and `processing_time` were silently dropped from the
+  error payload. Now passed correctly as `(message, context)`.
+
+### Changed
+- **Self-healing error messages** across five handlers:
+  - `system-handlers`: unknown `manage_conversation` action now enumerates valid
+    actions (`start, continue, resume, history, search, analytics`).
+  - `council-handler`: "not enough backends" now names the saturated cloud lanes
+    and suggests `ask` with `seed_coder` as a single-backend fallback.
+  - `generate-file-handler`: outer catch returns a structured error with a retry
+    hint (`options.backend:'local'`/`'seed_coder'`) instead of re-throwing raw.
+  - `modify-file-handler`: no-code-extracted and snippet-safety errors add an
+    `analyze_file` + retry next-step hint.
+  - `ask-handler`: unknown `model` now lists all valid friendly aliases and
+    registered backend names at runtime (previously silently passed the unknown
+    name to the router).
+- **`truncation-detector`**: `detectCodeTruncation` extended with paren/bracket
+  balance, backtick/template-literal balance, and triple-quote balance checks —
+  catches silent-truncation shapes that `was_truncated: false` misses.
+
+### Stats
+- Tool count: 18 (unchanged)
+- Test count: 77 passing + 4 skipped (fidelity eval, opt-in)
+
 ## [2.6.0] - 2026-05-29
 
 Repo-hygiene and reliability pass — addresses an external review that flagged version/tool-count drift, stale tests, an undocumented security boundary, and thin runtime validation.
