@@ -12,9 +12,16 @@ import {
 } from '../../src/compression/smartCrush.js';
 
 const RUN = process.env.RUN_CRUSH_EVAL === '1';
-const BASE_URL = (process.env.CRUSH_EVAL_BASE_URL ?? 'http://127.0.0.1:8084/v1').replace(/\/$/, '');
-const MODEL = process.env.CRUSH_EVAL_MODEL ?? 'seed-coder-8b';
+// No defaults — point these at your own OpenAI-compatible local API:
+//   CRUSH_EVAL_BASE_URL=http://127.0.0.1:<port>/v1   (e.g. Ollama, llama.cpp, LM Studio)
+//   CRUSH_EVAL_MODEL=<your-model-id>
+//   CRUSH_EVAL_API_KEY=<key-if-needed>   (optional, defaults to no-auth)
+const BASE_URL = process.env.CRUSH_EVAL_BASE_URL?.replace(/\/$/, '') ?? null;
+const MODEL = process.env.CRUSH_EVAL_MODEL ?? null;
 const API_KEY = process.env.CRUSH_EVAL_API_KEY ?? 'sk-no-auth';
+
+if (RUN && !BASE_URL) throw new Error('[probeFidelity] Set CRUSH_EVAL_BASE_URL=http://127.0.0.1:<port>/v1');
+if (RUN && !MODEL) throw new Error('[probeFidelity] Set CRUSH_EVAL_MODEL=<your-model-id>');
 
 const MAX_SCORE_DROP = 2;
 
