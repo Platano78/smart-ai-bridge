@@ -144,7 +144,8 @@ export class GenerateFileHandler extends BaseHandler {
         response = await this.makeRequest(prompt, usedBackend, {
           maxTokens: currentTokens,
           routerModel: modelProfile,
-          timeout: timeoutMs
+          timeout: timeoutMs,
+          disableThinking: true
         });
 
         // Parse the response immediately so we can check structure
@@ -280,7 +281,10 @@ export class GenerateFileHandler extends BaseHandler {
 
     } catch (error) {
       console.error(`[GenerateFile] ❌ Error: ${error.message}`);
-      throw error;
+      return this.buildErrorResponse(
+        `File generation failed: ${error.message}`,
+        { hint: "Retry with options.backend:'local' or 'seed_coder', or simplify the spec." }
+      );
     }
   }
 
@@ -581,7 +585,8 @@ TESTS:
       const codingResponse = await this.makeRequest(prompt, 'local', {
         maxTokens: scaledTokens,
         routerModel: modelProfile,
-        timeout: 120000
+        timeout: 120000,
+        disableThinking: true
       });
 
       const codingFinishReason = codingResponse.metadata?.finishReason;
@@ -619,7 +624,8 @@ CODE:
 
       const reviewResponse = await this.makeRequest(reviewPrompt, 'local', {
         maxTokens: scaledTokens,
-        timeout: 120000
+        timeout: 120000,
+        disableThinking: true
       });
 
       const reviewText = reviewResponse.content || reviewResponse;

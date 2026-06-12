@@ -84,7 +84,19 @@ class AskHandler extends BaseHandler {
     if (MODEL_ALIASES.hasOwnProperty(model)) {
       requestedBackend = MODEL_ALIASES[model];  // null for 'auto', mapped name for aliases
     } else {
-      // Not an alias - use as direct backend name (validated by router)
+      // Not an alias — validate it's a registered backend before using it directly
+      if (this.backendRegistry) {
+        const registered = Object.keys(this.backendRegistry.getAllBackends());
+        if (!registered.includes(model)) {
+          const aliases = Object.keys(MODEL_ALIASES).join(', ');
+          const backends = registered.join(', ');
+          throw new Error(
+            `Unknown model: '${model}'. ` +
+            `Friendly aliases: ${aliases}. ` +
+            `Registered backends: ${backends}`
+          );
+        }
+      }
       requestedBackend = model;
     }
 

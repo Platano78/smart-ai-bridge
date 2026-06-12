@@ -274,7 +274,7 @@ class ManageConversationHandler extends BaseHandler {
           break;
 
         default:
-          throw new Error(`Unknown action: ${action}`);
+          throw new Error(`Unknown action: '${action}'. Valid actions: start, continue, resume, history, search, analytics`);
       }
 
       return {

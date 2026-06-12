@@ -117,7 +117,9 @@ class CouncilHandler extends BaseHandler {
       
       if (availableBackends.length < 2) {
         return this.buildErrorResponse(
-          new Error(`Need at least 2 backends, only ${availableBackends.length} available`)
+          `council needs ≥2 backends — only ${availableBackends.length} available from [${backends.join(', ')}]. ` +
+          `Cloud lanes (nvidia_deepseek, nvidia_qwen, groq_llama) may be saturated; retry in a moment, ` +
+          `or call ask with backend:'seed_coder' for a single-backend response.`
         );
       }
 

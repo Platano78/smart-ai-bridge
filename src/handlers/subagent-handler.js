@@ -11,7 +11,7 @@ import { promises as fs, existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { BaseHandler } from './base-handler.js';
 import { roleTemplates } from '../config/role-templates.js';
-import { validateRole } from '../utils/role-validator.js';
+import { validateRole, suggestSimilarRoles } from '../utils/role-validator.js';
 import { SpawnMetrics } from '../monitoring/spawn-metrics.js';
 import { parseGlobPattern } from '../utils/glob-parser.js';
 import { parseVerdict } from '../utils/verdict-parser.js';
@@ -76,7 +76,10 @@ class SubagentHandler extends BaseHandler {
     // Validate role
     const roleValidation = validateRole(role);
     if (!roleValidation.valid) {
-      return this.buildErrorResponse(new Error(roleValidation.error));
+      const suggestions = suggestSimilarRoles(role);
+      return this.buildErrorResponse(roleValidation.error, {
+        ...(suggestions.length > 0 && { did_you_mean: suggestions[0], suggestions })
+      });
     }
 
     const startTime = Date.now();

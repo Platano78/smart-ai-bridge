@@ -55,9 +55,28 @@ function detectCodeTruncation(code, spec) {
     if (specMentionsExport && !hasExport && code.length > 100) return true;
   }
 
+  // Structural balance checks — unbalanced delimiters signal a truncated output
   const openBraces = (code.match(/\{/g) || []).length;
   const closeBraces = (code.match(/\}/g) || []).length;
-  return openBraces > closeBraces;
+  if (openBraces > closeBraces) return true;
+
+  const openParens = (code.match(/\(/g) || []).length;
+  const closeParens = (code.match(/\)/g) || []).length;
+  if (openParens > closeParens) return true;
+
+  const openBrackets = (code.match(/\[/g) || []).length;
+  const closeBrackets = (code.match(/\]/g) || []).length;
+  if (openBrackets > closeBrackets) return true;
+
+  // Backtick/template-literal balance: odd count means unterminated template or code fence
+  const backticks = (code.match(/`/g) || []).length;
+  if (backticks % 2 !== 0) return true;
+
+  // Triple-quote balance (Python strings / multiline strings)
+  const tripleDouble = (code.match(/"""/g) || []).length;
+  if (tripleDouble % 2 !== 0) return true;
+
+  return false;
 }
 
 function detectGeneralTruncation(content) {
