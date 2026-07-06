@@ -12,8 +12,33 @@ import { BaseHandler } from './base-handler.js';
  */
 class HealthHandler extends BaseHandler {
   async execute(args) {
-    const { check_type = 'comprehensive', force_ip_rediscovery = false } = args;
+    const { backend, force = false, check_type = 'comprehensive', force_ip_rediscovery = false } = args;
     const startTime = Date.now();
+
+    // check_backend_health's schema requires `backend`; previously it was silently
+    // ignored and every call ran the full multi-backend sweep below.
+    if (backend) {
+      const adapter = this.context.backendRegistry?.getAdapter(backend);
+      if (!adapter) {
+        return {
+          success: false,
+          status: 'offline',
+          backend,
+          error: `Unknown backend: ${backend}`,
+          total_check_time: Date.now() - startTime
+        };
+      }
+      const health = await adapter.checkHealth();
+      return {
+        success: true,
+        status: health.healthy ? 'online' : 'offline',
+        backend,
+        latency_ms: health.latency,
+        last_check_iso: (health.checkedAt?.toISOString?.() ?? new Date().toISOString()),
+        error: health.error || null,
+        total_check_time: Date.now() - startTime
+      };
+    }
 
     // Handle force IP rediscovery if requested
     if (force_ip_rediscovery && this.context.router) {

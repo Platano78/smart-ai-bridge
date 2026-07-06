@@ -237,7 +237,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'check_backend_health',
-    description: "On-demand ping of one backend's API endpoint to verify reachability and capture latency. Results are cached for 5 minutes; pass `force:true` to bypass the cache. SAB already runs periodic auto-health checks in the background, so most callers don't need this — reach for it when troubleshooting a routing decision that failed unexpectedly or before kicking off a long batch call against a particular backend. Read-only: makes one HTTP request to the backend's health endpoint. Returns: `{status:'online'|'offline'|'degraded', latency_ms, backend, last_check_iso, error?, models?:[{id, name, size, quantization}] (router only), available_presets? (router only), cache_status:'HIT'|'MISS', total_check_time}`.",
+    description: "On-demand ping of one specific backend's API endpoint to verify reachability and capture latency. Hits only the named backend, not the whole fleet. Read-only: makes one HTTP request to the backend's health endpoint. Returns: `{success, status:'online'|'offline', backend, latency_ms, last_check_iso, error?, total_check_time}`.",
     handler: 'handleCheckBackendHealth',
     schema: {
       type: 'object',

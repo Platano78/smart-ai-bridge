@@ -127,6 +127,9 @@ class BackendRegistry {
     /** @type {Object<string, Function>} Handler-specific routing overrides */
     this.routingOverrides = {};
 
+    this._healthCache = null;
+    this._healthCacheTime = 0;
+
     if (this.config.autoInitialize) {
       this.initializeDefaults();
     }
@@ -448,23 +451,34 @@ class BackendRegistry {
 
   /**
    * Check health of all backends
-   * @returns {Promise<Object>}
+   * @param {boolean} [force=false] - Bypass the 10s TTL cache and force a fresh sweep
+   * @returns {Promise<Object>} Shared cached result — callers must treat it as read-only
    */
-  async checkHealth() {
-    const results = {};
-
-    for (const [name, adapter] of this.adapters) {
-      try {
-        results[name] = await adapter.checkHealth();
-      } catch (error) {
-        results[name] = {
-          healthy: false,
-          error: error.message
-        };
-      }
+  async checkHealth(force = false) {
+    // 10s TTL promise cache: dedupes concurrent sweeps (council/subagent fire several
+    // availability checks at once) and collapses repeat sweeps, while staying far under
+    // model-swap time so local-adapter's modelId rediscovery (a checkHealth side effect)
+    // stays fresh. Caching the in-flight promise (not the result) is what prevents the
+    // concurrent-caller thundering herd.
+    const CACHE_TTL_MS = 10000;
+    if (!force && this._healthCache && (Date.now() - this._healthCacheTime) < CACHE_TTL_MS) {
+      return this._healthCache;
     }
 
-    return results;
+    this._healthCacheTime = Date.now();
+    this._healthCache = (async () => {
+      const entries = await Promise.all(
+        Array.from(this.adapters, async ([name, adapter]) => {
+          try {
+            return [name, await adapter.checkHealth()];
+          } catch (error) {
+            return [name, { healthy: false, error: error.message }];
+          }
+        })
+      );
+      return Object.fromEntries(entries);
+    })();
+    return this._healthCache;
   }
 
   /**

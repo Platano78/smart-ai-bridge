@@ -649,20 +649,15 @@ SYNTHESIS: [Final unified answer]`;
    * Filter backends to only available ones
    */
   async filterAvailableBackends(requestedBackends) {
-    const available = [];
-    
-    for (const backend of requestedBackends) {
+    const checks = await Promise.all(requestedBackends.map(async (backend) => {
       try {
-        const isAvailable = await this.isBackendAvailable(backend);
-        if (isAvailable) {
-          available.push(backend);
-        }
+        return (await this.isBackendAvailable(backend)) ? backend : null;
       } catch (e) {
         console.warn(`[Council] Backend ${backend} not available:`, e.message);
+        return null;
       }
-    }
-    
-    return available;
+    }));
+    return checks.filter(Boolean);
   }
 
   /**

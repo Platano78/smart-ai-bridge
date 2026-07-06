@@ -509,32 +509,35 @@ class SubagentHandler extends BaseHandler {
    */
   async getAvailableBackendsForSubagent() {
     const allBackends = ['local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini', 'groq_llama'];
-    const available = [];
     const circuitOpenBackends = [];
 
-    for (const backend of allBackends) {
+    const results = await Promise.all(allBackends.map(async (backend) => {
       try {
         // Check circuit breaker first (fast check)
         const adapter = this.context?.router?.backends?.getAdapter?.(backend);
         if (adapter?.circuitOpen) {
           circuitOpenBackends.push(backend);
-          continue;
+          return null;
         }
 
         // Check health/availability
         const isAvailable = await this.isBackendAvailable(backend);
-        if (!isAvailable) continue;
+        if (!isAvailable) return null;
 
         // Local backend check passed
 
         // Check if suitable for subagent work
         if (isSuitableForSubagent(backend)) {
-          available.push(backend);
+          return backend;
         }
+        return null;
       } catch (e) {
         // Backend not available, skip
+        return null;
       }
-    }
+    }));
+
+    const available = results.filter(Boolean);
 
     // Log circuit breaker status for visibility
     if (circuitOpenBackends.length > 0) {
