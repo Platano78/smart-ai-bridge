@@ -5,6 +5,56 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-07-06
+
+Performance and hygiene release from a full architectural review (4-area audit,
+every change adversarially verified before landing).
+
+### Changed
+- **Backend health path**: `BackendRegistry.checkHealth()` now probes all adapters
+  in parallel with a 10s TTL in-flight-promise cache (plus a `force` bypass).
+  Council/subagent pre-flight worst case drops from ~105s (serial, uncached,
+  re-swept per requested backend) to ≤5s. Council and subagent availability
+  filtering also run per-backend checks concurrently.
+- **`ask` responses**: removed the internal `_debug_orchestrator` block and the
+  redundant wholesale `response_headers` dump (~200–300 tokens saved per call;
+  the individually extracted routing fields are unchanged).
+- **Startup**: `LearningEngine` and `ConversationThreading` initialize in
+  parallel; the dashboard (`express` + `ws`) is now lazy-imported only when
+  `SAB_DASHBOARD=true`.
+- **Handler internals**: backend context-limit/speed tables consolidated into
+  `BaseHandler` (the six per-handler copies had drifted — `analyze_file` was
+  computing local-backend timeouts from a stale speed constant); shared
+  `gatherContextFiles`/`checkDualModeAvailable` helpers likewise consolidated
+  (call sites keep their original limits).
+- **Persistence**: `CompoundLearningEngine` state saves are async (no longer
+  block the event loop); `PatternRAGStore.save()` writes via tmp-file + atomic
+  rename.
+
+### Fixed
+- **`check_backend_health` honors its schema**: the schema requires `backend`
+  but the handler silently ignored it and ran a full multi-backend sweep on
+  every call. It now pings exactly the requested backend; the tool description
+  no longer claims a nonexistent 5-minute cache.
+- **Hidden LLM call removed**: the playbook "reflection" fired a real local-model
+  inference (~700–800 tokens) after every qualifying `ask`/`review`/`modify_file`/
+  `batch_modify` call, but nothing ever consumed the extracted lessons.
+- **Wasted serialization removed**: `crushToolResult()` was JSON-stringifying
+  every tool result for stats before checking `enabled` (compression is off by
+  default); the call is now skipped entirely when disabled.
+- **Batch I/O**: `batch_analyze` and `refactor` no longer read each file's full
+  content just to measure its size (`fs.stat` instead) — roughly halves read
+  I/O per batch.
+
+### Removed
+- ~1,768 lines of dead code (grep-gated, zero live call sites): unused
+  `smart-context.js`, `quality-gates.js`, the `intelligence/index.js` barrel with
+  `enhanced-self-review.js`/`self-reflection-config.js`, `file-security.js`,
+  `smart-alias-resolver.js` + the `ALIAS_GROUP_DEFINITIONS` block, and the
+  unreachable playbook reflection methods.
+- Broken `test:features`/`test:conversation`/`test:analytics` package scripts
+  (their target files were never in the repo).
+
 ## [2.7.0] - 2026-06-12
 
 Port of MKG v10.5.0 + v10.6.0 — bug fixes, quality-of-life improvements, and
