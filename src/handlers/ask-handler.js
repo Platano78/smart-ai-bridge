@@ -228,24 +228,6 @@ class AskHandler extends BaseHandler {
         decision: routingContext.decision || selectedBackend,
         confidence: routingContext.confidence || null,
         orchestrator_healthy: orchestratorHealthy || false,
-        _debug_orchestrator: {
-          exists: Boolean(this.router?.orchestratorHealthy),
-          rawValue: orchestratorHealthy,
-          routerExists: Boolean(this.router),
-          serverOrchestratorExists: Boolean(this.server?.orchestratorClient),
-          backendRegistryOrchestratorExists: Boolean(this.server?.backendRegistry?.orchestratorClient),
-          sameInstance: this.server?.orchestratorClient === this.server?.backendRegistry?.orchestratorClient,
-          clientState: this.server?.orchestratorClient ? {
-            _instanceId: this.server.orchestratorClient._instanceId,
-            _healthy: this.server.orchestratorClient._healthy,
-            _initialCheckComplete: this.server.orchestratorClient._initialCheckComplete,
-            _lastHealthCheck: this.server.orchestratorClient._lastHealthCheck,
-            url: this.server.orchestratorClient.url
-          } : null,
-          backendRegistryState: this.server?.backendRegistry?.orchestratorClient ? {
-            _instanceId: this.server.backendRegistry.orchestratorClient._instanceId
-          } : null
-        },
         complexity: typeof routingContext.complexity === 'number'
           ? routingContext.complexity.toFixed(2)
           : (routingContext.complexity || null),
@@ -270,7 +252,6 @@ class AskHandler extends BaseHandler {
         was_truncated: wasTruncated,
         smart_routing_applied: !force_backend && (selectedBackend !== requestedBackend),
         routing: routingIndicator,
-        response_headers: responseHeaders,
         metadata: response.metadata || {},
         processing_time: processingTime
       });

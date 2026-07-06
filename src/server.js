@@ -39,7 +39,6 @@ import { PatternRAGStore } from './intelligence/pattern-rag-store.js';
 import ConversationThreading from './threading/conversation-threading.js';
 import { UsageAnalytics } from './monitoring/usage-analytics.js';
 import { setBackendRegistry } from './config/council-config-manager.js';
-import { DashboardServer } from './dashboard/index.js';
 import { crushToolResult, DEFAULT_CRUSHER_CONFIG } from './compression/smartCrush.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -119,12 +118,11 @@ console.error('[SAB] DualWorkflowManager initialized');
 const patternStore = new PatternRAGStore({ storagePath: './data/patterns.json' });
 const antiPatternStore = new PatternRAGStore({ storagePath: './data/anti-patterns.json' });
 const codeLearningEngine = new LearningEngine({ patternStore, antiPatternStore });
-await codeLearningEngine.init();
-console.error('[SAB] LearningEngine (code patterns) initialized');
-
 // ── 7. Initialize conversation threading ────────────────────────
 const conversationThreading = new ConversationThreading('./data/conversations');
-await conversationThreading.init();
+// Independent data dirs (data/patterns*.json vs data/conversations/) — safe to parallelize.
+await Promise.all([codeLearningEngine.init(), conversationThreading.init()]);
+console.error('[SAB] LearningEngine (code patterns) initialized');
 console.error('[SAB] ConversationThreading initialized');
 
 // ── 8. Initialize router with learning engine ───────────────────
@@ -229,11 +227,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Apply SmartCrusher compression to the raw result before serialization.
     // On any compression error, fall back to the uncrushed result (no behavior change).
     let payload = result;
-    try {
-      payload = crushToolResult(result, compressionConfig).value;
-    } catch (compressionError) {
-      console.error(`[SAB] ${name} compression skipped: ${compressionError.message}`);
-      payload = result;
+    // crushToolResult() JSON.stringifies the whole payload for stats BEFORE checking
+    // cfg.enabled — skip the call entirely while compression is off (the default).
+    if (compressionConfig.enabled) {
+      try {
+        payload = crushToolResult(result, compressionConfig).value;
+      } catch (compressionError) {
+        console.error(`[SAB] ${name} compression skipped: ${compressionError.message}`);
+        payload = result;
+      }
     }
 
     const content = typeof payload === 'string'
@@ -280,6 +282,9 @@ console.error(`Tools: ${toolToHandler.size} | Backends: ${backendRegistry.getSta
 
 // ── Dashboard (optional, env-gated) ─────────────────────────────
 if (process.env.SAB_DASHBOARD === 'true') {
+  // Lazy import: dashboard pulls in express + ws, which should not load on the
+  // default stdio-only startup path.
+  const { DashboardServer } = await import('./dashboard/index.js');
   const dashboard = new DashboardServer({
     port: parseInt(process.env.SAB_DASHBOARD_PORT || '3456'),
     backendRegistry,

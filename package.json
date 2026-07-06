@@ -11,9 +11,6 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:legacy": "node scripts/validate-hybrid-server.js",
-    "test:features": "node run-comprehensive-feature-tests.js",
-    "test:conversation": "node test-conversation-threading.js",
-    "test:analytics": "node test-usage-analytics.js",
     "test:bench": "node tests/benchmark.js",
     "audit": "npm audit",
     "audit:fix": "npm audit fix"

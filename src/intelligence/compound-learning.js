@@ -14,6 +14,7 @@
  */
 
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 
 /**
@@ -270,7 +271,7 @@ class CompoundLearningEngine {
 
     // Persist state periodically
     if (this.routingHistory.length % 10 === 0) {
-      this._saveState();
+      this._saveState().catch(err => console.error('[CompoundLearning] Deferred save failed:', err.message));
     }
 
     return {
@@ -524,7 +525,7 @@ class CompoundLearningEngine {
    * Save state to disk
    * @private
    */
-  _saveState() {
+  async _saveState() {
     try {
       const state = {
         backendMetrics: this.backendMetrics,
@@ -534,7 +535,7 @@ class CompoundLearningEngine {
       };
 
       const filePath = path.join(this.config.dataDir, 'learning-state.json');
-      fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
+      await fsp.writeFile(filePath, JSON.stringify(state, null, 2));
     } catch (error) {
       console.error('[CompoundLearning] Failed to save state:', error.message);
     }
