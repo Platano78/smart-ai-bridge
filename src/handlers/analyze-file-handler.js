@@ -80,7 +80,7 @@ export class AnalyzeFileHandler extends BaseHandler {
       if (verbatimResult) return verbatimResult;
 
       // 2. Read context files if provided
-      const contextContents = await this.gatherContextFiles(includeContext);
+      const contextContents = await this.gatherContextFiles(includeContext, { maxFiles: 5, maxCharsPerFile: 10000 });
 
       // 3. Detect language for better prompting
       const language = this.detectLanguage(filePath);
@@ -212,30 +212,6 @@ export class AnalyzeFileHandler extends BaseHandler {
   }
 
   /**
-   * Gather content from context files
-   */
-  async gatherContextFiles(contextPaths) {
-    if (!contextPaths || contextPaths.length === 0) {
-      return [];
-    }
-
-    const contextContents = [];
-    for (const contextPath of contextPaths.slice(0, 5)) { // Limit to 5 context files
-      try {
-        const absPath = path.isAbsolute(contextPath) ? contextPath : path.resolve(contextPath);
-        const content = await fs.readFile(absPath, 'utf8');
-        contextContents.push({
-          path: contextPath,
-          content: content.substring(0, 10000) // Limit per-file context
-        });
-      } catch (error) {
-        console.error(`[AnalyzeFile] Warning: Could not read context file ${contextPath}: ${error.message}`);
-      }
-    }
-    return contextContents;
-  }
-
-  /**
    * Build the analysis prompt for the local LLM
    */
   buildAnalysisPrompt(content, question, options) {
@@ -328,47 +304,6 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     const fileTokens = Math.ceil(contentLength / 4);
     const responseTokens = 150; // Typical structured response size
     return Math.max(0, fileTokens - responseTokens);
-  }
-
-  /**
-   * Get context limit for a backend (in characters, ~4 chars per token)
-   * @param {string} backendName - Backend identifier
-   * @returns {number} Context limit in characters
-   */
-  getBackendContextLimit(backendName) {
-    // Context limits in tokens, converted to chars (~4 chars/token)
-    const contextLimits = {
-      'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars
-      'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
-      'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
-      'gemini': 128000,          // 32K tokens * 4 = 128K chars
-      'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'chatgpt': 512000          // 128K tokens * 4 = 512K chars
-    };
-
-    return contextLimits[backendName] || 128000; // Default 32K tokens
-  }
-
-  /**
-   * Estimate tokens per second for a backend
-   * @param {string} backendName - Backend identifier (local, nvidia_qwen, etc.)
-   * @returns {number} Estimated tokens/second
-   */
-  estimateBackendSpeed(backendName) {
-    // Backend speed estimates (tokens/sec) - used only for timeout calculation now
-    // Token limits are now backend-based, not speed-based
-    const backendSpeeds = {
-      'local': 50,             // Local GPU - be generous
-      'seed_coder': 132,       // Seed Coder (local)
-      'nvidia_deepseek': 40,   // Cloud DeepSeek V3
-      'nvidia_qwen': 35,       // Cloud Qwen3 480B
-      'gemini': 50,            // Gemini Flash
-      'groq_llama': 100,       // Ultra-fast Groq
-      'chatgpt': 40            // OpenAI GPT-4
-    };
-
-    return backendSpeeds[backendName] || 30;
   }
 
   /**

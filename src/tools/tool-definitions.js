@@ -769,109 +769,6 @@ const CORE_TOOL_DEFINITIONS = [
 ];
 
 /**
- * Alias group definitions
- * @type {Object[]}
- */
-const ALIAS_GROUP_DEFINITIONS = [
-  {
-    groupName: 'SAB',
-    prefix: 'SAB_',
-    description: 'Smart AI Bridge Alias:',
-    aliases: [
-      {
-        alias: 'SAB_analyze',
-        coreTool: 'analyze',
-        customDescription: 'SAB Alias: Universal code analysis - AI-driven file type detection with smart routing',
-        customSchema: {
-          type: 'object',
-          properties: {
-            content: { type: 'string', description: 'File content to analyze' },
-            file_path: { type: 'string', description: 'Path to file for analysis' },
-            language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
-            analysis_type: {
-              type: 'string',
-              enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
-              default: 'comprehensive'
-            }
-          },
-          required: ['content']
-        }
-      },
-      {
-        alias: 'SAB_generate',
-        coreTool: 'generate',
-        customDescription: 'SAB Alias: Smart code generation - Context-aware code creation with AI routing',
-        customSchema: {
-          type: 'object',
-          properties: {
-            prefix: { type: 'string', description: 'Code before the completion point' },
-            suffix: { type: 'string', description: 'Code after the completion point' },
-            language: { type: 'string', default: 'javascript' },
-            task_type: {
-              type: 'string',
-              enum: ['completion', 'refactor', 'feature', 'fix'],
-              default: 'completion'
-            }
-          },
-          required: ['prefix']
-        }
-      },
-      { alias: 'SAB_review', coreTool: 'review' },
-      { alias: 'SAB_edit', coreTool: 'modify_file' },
-      { alias: 'SAB_health', coreTool: 'health' }
-    ]
-  },
-  {
-    groupName: 'DeepSeek',
-    prefix: 'deepseek_',
-    description: 'DeepSeek Alias:',
-    aliases: [
-      {
-        alias: 'deepseek_analyze',
-        coreTool: 'analyze',
-        customDescription: 'DeepSeek Alias: Universal code analysis - AI-driven file type detection with smart routing',
-        customSchema: {
-          type: 'object',
-          properties: {
-            content: { type: 'string', description: 'File content to analyze' },
-            file_path: { type: 'string', description: 'Path to file for analysis' },
-            language: { type: 'string', description: 'Programming language hint (auto-detected if not provided)' },
-            analysis_type: {
-              type: 'string',
-              enum: ['security', 'performance', 'structure', 'dependencies', 'comprehensive'],
-              default: 'comprehensive'
-            }
-          },
-          required: ['content']
-        }
-      },
-      {
-        alias: 'deepseek_generate',
-        coreTool: 'generate',
-        customDescription: 'DeepSeek Alias: Smart code generation - Context-aware code creation with AI routing',
-        customSchema: {
-          type: 'object',
-          properties: {
-            prefix: { type: 'string', description: 'Code before the completion point' },
-            suffix: { type: 'string', description: 'Code after the completion point' },
-            language: { type: 'string', default: 'javascript' },
-            task_type: {
-              type: 'string',
-              enum: ['completion', 'refactor', 'feature', 'fix'],
-              default: 'completion'
-            }
-          },
-          required: ['prefix']
-        }
-      },
-      { alias: 'deepseek_review', coreTool: 'review' },
-      { alias: 'deepseek_edit', coreTool: 'modify_file' },
-      { alias: 'deepseek_health', coreTool: 'health' }
-    ]
-  }
-];
-
-/**
  * Get tool definition by name
  * @param {string} name - Tool name
  * @returns {ToolDefinition|undefined}
@@ -890,7 +787,6 @@ function getAllToolNames() {
 
 export {
   CORE_TOOL_DEFINITIONS,
-  ALIAS_GROUP_DEFINITIONS,
   getToolDefinition,
   getAllToolNames
 };

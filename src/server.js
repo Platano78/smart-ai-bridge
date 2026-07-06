@@ -7,7 +7,7 @@
  * - Tool definitions (tools/tool-definitions.js)
  * - Handler factory (handlers/index.js)
  * - Backend registry (backends/backend-registry.js)
- * - Intelligence layer (intelligence/index.js)
+ * - Intelligence layer (intelligence/)
  * - StdioServerTransport (MCP SDK)
  */
 

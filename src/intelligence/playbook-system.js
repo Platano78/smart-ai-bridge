@@ -101,81 +101,6 @@ class PlaybookSystem {
   }
 
   /**
-   * Extract actionable lessons from an execution result
-   * @param {ExecutionResult} executionResult - The execution result
-   * @param {ExecutionContext} context - Execution context
-   * @param {Object} [router] - Router for making reflection requests
-   * @returns {Promise<Lesson[]>}
-   */
-  async extractLessonsFromExecution(executionResult, context, router = null) {
-    // Skip reflection for trivial operations
-    if (executionResult.processingTime < this.config.minExecutionTimeForReflection) {
-      return [];
-    }
-
-    // Skip if reflection is disabled
-    if (!this.config.enabled) {
-      return [];
-    }
-
-    const reflectionPrompt = `Analyze this SAB execution and extract 1-3 actionable lessons for future routing decisions.
-
-EXECUTION CONTEXT:
-- Task Type: ${context.taskType || 'unknown'}
-- Backend Used: ${executionResult.backend || 'unknown'}
-- Success: ${executionResult.success}
-- Processing Time: ${executionResult.processingTime}ms
-- Token Count: ${executionResult.tokenCount || 'unknown'}
-- Error (if any): ${executionResult.error || 'none'}
-
-TASK DESCRIPTION:
-${context.prompt?.substring(0, 500) || 'No prompt available'}
-
-RESULT SUMMARY:
-${executionResult.summary || executionResult.content?.substring(0, 300) || 'No result'}
-
-Extract ONLY actionable routing lessons in this JSON format:
-{
-  "lessons": [
-    {
-      "lesson": "One clear, actionable statement about when to use or avoid this backend",
-      "category": "routing|performance|error_handling|context_management",
-      "applies_when": "Specific condition when this lesson applies"
-    }
-  ]
-}
-
-Rules:
-- Only extract lessons that would help FUTURE routing decisions
-- Be specific about conditions (token counts, task types, error patterns)
-- Skip if there's nothing novel to learn from this execution
-- Return empty lessons array if execution was routine`;
-
-    try {
-      if (!router) {
-        console.error('[Playbook] No router available for lesson extraction');
-        return [];
-      }
-
-      const reflectionResult = await router.makeRequest(reflectionPrompt, 'local', {
-        maxTokens: 500,
-        thinking: false
-      });
-
-      const content = reflectionResult.content || reflectionResult;
-      const jsonMatch = content.match(/\{[\s\S]*"lessons"[\s\S]*\}/);
-      if (!jsonMatch) {
-        return [];
-      }
-      const parsed = JSON.parse(jsonMatch[0]);
-      return parsed.lessons || [];
-    } catch (error) {
-      console.error('[Playbook] Lesson extraction failed (non-critical):', error.message);
-      return [];
-    }
-  }
-
-  /**
    * Store a lesson in Faulkner-DB with strength scoring
    * @param {Lesson} lesson - The lesson to store
    * @param {ExecutionContext} executionContext - Execution context
@@ -547,48 +472,6 @@ ${taskContext.prompt || taskContext.task}`;
       },
       lessonsApplied: lessons.length
     };
-  }
-
-  /**
-   * Main reflection function - called after significant executions
-   * @param {ExecutionResult} executionResult - Execution result
-   * @param {ExecutionContext} context - Execution context
-   * @param {Object} [server] - Server instance
-   */
-  async postExecutionReflection(executionResult, context, server = null) {
-    if (!executionResult || !this.config.enabled) {
-      return;
-    }
-
-    // Skip reflection for simple tool calls
-    if (!this.reflectableTools.includes(context.tool)) {
-      return;
-    }
-
-    try {
-      const router = server?.router || null;
-
-      // Extract lessons from this execution
-      const lessons = await this.extractLessonsFromExecution(executionResult, context, router);
-
-      // Store valuable lessons
-      for (const lesson of lessons.slice(0, this.config.maxLessonsPerExecution)) {
-        if (lesson.lesson && lesson.lesson.length > 20) {
-          await this.storeLesson(lesson, {
-            backend: executionResult.backend,
-            taskType: context.taskType || context.tool,
-            success: executionResult.success
-          }, server);
-        }
-      }
-
-      if (lessons.length > 0) {
-        console.error(`[Playbook] Extracted ${lessons.length} lesson(s) from ${context.tool} execution`);
-      }
-    } catch (error) {
-      // Reflection failures should never break main execution
-      console.error('[Playbook] Reflection failed (non-critical):', error.message);
-    }
   }
 
   /**

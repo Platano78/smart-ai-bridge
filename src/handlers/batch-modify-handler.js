@@ -367,44 +367,6 @@ export class BatchModifyHandler extends BaseHandler {
   }
 
   /**
-   * Get context limit for a backend (in characters, ~4 chars per token)
-   * @param {string} backendName - Backend identifier
-   * @returns {number} Context limit in characters
-   */
-  getBackendContextLimit(backendName) {
-    // Context limits in tokens, converted to chars (~4 chars/token)
-    const contextLimits = {
-      'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
-      'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
-      'gemini': 128000,          // 32K tokens * 4 = 128K chars
-      'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'chatgpt': 512000          // 128K tokens * 4 = 512K chars
-    };
-
-    return contextLimits[backendName] || 128000; // Default 32K tokens
-  }
-
-  /**
-   * Estimate tokens per second for a backend
-   * @param {string} backendName - Backend identifier (local, nvidia_qwen, etc.)
-   * @returns {number} Estimated tokens/second
-   */
-  estimateBackendSpeed(backendName) {
-    // Backend speed estimates (tokens/sec)
-    const backendSpeeds = {
-      'local': 20,           // Conservative estimate for local models
-      'nvidia_deepseek': 40, // Cloud DeepSeek V3
-      'nvidia_qwen': 35,     // Cloud Qwen3 480B
-      'gemini': 50,          // Gemini Flash
-      'groq_llama': 80,      // Ultra-fast Groq
-      'chatgpt': 40          // OpenAI GPT-4
-    };
-
-    return backendSpeeds[backendName] || 20; // Default 20 tokens/sec
-  }
-
-  /**
    * Calculate dynamic token allocation based on model speed, file size, and complexity
    * For batch operations, aggregates across files but caps at 4000 total
    * @param {string} backendName - Backend identifier

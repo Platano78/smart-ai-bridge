@@ -93,6 +93,89 @@ class BaseHandler {
     return { backend: requestedBackend || 'local' };
   }
 
+  /**
+   * Get context limit for a backend (in characters, ~4 chars per token)
+   * @param {string} backendName - Backend identifier
+   * @returns {number} Context limit in characters
+   */
+  getBackendContextLimit(backendName) {
+    const contextLimits = {
+      'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
+      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars
+      'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
+      'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
+      'gemini': 128000,          // 32K tokens * 4 = 128K chars
+      'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
+      'chatgpt': 512000          // 128K tokens * 4 = 512K chars
+    };
+    return contextLimits[backendName] || 128000;
+  }
+
+  /**
+   * Estimate tokens per second for a backend (used for timeout calculation)
+   * @param {string} backendName - Backend identifier
+   * @returns {number} Estimated tokens/second
+   */
+  estimateBackendSpeed(backendName) {
+    const backendSpeeds = {
+      'local': 20,           // Conservative estimate for local models
+      'seed_coder': 132,     // Seed Coder (local)
+      'nvidia_deepseek': 40, // Cloud DeepSeek V3
+      'nvidia_qwen': 35,     // Cloud Qwen3 480B
+      'gemini': 50,          // Gemini Flash
+      'groq_llama': 80,      // Ultra-fast Groq
+      'chatgpt': 40          // OpenAI GPT-4
+    };
+    return backendSpeeds[backendName] || 20;
+  }
+
+  /**
+   * Check if dual-mode local backends are available
+   * @returns {Promise<boolean>}
+   */
+  async checkDualModeAvailable() {
+    try {
+      // Quick health check on dual ports
+      const checks = await Promise.all([
+        fetch('http://localhost:8087/health', { signal: AbortSignal.timeout(1000) }).catch(() => null),
+        fetch('http://localhost:8088/health', { signal: AbortSignal.timeout(1000) }).catch(() => null)
+      ]);
+
+      return checks[0]?.ok && checks[1]?.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Gather content from context files
+   * @param {string[]} contextFiles - Paths to context files
+   * @param {Object} [options]
+   * @param {number} [options.maxFiles=3] - Max number of context files to read
+   * @param {number} [options.maxCharsPerFile=8000] - Max chars to keep per file
+   * @returns {Promise<Array<{path: string, content: string}>>}
+   */
+  async gatherContextFiles(contextFiles, { maxFiles = 3, maxCharsPerFile = 8000 } = {}) {
+    if (!contextFiles || contextFiles.length === 0) {
+      return [];
+    }
+
+    const contextContents = [];
+    for (const contextPath of contextFiles.slice(0, maxFiles)) {
+      try {
+        const absPath = path.isAbsolute(contextPath) ? contextPath : path.resolve(contextPath);
+        const content = await fs.readFile(absPath, 'utf8');
+        contextContents.push({
+          path: contextPath,
+          content: content.substring(0, maxCharsPerFile)
+        });
+      } catch (error) {
+        console.error(`[${this.handlerName}] Warning: Could not read context file ${contextPath}: ${error.message}`);
+      }
+    }
+    return contextContents;
+  }
+
   async safeReadFile(filePath, encoding = 'utf8') {
     const resolved = path.resolve(filePath);
     if (resolved.includes('\0')) {
@@ -314,27 +397,9 @@ class BaseHandler {
    * @param {Object} context - Execution context
    */
   async recordExecution(result, context) {
-    if (!this.playbook) return;
-
-    // NEW: Extract modelId from result metadata if available
-    const modelId = result?.metadata?.model || 
-                    result?.metadata?.detectedModel ||
-                    result?.modelId ||
-                    (context?.backend === 'local' ? this.router?.backends?.getAdapter?.('local')?.modelId : null);
-
-    const enrichedContext = {
-      ...context,
-      modelId,  // NEW: Include modelId
-      timestamp: Date.now()
-    };
-
-    setImmediate(async () => {
-      try {
-        await this.playbook.postExecutionReflection(result, enrichedContext, this.server);
-      } catch (error) {
-        console.error(`[${this.handlerName}] Playbook reflection failed:`, error.message);
-      }
-    });
+    // Reflection loop removed: postExecutionReflection() made a real LLM call
+    // (~700-800 tokens, local backend) per qualifying execution, but nothing ever
+    // read the lessons back (getTopLessons/enhanceRoutingWithPlaybook: zero callers).
   }
 
   /**

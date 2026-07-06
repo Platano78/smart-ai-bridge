@@ -297,7 +297,9 @@ class PatternRAGStore {
     try {
       const dir = path.dirname(this.storagePath);
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(this.storagePath, JSON.stringify(this.patterns, null, 2));
+      const tmpPath = `${this.storagePath}.tmp`;
+      await fs.writeFile(tmpPath, JSON.stringify(this.patterns, null, 2));
+      await fs.rename(tmpPath, this.storagePath);
     } catch (error) {
       throw new Error(`Failed to save patterns: ${error.message}`);
     }

@@ -81,7 +81,7 @@ export class GenerateFileHandler extends BaseHandler {
       }
 
       // 4. Gather context from related files
-      const contextContents = await this.gatherContextFiles(contextFiles);
+      const contextContents = await this.gatherContextFiles(contextFiles, { maxFiles: 3, maxCharsPerFile: 8000 });
 
       // 5. Estimate complexity for backend selection
       const complexity = this.estimateComplexity(spec, includeTests);
@@ -289,30 +289,6 @@ export class GenerateFileHandler extends BaseHandler {
   }
 
   /**
-   * Gather content from context files for style matching
-   */
-  async gatherContextFiles(contextPaths) {
-    if (!contextPaths || contextPaths.length === 0) {
-      return [];
-    }
-
-    const contextContents = [];
-    for (const contextPath of contextPaths.slice(0, 3)) { // Limit to 3 context files
-      try {
-        const absPath = path.isAbsolute(contextPath) ? contextPath : path.resolve(contextPath);
-        const content = await fs.readFile(absPath, 'utf8');
-        contextContents.push({
-          path: contextPath,
-          content: content.substring(0, 8000) // Limit per-file context
-        });
-      } catch (error) {
-        console.error(`[GenerateFile] Warning: Could not read context file ${contextPath}: ${error.message}`);
-      }
-    }
-    return contextContents;
-  }
-
-  /**
    * Build the generation prompt for the LLM
    */
   buildGenerationPrompt(spec, options) {
@@ -451,46 +427,6 @@ TESTS:
 
     // Common test file naming conventions
     return path.join(dir, '__tests__', `${base}.test${ext}`);
-  }
-
-  /**
-   * Get context limit for a backend (in characters, ~4 chars per token)
-   * @param {string} backendName - Backend identifier
-   * @returns {number} Context limit in characters
-   */
-  getBackendContextLimit(backendName) {
-    // Context limits in tokens, converted to chars (~4 chars/token)
-    const contextLimits = {
-      'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'seed_coder': 96000,       // 24K tokens * 4 = 96K chars
-      'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
-      'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
-      'gemini': 128000,          // 32K tokens * 4 = 128K chars
-      'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'chatgpt': 512000          // 128K tokens * 4 = 512K chars
-    };
-
-    return contextLimits[backendName] || 128000; // Default 32K tokens
-  }
-
-  /**
-   * Estimate tokens per second for a backend
-   * @param {string} backendName - Backend identifier (local, nvidia_qwen, etc.)
-   * @returns {number} Estimated tokens/second
-   */
-  estimateBackendSpeed(backendName) {
-    // Backend speed estimates (tokens/sec)
-    const backendSpeeds = {
-      'local': 20,           // Conservative estimate for local models
-      'seed_coder': 132,     // Seed Coder (local)
-      'nvidia_deepseek': 40, // Cloud DeepSeek V3
-      'nvidia_qwen': 35,     // Cloud Qwen3 480B
-      'gemini': 50,          // Gemini Flash
-      'groq_llama': 80,      // Ultra-fast Groq
-      'chatgpt': 40          // OpenAI GPT-4
-    };
-
-    return backendSpeeds[backendName] || 20; // Default 20 tokens/sec
   }
 
   /**
@@ -661,24 +597,6 @@ CODE:
     } catch (error) {
       console.error(`[GenerateFile] ⚠️ Dual-mode failed: ${error.message}`);
       return { success: false, response: null, truncated: true };
-    }
-  }
-
-  /**
-   * Check if dual-mode local backends are available
-   * @returns {Promise<boolean>}
-   */
-  async checkDualModeAvailable() {
-    try {
-      // Quick health check on dual ports
-      const checks = await Promise.all([
-        fetch('http://localhost:8087/health', { signal: AbortSignal.timeout(1000) }).catch(() => null),
-        fetch('http://localhost:8088/health', { signal: AbortSignal.timeout(1000) }).catch(() => null)
-      ]);
-
-      return checks[0]?.ok && checks[1]?.ok;
-    } catch {
-      return false;
     }
   }
 
