@@ -5,6 +5,19 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-07-23
+
+### Fixed
+- **Silent write corruption**: `fs.writeFile` resolving does not guarantee the
+  bytes on disk match what was requested (short/partial writes, ENOSPC,
+  encoding mangling, or a concurrent clobber between write and return).
+  `modify_file`'s auto-write, `generate_file`'s auto-write, and
+  `write_files_atomic`'s `write` operation could all report `success: true`
+  on a corrupted file. Added `writeFileVerified()` (write, then read back and
+  compare byte-for-byte) and wired it into all three raw-write sites; a
+  mismatch now throws/returns a `WRITE_VERIFY_MISMATCH` error instead of a
+  silent false success.
+
 ## [2.8.0] - 2026-07-06
 
 Performance and hygiene release from a full architectural review (4-area audit,
