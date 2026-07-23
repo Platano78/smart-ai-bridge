@@ -6,6 +6,7 @@
  */
 
 import { BaseHandler } from './base-handler.js';
+import { writeFileVerified } from '../utils/verified-write.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -51,7 +52,7 @@ class WriteFilesAtomicHandler extends BaseHandler {
 
         switch (operation) {
           case 'write':
-            await fs.writeFile(op.path, op.content, 'utf8');
+            await writeFileVerified(op.path, op.content, { label: 'write_files_atomic write' });
             break;
           case 'append':
             await fs.appendFile(op.path, op.content, 'utf8');

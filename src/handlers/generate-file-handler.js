@@ -13,6 +13,7 @@
 
 import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
 import { detectOutputTruncation } from '../utils/truncation-detector.js';
+import { writeFileVerified } from '../utils/verified-write.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -241,13 +242,13 @@ export class GenerateFileHandler extends BaseHandler {
       // 12. Auto-write mode (review=false)
       // Ensure directory exists
       await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-      await fs.writeFile(absolutePath, generated.code, 'utf8');
+      await writeFileVerified(absolutePath, generated.code, { label: 'generate_file' });
 
       // Write tests if generated
       if (includeTests && generated.tests) {
         const testPath = this.getTestPath(absolutePath);
         await fs.mkdir(path.dirname(testPath), { recursive: true });
-        await fs.writeFile(testPath, generated.tests, 'utf8');
+        await writeFileVerified(testPath, generated.tests, { label: 'generate_file tests' });
       }
 
       this.recordExecution(

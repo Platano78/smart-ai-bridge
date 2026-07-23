@@ -13,6 +13,7 @@
 
 import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
 import { detectOutputTruncation } from '../utils/truncation-detector.js';
+import { writeFileVerified } from '../utils/verified-write.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createTwoFilesPatch } from 'diff';
@@ -446,8 +447,9 @@ export class ModifyFileHandler extends BaseHandler {
       // Auto-write mode (review=false): write directly without human review.
       // Caller controls `backup` (default true); when both review and backup
       // are disabled we warn loudly since there is no recovery path.
+      let backupPath = null;
       if (backup) {
-        const backupPath = `${absolutePath}.backup.${Date.now()}`;
+        backupPath = `${absolutePath}.backup.${Date.now()}`;
         await fs.writeFile(backupPath, originalContent, 'utf8');
         console.error(`[ModifyFile] 💾 Backup created: ${backupPath}`);
       } else {
@@ -455,7 +457,7 @@ export class ModifyFileHandler extends BaseHandler {
       }
 
       // Write the modified file
-      await fs.writeFile(absolutePath, modifiedCode, 'utf8');
+      await writeFileVerified(absolutePath, modifiedCode, { label: 'modify_file auto-write', backupPath });
 
       this.recordExecution(
         {
