@@ -71,4 +71,35 @@ async function writeFileVerified(absolutePath, content, { label = 'write', backu
   });
 }
 
-export { writeFileVerified, WriteVerificationError };
+/**
+ * Append variant. A full-content readback comparison does not apply to an append,
+ * so this verifies the two things that define a correct one: the file grew by
+ * exactly the appended length, and it ends with exactly what was appended.
+ */
+async function appendFileVerified(absolutePath, content, { label = 'append' } = {}) {
+  let lengthBefore = 0;
+  try {
+    lengthBefore = (await fs.readFile(absolutePath, 'utf8')).length;
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;   // absent file appends as a create
+  }
+
+  await fs.appendFile(absolutePath, content, 'utf8');
+  const onDisk = await fs.readFile(absolutePath, 'utf8');
+  const appended = onDisk.slice(lengthBefore);
+
+  if (onDisk.length === lengthBefore + content.length && appended === content) return;
+
+  throw new WriteVerificationError({
+    filePath: absolutePath,
+    expectedLength: lengthBefore + content.length,
+    actualLength: onDisk.length,
+    firstDivergentLine: findFirstDivergentLine(content, appended),
+    expectedExcerpt: content.slice(0, 200),
+    actualExcerpt: appended.slice(0, 200),
+    backupPath: null,
+    label
+  });
+}
+
+export { writeFileVerified, appendFileVerified, WriteVerificationError };

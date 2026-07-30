@@ -450,7 +450,7 @@ export class ModifyFileHandler extends BaseHandler {
       let backupPath = null;
       if (backup) {
         backupPath = `${absolutePath}.backup.${Date.now()}`;
-        await fs.writeFile(backupPath, originalContent, 'utf8');
+        await writeFileVerified(backupPath, originalContent, { label: 'modify_file backup' });
         console.error(`[ModifyFile] 💾 Backup created: ${backupPath}`);
       } else {
         console.error(`[ModifyFile] ⚠️  WARNING: auto-write (review:false) with backup:false — destructive, no recovery if the edit is wrong`);

@@ -4,6 +4,8 @@ import path from 'path';
 import os from 'os';
 import { ModifyFileHandler } from '../src/handlers/modify-file-handler.js';
 import { GenerateFileHandler } from '../src/handlers/generate-file-handler.js';
+import { WriteFilesAtomicHandler, BackupRestoreHandler } from '../src/handlers/file-handlers.js';
+import { appendFileVerified } from '../src/utils/verified-write.js';
 
 // Corrupts a write by dropping the trailing content, simulating the short/partial
 // write scenario writeFileVerified exists to catch.
@@ -114,6 +116,110 @@ describe('post-write readback verification (verified-write.js wired into auto-wr
       expect(result.success).toBe(true);
       const onDisk = await fs.readFile(outputPath, 'utf8');
       expect(onDisk).toContain('function hello()');
+    });
+  });
+
+  describe('write_files_atomic', () => {
+    function makeHandler() {
+      return new WriteFilesAtomicHandler({ router: {} });
+    }
+
+    it('append is verified: a truncated append is caught, not reported as success', async () => {
+      const filePath = path.join(tmpDir, 'log.txt');
+      await fs.writeFile(filePath, 'existing line\n', 'utf8');
+      const realAppend = fs.appendFile.bind(fs);
+      vi.spyOn(fs, 'appendFile').mockImplementation(async (p, content, enc) =>
+        realAppend(p, String(content).slice(0, -3), enc)
+      );
+
+      // WriteFilesAtomicHandler rolls back then rethrows, so the mismatch
+      // surfaces as a tool error — never a success response.
+      await expect(makeHandler().execute({
+        file_operations: [{ path: filePath, content: 'appended line\n', operation: 'append' }],
+        create_backup: false
+      })).rejects.toThrow(/WRITE_VERIFY_MISMATCH|Write verification FAILED/);
+    });
+
+    it('positive control: a clean append lands and preserves prior content', async () => {
+      const filePath = path.join(tmpDir, 'log-clean.txt');
+      await fs.writeFile(filePath, 'existing line\n', 'utf8');
+
+      const result = await makeHandler().execute({
+        file_operations: [{ path: filePath, content: 'appended line\n', operation: 'append' }],
+        create_backup: false
+      });
+
+      expect(result.success).toBe(true);
+      expect(await fs.readFile(filePath, 'utf8')).toBe('existing line\nappended line\n');
+    });
+  });
+
+  describe('appendFileVerified', () => {
+    it('treats a missing file as a create', async () => {
+      const filePath = path.join(tmpDir, 'brand-new.txt');
+      await appendFileVerified(filePath, 'first content\n', { label: 'test' });
+      expect(await fs.readFile(filePath, 'utf8')).toBe('first content\n');
+    });
+
+    it('throws when the appended bytes do not match', async () => {
+      const filePath = path.join(tmpDir, 'mangled.txt');
+      await fs.writeFile(filePath, 'head\n', 'utf8');
+      const realAppend = fs.appendFile.bind(fs);
+      vi.spyOn(fs, 'appendFile').mockImplementation(async (p, _content, enc) =>
+        realAppend(p, 'something else entirely\n', enc)
+      );
+
+      await expect(appendFileVerified(filePath, 'expected\n', { label: 'test' }))
+        .rejects.toThrow(/WRITE_VERIFY_MISMATCH|Write verification FAILED/);
+    });
+
+    it('does not mistake a same-length but different append for success', async () => {
+      const filePath = path.join(tmpDir, 'samelen.txt');
+      await fs.writeFile(filePath, 'head\n', 'utf8');
+      const realAppend = fs.appendFile.bind(fs);
+      vi.spyOn(fs, 'appendFile').mockImplementation(async (p, content, enc) =>
+        realAppend(p, 'X'.repeat(String(content).length), enc)
+      );
+
+      await expect(appendFileVerified(filePath, 'abcdef', { label: 'test' }))
+        .rejects.toThrow(/WRITE_VERIFY_MISMATCH|Write verification FAILED/);
+    });
+  });
+
+  describe('recovery paths are verified (a bad restore must not be silent)', () => {
+    it('backup_restore restore throws rather than reporting a corrupted restore', async () => {
+      const filePath = path.join(tmpDir, 'restore-me.txt');
+      await fs.writeFile(filePath, 'current\n', 'utf8');
+      const handler = new BackupRestoreHandler({ router: {} });
+
+      const created = await handler.execute({ action: 'create', file_path: filePath });
+      expect(created.success).toBe(true);
+
+      await fs.writeFile(filePath, 'changed\n', 'utf8');
+      corruptOnWrite(filePath);
+
+      await expect(handler.execute({
+        action: 'restore',
+        file_path: filePath,
+        backup_id: created.backup_id
+      })).rejects.toThrow(/WRITE_VERIFY_MISMATCH|Write verification FAILED/);
+    });
+
+    it('positive control: a clean restore returns the original bytes', async () => {
+      const filePath = path.join(tmpDir, 'restore-clean.txt');
+      await fs.writeFile(filePath, 'original\n', 'utf8');
+      const handler = new BackupRestoreHandler({ router: {} });
+
+      const created = await handler.execute({ action: 'create', file_path: filePath });
+      await fs.writeFile(filePath, 'clobbered\n', 'utf8');
+      const restored = await handler.execute({
+        action: 'restore',
+        file_path: filePath,
+        backup_id: created.backup_id
+      });
+
+      expect(restored.success).toBe(true);
+      expect(await fs.readFile(filePath, 'utf8')).toBe('original\n');
     });
   });
 });

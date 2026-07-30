@@ -6,7 +6,7 @@
  */
 
 import { BaseHandler } from './base-handler.js';
-import { writeFileVerified } from '../utils/verified-write.js';
+import { writeFileVerified, appendFileVerified } from '../utils/verified-write.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -33,10 +33,13 @@ class WriteFilesAtomicHandler extends BaseHandler {
             if (exists) {
               const content = await fs.readFile(op.path, 'utf8');
               const backupPath = `${op.path}.backup.${Date.now()}`;
-              await fs.writeFile(backupPath, content);
+              // Verified: a backup that silently didn't land is worse than none,
+              // because rollback would restore corrupt bytes over the original.
+              await writeFileVerified(backupPath, content, { label: 'write_files_atomic backup' });
               backups.push({ original: op.path, backup: backupPath });
             }
           } catch (e) {
+            if (e.code === 'WRITE_VERIFY_MISMATCH') throw e;
             // File doesn't exist, no backup needed
           }
         }
@@ -55,7 +58,7 @@ class WriteFilesAtomicHandler extends BaseHandler {
             await writeFileVerified(op.path, op.content, { label: 'write_files_atomic write' });
             break;
           case 'append':
-            await fs.appendFile(op.path, op.content, 'utf8');
+            await appendFileVerified(op.path, op.content, { label: 'write_files_atomic append' });
             break;
           case 'modify':
             throw new Error(
@@ -86,7 +89,9 @@ class WriteFilesAtomicHandler extends BaseHandler {
         for (const backup of backups) {
           try {
             const backupContent = await fs.readFile(backup.backup, 'utf8');
-            await fs.writeFile(backup.original, backupContent);
+            // Verified, and the backup is only unlinked once the restore is
+            // confirmed on disk — otherwise a bad restore would destroy both copies.
+            await writeFileVerified(backup.original, backupContent, { label: 'write_files_atomic rollback' });
             await fs.unlink(backup.backup);
           } catch (e) {
             console.error(`Rollback failed for ${backup.original}: ${e.message}`);
@@ -128,7 +133,7 @@ class BackupRestoreHandler extends BaseHandler {
     const backupId = `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const backupPath = `${filePath}.${backupId}`;
 
-    await fs.writeFile(backupPath, content);
+    await writeFileVerified(backupPath, content, { label: 'backup_restore create' });
 
     // Store metadata
     const metadataPath = `${backupPath}.meta.json`;
@@ -157,16 +162,21 @@ class BackupRestoreHandler extends BaseHandler {
     const backupPath = `${filePath}.${backupId}`;
     const content = await this.safeReadFile(backupPath);
 
-    // Create backup of current state before restoring
+    // Create backup of current state before restoring. The read and the write are
+    // split so that a missing file (expected) is tolerated while a failed
+    // verification (not expected) still propagates instead of being swallowed.
     const preRestoreBackup = `${filePath}.pre_restore_${Date.now()}`;
+    let currentContent = null;
     try {
-      const currentContent = await fs.readFile(filePath, 'utf8');
-      await fs.writeFile(preRestoreBackup, currentContent);
+      currentContent = await fs.readFile(filePath, 'utf8');
     } catch (e) {
       // File doesn't exist, no pre-restore backup needed
     }
+    if (currentContent !== null) {
+      await writeFileVerified(preRestoreBackup, currentContent, { label: 'backup_restore pre-restore backup' });
+    }
 
-    await fs.writeFile(filePath, content);
+    await writeFileVerified(filePath, content, { label: 'backup_restore restore', backupPath: backupPath });
 
     return this.buildSuccessResponse({
       action: 'restore',

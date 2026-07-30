@@ -5,6 +5,57 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-07-30
+
+Completes the write-verification work v2.8.1 started, and makes the
+`model_profile` load probe follow your actual endpoint.
+
+### Added
+- **`appendFileVerified()`** in `src/utils/verified-write.js`. A full-content
+  readback does not apply to an append, so it verifies the two properties that
+  define a correct one: the file grew by exactly the appended length, and it ends
+  with exactly the appended bytes. A same-length-but-different append is caught,
+  not passed.
+- **Write verification on every remaining path that writes content a caller cares
+  about**: `write_files_atomic`'s `append` operation and its per-file backups,
+  `write_files_atomic`'s rollback restores, `batch_modify`'s rollback restores,
+  `modify_file`'s backup, `parallel_agents`' generated code files, and all three
+  `backup_restore` writes (backup, pre-restore snapshot, and the restore itself).
+- **Seven regression tests** covering append verification (including the
+  same-length case and append-to-missing-file), and both `backup_restore` restore
+  outcomes.
+
+### Changed
+- **Recovery paths are now verified too**, on purpose: a backup that silently
+  failed to land is worse than no backup, because a later rollback restores corrupt
+  bytes over the original. `write_files_atomic`'s rollback now also unlinks a backup
+  only after the restore is confirmed on disk, rather than before.
+- **`backup_restore`'s pre-restore snapshot** no longer swallows a failed write. The
+  read and the write were split so a missing file (expected) is still tolerated
+  while a verification failure (not expected) propagates.
+- **`model_profile`'s load-if-absent probe follows the configured `local` backend
+  URL** instead of a hardcoded `http://localhost:8081`. New `getRouterOrigin()`
+  derives the origin from the adapter's endpoint and falls back to
+  `http://localhost:8081` when it is absent or malformed. Endpoint autodiscovery
+  accepts `8081, 8087, 8088, 8001, 8000, 1234, 5000`, so anyone whose server is not
+  on 8081 — LM Studio on `1234`, for instance — previously lost automatic model
+  loading entirely.
+- `parallel_agents`' `writeGeneratedFiles()` is now `async` (internal; its single
+  caller awaits it).
+
+### Fixed
+- **v2.9.1's changelog and release notes wrongly listed `batch_modify` as writing
+  without verification.** It does not write at all — every modification is delegated
+  to `ModifyFileHandler`, which has been verified since v2.8.1. Its only raw write
+  was the rollback restore, now verified.
+
+### Notes
+- Still deliberately unverified: internal run artifacts and state files that are
+  records rather than deliverables — `parallel_agents`'
+  `decomposed.json`/`results.json`/`quality-*.json`/`synthesis.json`,
+  `backup_restore`'s `.meta.json` sidecar, the pattern store, and conversation
+  threads.
+
 ## [2.9.1] - 2026-07-30
 
 Documentation-accuracy patch. No behavior changes.

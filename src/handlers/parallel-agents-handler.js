@@ -27,6 +27,7 @@ import { SubagentHandler } from './subagent-handler.js';
 import { ConcurrentRequestManager } from '../utils/concurrent-request-manager.js';
 import { roleTemplates } from '../config/role-templates.js';
 import { getRouterSlotCount } from '../utils/model-discovery.js';
+import { writeFileVerified } from '../utils/verified-write.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -545,7 +546,7 @@ Please address ALL the issues above in your new implementation.`;
       if (result.success && this.writeFilesEnabled && workDir && result.response) {
         const codeBlocks = this.parseCodeBlocks(result.response);
         if (codeBlocks.length > 0) {
-          writtenFiles = this.writeGeneratedFiles(codeBlocks, workDir, id, phase || 'output');
+          writtenFiles = await this.writeGeneratedFiles(codeBlocks, workDir, id, phase || 'output');
           console.error(`[ParallelAgents] Task ${id}: Wrote ${writtenFiles.length} files`);
         }
       }
@@ -1024,7 +1025,7 @@ ${JSON.stringify(truncatedResults, null, 2)}`,
    * @param {string} phase - Task phase (RED/GREEN/REFACTOR)
    * @returns {Array<{path: string, filename: string, language: string, bytes: number}>}
    */
-  writeGeneratedFiles(codeBlocks, workDir, taskId, phase = 'output') {
+  async writeGeneratedFiles(codeBlocks, workDir, taskId, phase = 'output') {
     const writtenFiles = [];
     
     // Create phase subdirectory
@@ -1047,7 +1048,7 @@ ${JSON.stringify(truncatedResults, null, 2)}`,
           finalPath = path.join(phaseDir, `${base}_${taskId}${ext}`);
         }
 
-        fs.writeFileSync(finalPath, block.code, 'utf8');
+        await writeFileVerified(finalPath, block.code, { label: 'parallel_agents generated file' });
         
         writtenFiles.push({
           path: finalPath,

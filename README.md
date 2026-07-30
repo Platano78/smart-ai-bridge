@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.9.1
+# Smart AI Bridge v2.10.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -146,13 +146,28 @@ directly as the internal name.
 
 All handlers use a unified response pipeline (`extractResponseText`) that correctly handles every known LLM response shape -- raw strings, OpenAI chat/completion formats, thinking model `reasoning_content`, array content parts, and Gemini candidates. Repetitive output from local models is automatically collapsed, and analysis findings are deduplicated and capped.
 
-### Write Integrity (v2.8.1)
+### Write Integrity
 
 `fs.writeFile` resolving does not guarantee the bytes on disk match what was requested -- short or partial writes, `ENOSPC`, encoding mangling, or a concurrent writer clobbering the file between write and return all leave disk content that diverges from the intended content while the write call itself resolves cleanly.
 
-Three write paths read the file back immediately after writing and compare it byte-for-byte: `modify_file`'s auto-write, `generate_file`'s auto-write (including its generated tests file), and `write_files_atomic`'s `write` operation. A mismatch raises `WRITE_VERIFY_MISMATCH` -- naming the file, the expected vs actual length, and the first divergent line -- instead of reporting `success: true` over a corrupted file. In `write_files_atomic` the mismatch also triggers the existing backup rollback.
+Every path that writes content you care about reads it back and compares before reporting success:
 
-Verification is **not** yet wired into every write in the codebase. These still write without readback: `write_files_atomic`'s `append` operation, `batch_modify`, `parallel_agents`, `backup_restore`'s restore path, and internal state files (backups, pattern store, conversation threads).
+| Path | What is verified |
+|------|------------------|
+| `modify_file` auto-write | modified file, plus the backup it takes first |
+| `generate_file` auto-write | generated file and its generated tests file |
+| `write_files_atomic` `write` | each written file, plus each backup |
+| `write_files_atomic` `append` | file grew by exactly the appended length and ends with exactly those bytes |
+| `write_files_atomic` rollback | each restored file (the backup is only unlinked once the restore is confirmed) |
+| `batch_modify` | modifications (via `modify_file`) and its rollback restores |
+| `parallel_agents` | each generated code file |
+| `backup_restore` | the backup, the pre-restore snapshot, and the restore itself |
+
+A mismatch raises `WRITE_VERIFY_MISMATCH` -- naming the file, the expected vs actual length, and the first divergent line -- instead of reporting `success: true` over a corrupted file.
+
+Recovery paths get the same treatment deliberately: a backup that silently failed to land is worse than no backup, because a later rollback would restore corrupt bytes over the original.
+
+Not verified, by design: internal run artifacts and state files that are records rather than deliverables -- `parallel_agents`' `decomposed.json`/`results.json`/`quality-*.json`/`synthesis.json`, `backup_restore`'s `.meta.json` sidecar, the pattern store, and conversation threads.
 
 ## Council System
 

@@ -14,6 +14,7 @@
 
 import { BaseHandler } from './base-handler.js';
 import { ModifyFileHandler } from './modify-file-handler.js';
+import { writeFileVerified } from '../utils/verified-write.js';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -346,7 +347,7 @@ export class BatchModifyHandler extends BaseHandler {
 
     for (const [filePath, content] of backups) {
       try {
-        await fs.writeFile(filePath, content, 'utf8');
+        await writeFileVerified(filePath, content, { label: 'batch_modify rollback' });
         console.error(`[BatchModify] ↩️ Restored: ${filePath}`);
       } catch (error) {
         console.error(`[BatchModify] ⚠️ Could not restore ${filePath}: ${error.message}`);

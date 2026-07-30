@@ -349,13 +349,31 @@ class AskHandler extends BaseHandler {
   }
 
   /**
+   * Resolve the local router's origin from the configured local backend, so the
+   * load-if-absent probe follows wherever the user's server actually listens
+   * (autodiscovery accepts several ports) instead of assuming one.
+   * @private
+   * @returns {string} Origin, e.g. "http://127.0.0.1:8081"
+   */
+  getRouterOrigin() {
+    const configured = this.backendRegistry?.getAdapter?.('local')?.config?.url;
+    if (configured) {
+      try {
+        return new URL(configured).origin;
+      } catch {
+        // Malformed URL in config — fall through to the default below.
+      }
+    }
+    return 'http://localhost:8081';
+  }
+
+  /**
    * Ensure router model is loaded, with terminal feedback
    * @private
    * @param {string} profileName - Router preset name
-   * @param {Object} profileInfo - Profile metadata (loadTime, vram, etc.)
    */
   async ensureRouterModel(profileName) {
-    const ROUTER_URL = 'http://localhost:8081';
+    const ROUTER_URL = this.getRouterOrigin();
 
     try {
       // Check router health
