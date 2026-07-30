@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.9.0
+# Smart AI Bridge v2.9.1
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -150,7 +150,9 @@ All handlers use a unified response pipeline (`extractResponseText`) that correc
 
 `fs.writeFile` resolving does not guarantee the bytes on disk match what was requested -- short or partial writes, `ENOSPC`, encoding mangling, or a concurrent writer clobbering the file between write and return all leave disk content that diverges from the intended content while the write call itself resolves cleanly.
 
-Every tool that writes a file (`modify_file` auto-write, `generate_file` auto-write, and `write_files_atomic`'s `write` operation) now reads the file back immediately after writing and compares it byte-for-byte. A mismatch raises `WRITE_VERIFY_MISMATCH` -- naming the file, the expected vs actual length, and the first divergent line -- instead of reporting `success: true` over a corrupted file. In `write_files_atomic` the mismatch also triggers the existing backup rollback.
+Three write paths read the file back immediately after writing and compare it byte-for-byte: `modify_file`'s auto-write, `generate_file`'s auto-write (including its generated tests file), and `write_files_atomic`'s `write` operation. A mismatch raises `WRITE_VERIFY_MISMATCH` -- naming the file, the expected vs actual length, and the first divergent line -- instead of reporting `success: true` over a corrupted file. In `write_files_atomic` the mismatch also triggers the existing backup rollback.
+
+Verification is **not** yet wired into every write in the codebase. These still write without readback: `write_files_atomic`'s `append` operation, `batch_modify`, `parallel_agents`, `backup_restore`'s restore path, and internal state files (backups, pattern store, conversation threads).
 
 ## Council System
 

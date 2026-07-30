@@ -154,7 +154,7 @@ const CORE_TOOL_DEFINITIONS = [
         },
         model_profile: {
           type: 'string',
-          description: 'Only for the local backend: request a specific model id from your local router (llama-swap/llama.cpp/LM Studio), loading it first if it is not resident. Valid values are whatever your own router serves — query its /v1/models endpoint for the list; SAB does not ship a fixed set. Omit to use whichever model is already loaded.'
+          description: 'Only for the local backend: request a specific model id from your local router (llama-swap/llama.cpp/LM Studio). Valid values are whatever your own router serves — query its /v1/models endpoint for the list; SAB does not ship a fixed set. The id is passed through as the requested model, so an id your router does not serve fails the call (HTTP 400 model not found) rather than falling back. SAB also tries to load the model first if it is not resident, but that pre-flight step only probes http://localhost:8081 — if your server listens on another port the load is skipped (the request still goes to your configured endpoint). Omit to use whichever model is already loaded.'
         }
       },
       required: ['model', 'prompt']

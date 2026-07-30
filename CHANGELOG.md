@@ -5,6 +5,26 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2026-07-30
+
+Documentation-accuracy patch. No behavior changes.
+
+### Fixed
+- **README overstated write-verification coverage.** The Write Integrity section
+  claimed "every tool that writes a file" reads its bytes back. Only three paths
+  do: `modify_file`'s auto-write, `generate_file`'s auto-write (including its
+  generated tests file), and `write_files_atomic`'s `write` operation. The section
+  now names those three and lists what is still unverified —
+  `write_files_atomic`'s `append`, `batch_modify`, `parallel_agents`,
+  `backup_restore`'s restore path, and internal state files.
+- **`model_profile`'s tool description omitted two failure modes** introduced when
+  the hardcoded profile allowlist was dropped in 2.9.0. It now states that an id
+  your router does not serve fails the call (`HTTP 400 model not found`) rather
+  than falling back to the loaded model, and that the load-if-absent pre-flight
+  only probes `http://localhost:8081` — so it is skipped when your server listens
+  on another port, though the request itself still reaches your configured
+  endpoint.
+
 ## [2.9.0] - 2026-07-29
 
 Removes local infrastructure that was never usable outside the maintainer's
