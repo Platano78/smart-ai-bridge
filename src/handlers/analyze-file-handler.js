@@ -43,7 +43,7 @@ export class AnalyzeFileHandler extends BaseHandler {
    * @param {string} args.question - Question about the file
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend (auto|local|deepseek|qwen3|gemini|groq)
-   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
+   * @param {string} [args.options.modelProfile] - Model id to request from the local router (whatever your router serves)
    * @param {string} [args.options.analysisType] - Type of analysis (general|bug|security|performance|architecture)
    * @param {string[]} [args.options.includeContext] - Related files for better analysis
    * @param {number} [args.options.maxResponseTokens] - Maximum tokens for response

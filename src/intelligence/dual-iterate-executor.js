@@ -138,7 +138,7 @@ class DualIterateExecutor {
       iterations++;
       console.error(`[DualIterateExecutor] Iteration ${iterations}/${maxIter}`);
 
-      // Step 1: Generate with coding model (e.g., agents-seed-coder)
+      // Step 1: Generate with the coding-oriented model
       const genRouting = await this.dualWorkflowManager.getBackendForRole('generator');
       const genPrompt = this._buildGenerationPrompt(task, code, history);
 
@@ -150,7 +150,7 @@ class DualIterateExecutor {
 
       code = this._extractCode(genResult);
 
-      // Step 2: Review with reasoning model (e.g., agents-qwen3-14b)
+      // Step 2: Review with the reasoning-oriented model
       const reviewRouting = await this.dualWorkflowManager.getBackendForRole('reviewer');
       const reviewPrompt = this._buildReviewPrompt(code, task);
 

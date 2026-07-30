@@ -70,7 +70,14 @@ const MODEL_CAPABILITY_PATTERNS = [
   { pattern: /phi/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
 
   // Nemotron
-  { pattern: /nemotron/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.LARGE_CONTEXT] }
+  { pattern: /nemotron/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.LARGE_CONTEXT] },
+
+  // Last-resort patterns for locally-named models. Local routers are commonly
+  // configured with role-prefixed ids (`coding-*`, `reasoning-*`); without these
+  // such a model infers no capability at all and falls through to GENERAL. These
+  // sit last on purpose — every vendor pattern above still wins.
+  { pattern: /coder|coding/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
+  { pattern: /reasoning|thinking/i, capabilities: [CAPABILITIES.DEEP_REASONING] }
 ];
 
 /**

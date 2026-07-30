@@ -26,26 +26,11 @@ const MODEL_ALIASES = {
 // Legacy export for compatibility
 const MODEL_MAP = MODEL_ALIASES;
 
-/**
- * Router mode model profiles with estimated load times (seconds)
- */
-const ROUTER_PROFILES = {
-  'coding-reap25b': { loadTime: 25, vram: '~15GB', slots: 2, type: 'coding', desc: 'Complex refactoring, architecture' },
-  'coding-seed-coder': { loadTime: 8, vram: '~5GB', slots: 2, type: 'coding', desc: 'Standard coding, bug fixes' },
-  'coding-qwen-7b': { loadTime: 10, vram: '~5GB', slots: 2, type: 'coding', desc: 'Fast coding tasks' },
-  'agents-qwen3-14b': { loadTime: 10, vram: '~12GB', slots: 8, type: 'reasoning', desc: 'Multi-agent orchestration' },
-  'agents-seed-coder': { loadTime: 8, vram: '~5GB', slots: 10, type: 'coding', desc: 'High throughput agents' },
-  'fast-deepseek-lite': { loadTime: 8, vram: '~6GB', slots: 8, type: 'coding', desc: 'Quick analysis' },
-  'fast-qwen14b': { loadTime: 12, vram: '~8GB', slots: 8, type: 'coding', desc: 'Fast coding, more capable' }
-};
-
-// Default model profiles by task type for intelligent auto-selection
-const DEFAULT_PROFILES = {
-  'coding': 'coding-seed-coder',      // Best balance of speed/quality for code
-  'analysis': 'coding-qwen-7b',       // Fast analysis tasks
-  'reasoning': null,                   // Reasoning models require explicit selection
-  'general': null                      // No default, use whatever is loaded
-};
+// Model profiles are whatever the caller's own local router exposes, so SAB does
+// not carry a list of them — `model_profile` is validated against the live router
+// at call time (see ensureRouterModel). Ceiling on the load wait when the router
+// gives no size hint:
+const ROUTER_LOAD_TIMEOUT_MS = 120000;
 
 class AskHandler extends BaseHandler {
   /**
@@ -57,7 +42,7 @@ class AskHandler extends BaseHandler {
    * @param {number} [args.max_tokens] - Maximum response tokens
    * @param {boolean} [args.enable_chunking=false] - Enable chunked generation
    * @param {string} [args.force_backend] - Force specific backend
-   * @param {string} [args.model_profile] - Router mode model profile (e.g., 'coding-reap25b')
+   * @param {string} [args.model_profile] - Model id to request from the local router
    * @returns {Promise<Object>}
    */
   async execute(args) {
@@ -68,8 +53,7 @@ class AskHandler extends BaseHandler {
       max_tokens,
       enable_chunking = false,
       force_backend,
-      model_profile,
-      auto_profile = false  // Opt-in flag for automatic profile selection
+      model_profile
     } = args;
 
     if (!model) {
@@ -100,34 +84,14 @@ class AskHandler extends BaseHandler {
       requestedBackend = model;
     }
 
-    // Router mode: handle model_profile for local backend
+    // Router mode: handle model_profile for local backend. The valid profile names
+    // are whatever the caller's router serves, so the router is the authority —
+    // ensureRouterModel resolves the name there and warns if it is unknown.
     let routerModelProfile = null;
     if (model_profile && (model === 'local' || requestedBackend === 'local')) {
-      if (!ROUTER_PROFILES[model_profile]) {
-        const available = Object.keys(ROUTER_PROFILES).join(', ');
-        throw new Error(`Unknown model_profile: ${model_profile}. Available: ${available}`);
-      }
       routerModelProfile = model_profile;
-      const profileInfo = ROUTER_PROFILES[model_profile];
       console.error(`\n[SAB] 🎯 Router mode: ${model_profile}`);
-      console.error(`[SAB]    ${profileInfo.desc} | ${profileInfo.vram} | ${profileInfo.slots} slots`);
-
-      // Check router status and load model if needed
-      await this.ensureRouterModel(model_profile, profileInfo);
-    }
-
-    // Auto-select default profile based on detected task type (OPT-IN: requires auto_profile=true)
-    if (auto_profile && !routerModelProfile && (model === 'local' || requestedBackend === 'local')) {
-      const detectedTaskType = this.detectTaskType(prompt);
-      const defaultProfile = DEFAULT_PROFILES[detectedTaskType];
-      
-      if (defaultProfile && ROUTER_PROFILES[defaultProfile]) {
-        routerModelProfile = defaultProfile;
-        const profileInfo = ROUTER_PROFILES[defaultProfile];
-        console.error(`\n[SAB] 🎯 Auto-selected: ${defaultProfile} (detected: ${detectedTaskType} task)`);
-        console.error(`[SAB]    ${profileInfo.desc} | ${profileInfo.vram} | ${profileInfo.slots} slots`);
-        await this.ensureRouterModel(defaultProfile, profileInfo);
-      }
+      await this.ensureRouterModel(model_profile);
     }
 
     // Smart routing or forced backend
@@ -390,7 +354,7 @@ class AskHandler extends BaseHandler {
    * @param {string} profileName - Router preset name
    * @param {Object} profileInfo - Profile metadata (loadTime, vram, etc.)
    */
-  async ensureRouterModel(profileName, profileInfo) {
+  async ensureRouterModel(profileName) {
     const ROUTER_URL = 'http://localhost:8081';
 
     try {
@@ -430,7 +394,7 @@ class AskHandler extends BaseHandler {
       }
 
       // Model needs loading
-      console.error(`[SAB] 📥 Loading model: ${profileName} (~${profileInfo.loadTime}s estimated)`);
+      console.error(`[SAB] 📥 Loading model: ${profileName}`);
 
       const loadStartTime = Date.now();
 
@@ -439,7 +403,7 @@ class AskHandler extends BaseHandler {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: profileName }),
-        signal: AbortSignal.timeout(120000) // 2 minute timeout for large models
+        signal: AbortSignal.timeout(ROUTER_LOAD_TIMEOUT_MS)
       });
 
       if (!loadResponse.ok) {
@@ -448,8 +412,9 @@ class AskHandler extends BaseHandler {
         return;
       }
 
-      // Poll for loading progress
-      const maxWait = profileInfo.loadTime * 2 * 1000; // Double estimated time as max
+      // Poll for loading progress. The router does not report an expected load
+      // time, so wait out the same ceiling as the load request itself.
+      const maxWait = ROUTER_LOAD_TIMEOUT_MS;
       const pollInterval = 1000;
       let elapsed = 0;
 

@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **Hardcoded local router model profiles**: `ROUTER_PROFILES` and
+  `DEFAULT_PROFILES` (`coding-seed-coder`, `agents-seed-coder`, `coding-reap25b`,
+  `coding-qwen-7b`, `agents-qwen3-14b`, `fast-deepseek-lite`, `fast-qwen14b`) are
+  gone. They were one machine's llama-swap profile names, but `ask` used them as a
+  closed allowlist — `model_profile` threw `Unknown model_profile` for any id not
+  in that list, so no other user could name their own model at all. `model_profile`
+  now accepts any id and is resolved against the live router, which already warns
+  when a profile is unknown.
+- **`ask`'s `auto_profile` parameter**: its only function was auto-selecting
+  `coding-seed-coder`/`coding-qwen-7b` by detected task type. With no hardcoded
+  profile list there is nothing for it to select, and SAB cannot know which of
+  someone else's models suits a task.
 - **`seed_coder` backend**: removed from `backends.json`, `FRIENDLY_NAME_MAP`, and
   every routing table. It described a specific local model on the maintainer's
   machine (`seed-coder-8b` on `127.0.0.1:8084`) that no longer exists, so for
@@ -17,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pointed at a model the user did not have.
 
 ### Changed
+- **`dual_iterate`'s router-aware dual mode** picks its two models from what the
+  router reports as loaded, matched by capability, instead of requesting the
+  hardcoded `agents-seed-coder` / `agents-qwen3-14b`. The reviewer prefers a model
+  the generator is not using, and both fall back to `null` (use whatever is loaded)
+  when nothing suitable is resident.
+- **`inferCapabilitiesFromModelId`** gained two last-resort patterns (`coder|coding`
+  → code-specialized, `reasoning|thinking` → deep-reasoning) so role-prefixed local
+  model ids infer a capability instead of falling through to `general`. Purely
+  additive — they sit below every existing vendor pattern, all of which still win.
 - **`auto` routing default** is now `local` (dynamic model discovery against an
   OpenAI-compatible endpoint) instead of `seed_coder`. `analyze_file`'s `general`
   and `bug` analysis types likewise default to `local`.

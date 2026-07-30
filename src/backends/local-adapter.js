@@ -346,11 +346,9 @@ class LocalAdapter extends BackendAdapter {
    * @returns {number} Estimated tokens/second
    */
   getTokensPerSecond() {
+    // Keyed on model-family substrings, not router profile names — unmatched ids
+    // fall through to the parameter-count heuristic below.
     const modelSpeedTable = {
-      'seed-coder-8b': 50,
-      'coding-qwen-7b': 45,
-      'coding-qwen3-14b': 35,
-      'coding-reap25b': 7,
       'qwen-14b': 35,
       'qwen-32b': 15,
       'deepseek-lite': 40,

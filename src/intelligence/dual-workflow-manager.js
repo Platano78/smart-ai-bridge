@@ -10,6 +10,8 @@
  * Integrates with health monitoring and learning engine for optimal routing.
  */
 
+import { CAPABILITIES, inferCapabilitiesFromModelId } from '../utils/capability-matcher.js';
+
 /**
  * Workflow modes
  */
@@ -189,6 +191,22 @@ class DualWorkflowManager {
   }
 
   /**
+   * Pick a loaded router model that has the requested capability.
+   * @param {string} capability - A CAPABILITIES value
+   * @returns {string|null} Model id, or null to use whatever is already loaded
+   */
+  _pickLoadedModel(capability, excludeId = null) {
+    const loaded = this.backendRegistry?.getAdapter?.('local')?.getModelInfo?.()?.loadedModels || [];
+    const capable = loaded.filter(m => inferCapabilitiesFromModelId(m.id).includes(capability));
+    // Prefer a model the other role isn't already using — capability patterns
+    // overlap (a Qwen reasoning model also reads as code-specialized), so without
+    // this both roles can collapse onto one model and the dual loop degenerates
+    // into self-review.
+    const distinct = capable.find(m => m.id !== excludeId);
+    return (distinct || capable[0])?.id || null;
+  }
+
+  /**
    * Get the optimal backend for a specific role
    * @param {string} role - 'generator' | 'reviewer' | 'fixer'
    * @param {Object} context - Task context for smart routing
@@ -199,11 +217,16 @@ class DualWorkflowManager {
 
     switch (mode) {
       case WorkflowMode.DUAL_ITERATIVE:
-        // Router-aware dual mode: use 'local' backend with specific model selection
+        // Router-aware dual mode: pick the two models from what the router
+        // actually has loaded, by capability. Model ids are the caller's own
+        // router config, so nothing may be hardcoded here.
         if (role === 'generator' || role === 'fixer') {
-          return { backend: 'local', routerModel: 'agents-seed-coder' }; // Coding model
+          return { backend: 'local', routerModel: this._pickLoadedModel(CAPABILITIES.CODE_SPECIALIZED) };
         } else if (role === 'reviewer') {
-          return { backend: 'local', routerModel: 'agents-qwen3-14b' }; // Reasoning model
+          // Recompute the generator's choice (stateless, deterministic) so the
+          // reviewer can steer away from it.
+          const generatorModel = this._pickLoadedModel(CAPABILITIES.CODE_SPECIALIZED);
+          return { backend: 'local', routerModel: this._pickLoadedModel(CAPABILITIES.DEEP_REASONING, generatorModel) };
         }
         break;
 

@@ -32,7 +32,7 @@ const FIM_MODEL_TOKENS = {
     suffix: '<|fim_suffix|>',
     middle: '<|fim_middle|>'
   },
-  // Alias: coding-reap25b in llama-swap is actually Qwen3-Coder-30B (q3_K_XL)
+  // REAP-pruned Qwen3-Coder variants keep Qwen's FIM tokens
   'reap': {
     prefix: '<|fim_prefix|>',
     suffix: '<|fim_suffix|>',
@@ -90,7 +90,7 @@ export class ModifyFileHandler extends BaseHandler {
    * @param {string} args.instructions - Natural language edit instructions
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend
-   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
+   * @param {string} [args.options.modelProfile] - Model id to request from the local router (whatever your router serves)
    * @param {boolean} [args.options.review] - Return for approval (default: true)
    * @param {string[]} [args.options.contextFiles] - For understanding dependencies
    * @param {boolean} [args.options.backup] - Create backup (default: true)

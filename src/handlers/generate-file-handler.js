@@ -37,7 +37,7 @@ export class GenerateFileHandler extends BaseHandler {
    * @param {string} args.outputPath - Where to write the file
    * @param {Object} [args.options] - Optional configuration
    * @param {string} [args.options.backend] - Force specific backend
-   * @param {string} [args.options.modelProfile] - Local router model profile (coding-qwen-7b|coding-seed-coder|fast-qwen14b|etc)
+   * @param {string} [args.options.modelProfile] - Model id to request from the local router (whatever your router serves)
    * @param {boolean} [args.options.review] - Return for approval (default: true)
    * @param {string[]} [args.options.contextFiles] - Related files for style/patterns
    * @param {string} [args.options.language] - Language (auto-detect if not specified)
