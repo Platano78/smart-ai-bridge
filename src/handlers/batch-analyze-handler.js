@@ -103,8 +103,8 @@ export class BatchAnalyzeHandler extends BaseHandler {
       if (routingResult.recommendation) {
         console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
       }
-      // Safety: if local/seed_coder but exceeds local limit, escalate
-      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (effectiveBackend === 'local' || effectiveBackend === 'seed_coder')) {
+      // Safety: if local but exceeds local limit, escalate
+      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && effectiveBackend === 'local') {
         console.error(`[BatchAnalyze] ⚠️ Total input (${totalInputSize} chars) exceeds limit (${MAX_LOCAL_INPUT_CHARS})`);
         effectiveBackend = 'nvidia_qwen';
       }

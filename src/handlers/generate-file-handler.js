@@ -104,7 +104,7 @@ export class GenerateFileHandler extends BaseHandler {
       // Get dynamic context limit from loaded model
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      if (prompt.length > MAX_LOCAL_INPUT_CHARS && (selectedBackend === 'local' || selectedBackend === 'seed_coder')) {
+      if (prompt.length > MAX_LOCAL_INPUT_CHARS && selectedBackend === 'local') {
         console.error(`[GenerateFile] ⚠️ Prompt size (${prompt.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
         console.error(`[GenerateFile] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
         selectedBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
@@ -284,7 +284,7 @@ export class GenerateFileHandler extends BaseHandler {
       console.error(`[GenerateFile] ❌ Error: ${error.message}`);
       return this.buildErrorResponse(
         `File generation failed: ${error.message}`,
-        { hint: "Retry with options.backend:'local' or 'seed_coder', or simplify the spec." }
+        { hint: "Retry with options.backend:'local', or simplify the spec." }
       );
     }
   }

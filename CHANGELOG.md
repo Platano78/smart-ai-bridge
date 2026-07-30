@@ -5,6 +5,31 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- **`seed_coder` backend**: removed from `backends.json`, `FRIENDLY_NAME_MAP`, and
+  every routing table. It described a specific local model on the maintainer's
+  machine (`seed-coder-8b` on `127.0.0.1:8084`) that no longer exists, so for
+  anyone else it was a backend name that could only fail. Because it was
+  `priority: 0` and the terminal default of `BackendRegistry.selectBackend()`,
+  `backend: 'auto'` resolved to it on a fresh clone — meaning auto routing
+  pointed at a model the user did not have.
+
+### Changed
+- **`auto` routing default** is now `local` (dynamic model discovery against an
+  OpenAI-compatible endpoint) instead of `seed_coder`. `analyze_file`'s `general`
+  and `bug` analysis types likewise default to `local`.
+- **Error hints** in `generate_file` and `council` no longer suggest
+  `seed_coder`; the council hint also now names the correct parameter
+  (`ask` takes `model:`, not `backend:`).
+
+### Fixed
+- **README**: dashboard URL corrected from port 3000 to the actual default 3456
+  (`SAB_DASHBOARD_PORT`), matching `docs/DASHBOARD.md`.
+- **README**: documented the v2.8.1 write-verification guarantee, which had
+  shipped without a README entry.
+
 ## [2.8.1] - 2026-07-23
 
 ### Fixed

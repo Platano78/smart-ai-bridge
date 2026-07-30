@@ -119,7 +119,7 @@ class CouncilHandler extends BaseHandler {
         return this.buildErrorResponse(
           `council needs ≥2 backends — only ${availableBackends.length} available from [${backends.join(', ')}]. ` +
           `Cloud lanes (nvidia_deepseek, nvidia_qwen, groq_llama) may be saturated; retry in a moment, ` +
-          `or call ask with backend:'seed_coder' for a single-backend response.`
+          `or call ask with model:'local' for a single-backend response.`
         );
       }
 

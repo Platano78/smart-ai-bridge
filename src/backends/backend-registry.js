@@ -36,8 +36,7 @@ const FRIENDLY_NAME_MAP = {
   deepseek: 'nvidia_deepseek',
   qwen3: 'nvidia_qwen',
   gemini: 'gemini',
-  groq: 'groq_llama',
-  seed_coder: 'seed_coder'
+  groq: 'groq_llama'
 };
 
 /**
@@ -668,7 +667,7 @@ class BackendRegistry {
     if (context.contentLength > 40000) {
       return { backend: 'nvidia_qwen', recommendation: 'Large content — routed to cloud' };
     }
-    return { backend: 'seed_coder' };
+    return { backend: 'local' };
   }
 
   registerRoutingOverride(handlerType, fn) {

@@ -30,7 +30,7 @@ export class AnalyzeFileHandler extends BaseHandler {
     this.handlerType = 'analyze';
     if (this.backendRegistry) {
       this.backendRegistry.registerRoutingOverride('analyze', (ctx) => {
-        const map = { general: 'seed_coder', bug: 'seed_coder', security: 'nvidia_qwen', performance: 'nvidia_deepseek', architecture: 'nvidia_deepseek' };
+        const map = { general: 'local', bug: 'local', security: 'nvidia_qwen', performance: 'nvidia_deepseek', architecture: 'nvidia_deepseek' };
         return map[ctx.analysisType] || null;
       });
     }
@@ -331,7 +331,6 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     // Cloud backends: Fixed limits based on TPM/cost constraints
     const backendLimits = {
       'local': 4000,           // Fallback if no slot info (conservative)
-      'seed_coder': 4000,      // Optimized for Seed Coder's VRAM constraints
       'nvidia_deepseek': 8000, // Free tier TPM protection
       'nvidia_qwen': 8000,     // Free tier TPM protection
       'gemini': 8000,          // Free tier friendly

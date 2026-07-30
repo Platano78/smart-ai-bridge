@@ -146,6 +146,12 @@ directly as the internal name.
 
 All handlers use a unified response pipeline (`extractResponseText`) that correctly handles every known LLM response shape -- raw strings, OpenAI chat/completion formats, thinking model `reasoning_content`, array content parts, and Gemini candidates. Repetitive output from local models is automatically collapsed, and analysis findings are deduplicated and capped.
 
+### Write Integrity (v2.8.1)
+
+`fs.writeFile` resolving does not guarantee the bytes on disk match what was requested -- short or partial writes, `ENOSPC`, encoding mangling, or a concurrent writer clobbering the file between write and return all leave disk content that diverges from the intended content while the write call itself resolves cleanly.
+
+Every tool that writes a file (`modify_file` auto-write, `generate_file` auto-write, and `write_files_atomic`'s `write` operation) now reads the file back immediately after writing and compares it byte-for-byte. A mismatch raises `WRITE_VERIFY_MISMATCH` -- naming the file, the expected vs actual length, and the first divergent line -- instead of reporting `success: true` over a corrupted file. In `write_files_atomic` the mismatch also triggers the existing backup rollback.
+
 ## Council System
 
 The council queries multiple backends on the same prompt and returns all responses for Claude to synthesize. Topics like `coding`, `architecture`, and `security` each map to a set of backends and a strategy (parallel, sequential, debate, or fallback).
@@ -189,7 +195,7 @@ Check the output for `original=N/15` vs `crushed=M/15` per dimension. If crushed
 
 ## Adding a Backend
 
-**Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3000` to add, remove, enable/disable, and re-prioritize backends without editing JSON.
+**Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3456` (override with `SAB_DASHBOARD_PORT`) to add, remove, enable/disable, and re-prioritize backends without editing JSON.
 
 **Via Config File**: Any OpenAI-compatible provider can be added as a config entry in `src/config/backends.json`:
 
