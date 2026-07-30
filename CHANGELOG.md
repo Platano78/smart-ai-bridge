@@ -5,7 +5,11 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.9.0] - 2026-07-29
+
+Removes local infrastructure that was never usable outside the maintainer's
+machine: a backend and a set of router model profiles that public callers could
+only fail to reach.
 
 ### Removed
 - **Hardcoded local router model profiles**: `ROUTER_PROFILES` and
