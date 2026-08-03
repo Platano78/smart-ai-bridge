@@ -280,6 +280,23 @@ await server.connect(transport);
 console.error(`Smart AI Bridge v${VERSION} connected via stdio`);
 console.error(`Tools: ${toolToHandler.size} | Backends: ${backendRegistry.getStats().totalBackends}`);
 
+// ── Readiness audit (non-critical, fire-and-forget) ──────────────
+// Providers retire models without notice and the failure is otherwise silent
+// until a request fails — this reports drift before the first request. Never
+// allowed to delay or abort startup.
+if (process.env.SAB_DISABLE_READINESS_AUDIT !== 'true') {
+  (async () => {
+    try {
+      const { auditReadiness, formatFindings } = await import('./backends/readiness-audit.js');
+      const councilConfig = JSON.parse(readFileSync(join(__dirname, '../config/council-config.json'), 'utf8'));
+      const result = await auditReadiness({ backendsConfig: _backendsConfig, councilConfig });
+      for (const line of formatFindings(result)) console.error(line);
+    } catch (err) {
+      console.error(`[SAB] Readiness audit skipped: ${err.message}`);
+    }
+  })();
+}
+
 // ── Dashboard (optional, env-gated) ─────────────────────────────
 if (process.env.SAB_DASHBOARD === 'true') {
   // Lazy import: dashboard pulls in express + ws, which should not load on the

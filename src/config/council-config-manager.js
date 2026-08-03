@@ -24,10 +24,9 @@ const VALID_BACKENDS = [
   'nvidia_deepseek',
   'nvidia_glm',
   'nvidia_qwen', // legacy alias, still resolves to nvidia_glm
-  'nvidia_kimi',
   'gemini',
-  'groq_llama',
-  'chatgpt'
+  'openai_chatgpt',
+  'groq_llama'
 ];
 
 // Dynamic registry reference (set at startup)

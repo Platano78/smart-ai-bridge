@@ -13,7 +13,8 @@
     "test:legacy": "node scripts/validate-hybrid-server.js",
     "test:bench": "node tests/benchmark.js",
     "audit": "npm audit",
-    "audit:fix": "npm audit fix"
+    "audit:fix": "npm audit fix",
+    "audit:backends": "node scripts/audit-backends.js"
   },
   "keywords": [
     "mcp",
