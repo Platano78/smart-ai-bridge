@@ -11,12 +11,18 @@
 import { BackendAdapter } from './backend-adapter.js';
 import { GeminiRateLimiter } from '../utils/gemini-rate-limiter.js';
 
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_DEFAULT_MODEL = 'gemini-3-pro-preview';
+
 class GeminiAdapter extends BackendAdapter {
   constructor(config = {}) {
+    // The model id is embedded in Gemini's URL path, so derive the URL from
+    // config.model rather than hardcoding both. An explicit config.url still wins.
+    const model = config.model || GEMINI_DEFAULT_MODEL;
     super({
       name: 'gemini',
       type: 'gemini',
-      url: config.url || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent',
+      url: config.url || `${GEMINI_API_BASE}/${model}:generateContent`,
       apiKey: config.apiKey || process.env.GEMINI_API_KEY,
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 60000,
@@ -24,7 +30,7 @@ class GeminiAdapter extends BackendAdapter {
       ...config
     });
 
-    this.model = 'gemini-3-pro-preview';
+    this.model = model;
 
     // Initialize rate limiter
     this.rateLimiter = new GeminiRateLimiter({

@@ -4,7 +4,8 @@
  *
  * Adapters for NVIDIA cloud backends:
  * - NVIDIA DeepSeek (reasoning)
- * - Qwen3 Coder 480B (coding)
+ * - GLM-5.2 (coding) — the lane formerly served Qwen3 Coder 480B, which NVIDIA
+ *   retired on 2026-06-11
  *
  * Smart AI Bridge v2.0.0
  */
@@ -41,8 +42,17 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       ...config
     });
 
-    this.model = 'deepseek-ai/deepseek-v3.1-terminus';
-    this.fallbackModel = 'deepseek-ai/deepseek-v3.2';
+    // config.model (from backends.json) is authoritative — the literal is only a
+    // default for callers that construct the adapter directly. Hardcoding here
+    // previously made backends.json inert, so a retired model could not be fixed
+    // from config.
+    this.model = config.model || 'deepseek-ai/deepseek-v4-pro';
+    this.fallbackModel = config.fallbackModel || null;
+
+    // Whether this.model's NIM endpoint accepts extra_body.chat_template_kwargs.thinking.
+    // Only the terminus family did; deepseek-v4-pro rejects it with HTTP 400. Resolved
+    // from config so a future model that supports it needs no code change.
+    this.supportsThinkingParam = config.supportsThinkingParam ?? this.model.includes('terminus');
   }
 
   async makeRequest(prompt, options = {}) {
@@ -56,7 +66,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout') || error.message.includes('aborted');
       const isServerError = error.message.includes('500') || error.message.includes('502') || error.message.includes('503');
 
-      if (isTimeout || isServerError) {
+      if ((isTimeout || isServerError) && this.fallbackModel) {
         const reason = isTimeout ? 'timed out' : 'server error';
         console.error(`[SAB] NVIDIA DeepSeek ${reason}, falling back to ${this.fallbackModel}...`);
         return await this._executeWithModel(prompt, this.fallbackModel, options, true);
@@ -77,7 +87,12 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       stream: false
     };
 
-    if (options.thinking !== false) {
+    // extra_body.chat_template_kwargs.thinking is only accepted by the terminus-family
+    // NIM endpoint; deepseek-v4-pro rejects unknown params with HTTP 400. this.model's
+    // capability is config-resolved (supportsThinkingParam); the fallback model has no
+    // config binding of its own, so it keeps the substring heuristic.
+    const supportsThinking = model === this.model ? this.supportsThinkingParam : isTerminus;
+    if (supportsThinking && options.thinking !== false) {
       body.extra_body = { chat_template_kwargs: { thinking: true } };
     }
 
@@ -112,7 +127,9 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
 }
 
 /**
- * Qwen3 Coder 480B adapter
+ * NVIDIA GLM adapter (code-specialist lane). Still exported/keyed as
+ * `nvidia_qwen`/`NvidiaQwenAdapter` — the `nvidia_glm` rename is Tier 1B,
+ * gated on this tier landing green.
  */
 class NvidiaQwenAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -127,7 +144,7 @@ class NvidiaQwenAdapter extends BackendAdapter {
       ...config
     });
 
-    this.model = 'qwen/qwen3-coder-480b-a35b-instruct';
+    this.model = config.model || 'z-ai/glm-5.2';
   }
 
   async makeRequest(prompt, options = {}) {

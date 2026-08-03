@@ -32,14 +32,14 @@
         "maxTokens": 8192,
         "timeout": 60000,
         "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "model": "deepseek-ai/deepseek-v3.2"
+        "model": "deepseek-ai/deepseek-v4-pro"
       }
     },
     "nvidia_qwen": {
       "type": "nvidia_qwen",
       "enabled": true,
       "priority": 3,
-      "description": "NVIDIA Qwen (coding, 32K tokens)",
+      "description": "NVIDIA GLM-5.2 (coding, 32K tokens)",
       "capabilities": [
         "code_specialized",
         "deep_reasoning"
@@ -48,7 +48,8 @@
       "strengths": "Code review, refactoring",
       "config": {
         "maxTokens": 32768,
-        "timeout": 60000
+        "timeout": 60000,
+        "model": "z-ai/glm-5.2"
       }
     },
     "gemini": {
@@ -64,7 +65,8 @@
       "strengths": "Fast docs, quick responses",
       "config": {
         "maxTokens": 32768,
-        "timeout": 60000
+        "timeout": 60000,
+        "model": "gemini-3-pro-preview"
       }
     },
     "openai_chatgpt": {
@@ -82,9 +84,9 @@
       "type": "groq",
       "enabled": true,
       "priority": 6,
-      "description": "Groq Llama 3.3 70B (ultra-fast 500+ t/s)",
+      "description": "Groq gpt-oss-120b (ultra-fast 500+ t/s)",
       "config": {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "maxTokens": 32768,
         "timeout": 30000
       }

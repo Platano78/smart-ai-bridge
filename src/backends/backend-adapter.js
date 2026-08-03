@@ -358,10 +358,16 @@ class BackendAdapter {
     // Default implementation - subclasses may override
     // Handle reasoning models that return reasoning_content instead of/with content
     const message = response.choices?.[0]?.message;
-    const content = message?.content ||
-                   message?.reasoning_content ||
-                   response.content ||
-                   response.text ||
+    // Reasoning models split their output. NVIDIA/DeepSeek use `reasoning_content`;
+    // Groq's gpt-oss models use `reasoning` and keep `content` clean. Only fall
+    // through when content is genuinely absent — `??` means an empty string is
+    // treated as a real (if unhelpful) answer, usually meaning max_tokens was
+    // consumed by the reasoning pass.
+    const content = message?.content ??
+                   message?.reasoning_content ??
+                   message?.reasoning ??
+                   response.content ??
+                   response.text ??
                    '';
 
     const tokens = response.usage?.total_tokens ||
