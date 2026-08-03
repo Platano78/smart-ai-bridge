@@ -4,7 +4,7 @@
     "coding": {
       "strategy": "parallel",
       "backends": [
-        "nvidia_qwen",
+        "nvidia_glm",
         "nvidia_deepseek"
       ]
     },
@@ -12,7 +12,7 @@
       "strategy": "debate",
       "backends": [
         "nvidia_deepseek",
-        "nvidia_qwen",
+        "nvidia_glm",
         "gemini"
       ]
     },
@@ -21,14 +21,14 @@
       "backends": [
         "gemini",
         "groq_llama",
-        "nvidia_qwen"
+        "nvidia_glm"
       ]
     },
     "creative": {
       "strategy": "parallel",
       "backends": [
         "gemini",
-        "nvidia_qwen",
+        "nvidia_glm",
         "groq_llama"
       ]
     },
@@ -36,7 +36,7 @@
       "strategy": "debate",
       "backends": [
         "nvidia_deepseek",
-        "nvidia_qwen",
+        "nvidia_glm",
         "gemini"
       ]
     },
@@ -44,7 +44,7 @@
       "strategy": "parallel",
       "backends": [
         "nvidia_deepseek",
-        "nvidia_qwen"
+        "nvidia_glm"
       ]
     }
   },
@@ -55,7 +55,7 @@
   "availableBackends": [
     "local",
     "nvidia_deepseek",
-    "nvidia_qwen",
+    "nvidia_glm",
     "nvidia_kimi",
     "gemini",
     "groq_llama",

@@ -46,7 +46,7 @@ VERDICT:
   "overall_assessment": "<summary>"
 }`,
     temperature: 0.3,
-    recommendedBackend: 'qwen3', // Best for deep analysis
+    recommendedBackend: 'glm', // Best for deep analysis
     verdictFormat: {
       quality_score: 'number',
       issues: 'array',
@@ -126,7 +126,7 @@ VERDICT:
   "integration_points": ["<point1>"]
 }`,
     temperature: 0.5,
-    recommendedBackend: 'qwen3', // Best for architecture planning
+    recommendedBackend: 'glm', // Best for architecture planning
     verdictFormat: {
       complexity_estimate: 'string',
       subtasks: 'array',
@@ -275,7 +275,7 @@ Output ONLY a JSON array:
   {"id": "task-2", "description": "...", "type": "feature|bugfix|refactor"}
 ]`,
     temperature: 0.4,
-    recommendedBackend: 'qwen3',
+    recommendedBackend: 'glm',
     verdictFormat: { subtasks: 'array' }
   },
 

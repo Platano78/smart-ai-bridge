@@ -102,7 +102,7 @@ class BaseHandler {
     const contextLimits = {
       'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
       'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
-      'nvidia_qwen': 128000,     // 32K tokens * 4 = 128K chars
+      'nvidia_glm': 128000,      // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
       'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
       'chatgpt': 512000          // 128K tokens * 4 = 512K chars
@@ -119,7 +119,7 @@ class BaseHandler {
     const backendSpeeds = {
       'local': 20,           // Conservative estimate for local models
       'nvidia_deepseek': 40, // Cloud DeepSeek V3
-      'nvidia_qwen': 35,     // Cloud Qwen3 480B
+      'nvidia_glm': 35,      // Cloud GLM-5.2
       'gemini': 50,          // Gemini Flash
       'groq_llama': 80,      // Ultra-fast Groq
       'chatgpt': 40          // OpenAI GPT-4

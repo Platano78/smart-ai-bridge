@@ -127,14 +127,15 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
 }
 
 /**
- * NVIDIA GLM adapter (code-specialist lane). Still exported/keyed as
- * `nvidia_qwen`/`NvidiaQwenAdapter` — the `nvidia_glm` rename is Tier 1B,
- * gated on this tier landing green.
+ * NVIDIA GLM adapter (code-specialist lane). Canonical key is `nvidia_glm`;
+ * `nvidia_qwen` and `qwen3` remain as back-compat aliases (see
+ * FRIENDLY_NAME_MAP / ADAPTER_CLASSES in backend-registry.js) since the lane
+ * served Qwen3 Coder 480B until NVIDIA retired it on 2026-06-11.
  */
-class NvidiaQwenAdapter extends BackendAdapter {
+class NvidiaGlmAdapter extends BackendAdapter {
   constructor(config = {}) {
     super({
-      name: 'nvidia_qwen',
+      name: 'nvidia_glm',
       type: 'nvidia',
       url: NVIDIA_BASE_URL,
       apiKey: config.apiKey || process.env.NVIDIA_API_KEY,
@@ -187,5 +188,5 @@ class NvidiaQwenAdapter extends BackendAdapter {
 
 export {
   NvidiaDeepSeekAdapter,
-  NvidiaQwenAdapter
+  NvidiaGlmAdapter
 };

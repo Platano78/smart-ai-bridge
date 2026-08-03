@@ -16,7 +16,7 @@ const MODEL_ALIASES = {
   'local': { backend: 'local', description: 'Local LLM' },
   'gemini': { backend: 'gemini', description: 'Cloud API (Gemini)' },
   'deepseek': { backend: 'nvidia_deepseek', description: 'Cloud API (DeepSeek)' },
-  'qwen3': { backend: 'nvidia_qwen', description: 'Cloud API (Qwen)' },
+  'qwen3': { backend: 'nvidia_glm', description: 'Cloud API (Qwen)' },
   'chatgpt': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI)' },
   'openai': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI alias)' },
   'groq': { backend: 'groq_llama', description: 'Cloud API (Groq)' },

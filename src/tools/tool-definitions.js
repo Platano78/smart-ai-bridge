@@ -127,8 +127,8 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         model: {
           type: 'string',
-          enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'qwen3', 'nvidia_deepseek', 'nvidia_qwen', 'openai'],
-          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_qwen (NVIDIA Qwen3 Coder 480B, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s). The friendly aliases `deepseek` and `qwen3` are also accepted (mapped to nvidia_deepseek / nvidia_qwen), matching the other tools.'
+          enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'glm', 'qwen3', 'nvidia_deepseek', 'nvidia_glm', 'nvidia_qwen', 'openai'],
+          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_glm (NVIDIA GLM-5.2 code specialist, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s). The friendly aliases `deepseek` and `glm` are also accepted (mapped to nvidia_deepseek / nvidia_glm), matching the other tools. `nvidia_qwen` and `qwen3` are legacy aliases still accepted for back-compat (the lane served Qwen3 Coder 480B until NVIDIA retired it on 2026-06-11) — they resolve to nvidia_glm.'
         },
         prompt: {
           type: 'string',
@@ -150,7 +150,7 @@ const CORE_TOOL_DEFINITIONS = [
         },
         force_backend: {
           type: 'string',
-          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_qwen", "openai", "groq"'
+          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai", "groq" (legacy "nvidia_qwen"/"qwen3" also accepted)'
         },
         model_profile: {
           type: 'string',
@@ -239,7 +239,7 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         backend: {
           type: 'string',
-          description: 'Backend name to check (local, gemini, nvidia_deepseek, nvidia_qwen, openai, groq)'
+          description: 'Backend name to check (local, gemini, nvidia_deepseek, nvidia_glm, openai, groq)'
         },
         force: {
           type: 'boolean',
@@ -351,7 +351,7 @@ const CORE_TOOL_DEFINITIONS = [
         topic: {
           type: 'string',
           enum: ['coding', 'reasoning', 'architecture', 'general', 'creative', 'security', 'performance'],
-          description: 'Topic category - determines which backends are consulted: coding (nvidia_qwen, local), reasoning (nvidia_deepseek), architecture (nvidia_deepseek, nvidia_qwen), general (gemini, groq), creative (gemini, nvidia_qwen), security (nvidia_deepseek, nvidia_qwen), performance (nvidia_deepseek, local)'
+          description: 'Topic category - determines which backends are consulted: coding (nvidia_glm, local), reasoning (nvidia_deepseek), architecture (nvidia_deepseek, nvidia_glm), general (gemini, groq), creative (gemini, nvidia_glm), security (nvidia_deepseek, nvidia_glm), performance (nvidia_deepseek, local)'
         },
         confidence_needed: {
           type: 'string',
@@ -401,7 +401,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for analysis'
             },
@@ -459,7 +459,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'groq', 'qwen3', 'deepseek'],
+              enum: ['auto', 'groq', 'glm', 'qwen3', 'deepseek'],
               default: 'auto',
               description: 'Backend for summarization (auto selects based on depth)'
             }
@@ -489,7 +489,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for generation'
             },
@@ -538,7 +538,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for modification'
             },
@@ -604,7 +604,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto'
             },
             analysisType: {
@@ -660,7 +660,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto'
             }
           }
@@ -709,7 +709,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
               default: 'auto'
             },
             findReferences: {

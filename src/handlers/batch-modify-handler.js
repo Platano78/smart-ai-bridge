@@ -96,8 +96,8 @@ export class BatchModifyHandler extends BaseHandler {
       let effectiveBackend = backend;
       if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (backend === 'auto' || backend === 'local')) {
         console.error(`[BatchModify] ⚠️ Total input size (${totalInputSize} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[BatchModify] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
-        effectiveBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
+        console.error(`[BatchModify] 🔄 Auto-fallback to nvidia_glm (128K context)`);
+        effectiveBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
       }
 
       // 2. Create backups for atomic rollback

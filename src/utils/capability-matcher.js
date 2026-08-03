@@ -89,7 +89,7 @@ const BACKEND_CAPABILITIES = {
     capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.SECURITY_FOCUS],
     context_limit: 8192
   },
-  'nvidia_qwen': {
+  'nvidia_glm': {
     capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING],
     context_limit: 32768
   },

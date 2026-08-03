@@ -106,8 +106,8 @@ export class GenerateFileHandler extends BaseHandler {
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (prompt.length > MAX_LOCAL_INPUT_CHARS && selectedBackend === 'local') {
         console.error(`[GenerateFile] ⚠️ Prompt size (${prompt.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[GenerateFile] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
-        selectedBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
+        console.error(`[GenerateFile] 🔄 Auto-fallback to nvidia_glm (128K context)`);
+        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
       }
 
       console.error(`[GenerateFile] 📝 Generating ${outputPath}`);
@@ -184,9 +184,9 @@ export class GenerateFileHandler extends BaseHandler {
 
           // Cloud fallback - try cloud if local exhausted OR if already on cloud but still truncated
           if (RETRY_CONFIG.cloudFallbackEnabled) {
-            if (usedBackend !== 'nvidia_qwen') {
-              console.error(`[GenerateFile] 🌐 Falling back to cloud (nvidia_qwen)`);
-              usedBackend = 'nvidia_qwen';
+            if (usedBackend !== 'nvidia_glm') {
+              console.error(`[GenerateFile] 🌐 Falling back to cloud (nvidia_glm)`);
+              usedBackend = 'nvidia_glm';
               currentTokens = Math.min(currentTokens * 2, 16000);
               continue;
             } else if (attempts <= RETRY_CONFIG.maxLocalRetries) {

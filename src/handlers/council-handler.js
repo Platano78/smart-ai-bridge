@@ -55,7 +55,7 @@ const CONFIDENCE_BACKENDS = {
  */
 const DEFAULT_COUNCIL_BACKENDS = [
   'nvidia_deepseek',
-  'nvidia_qwen', 
+  'nvidia_glm', 
   'gemini',
   'local'
 ];
@@ -118,7 +118,7 @@ class CouncilHandler extends BaseHandler {
       if (availableBackends.length < 2) {
         return this.buildErrorResponse(
           `council needs ≥2 backends — only ${availableBackends.length} available from [${backends.join(', ')}]. ` +
-          `Cloud lanes (nvidia_deepseek, nvidia_qwen, groq_llama) may be saturated; retry in a moment, ` +
+          `Cloud lanes (nvidia_deepseek, nvidia_glm, groq_llama) may be saturated; retry in a moment, ` +
           `or call ask with model:'local' for a single-backend response.`
         );
       }
@@ -634,7 +634,7 @@ SYNTHESIS: [Final unified answer]`;
     }
     
     // Prefer DeepSeek for reasoning
-    const CHAIRMAN_ORDER = ['nvidia_deepseek', 'nvidia_qwen', 'gemini', 'local'];
+    const CHAIRMAN_ORDER = ['nvidia_deepseek', 'nvidia_glm', 'gemini', 'local'];
     for (const preferred of CHAIRMAN_ORDER) {
       if (availableBackends.includes(preferred)) {
         return preferred;

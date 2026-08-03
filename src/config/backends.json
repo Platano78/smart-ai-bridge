@@ -35,8 +35,8 @@
         "model": "deepseek-ai/deepseek-v4-pro"
       }
     },
-    "nvidia_qwen": {
-      "type": "nvidia_qwen",
+    "nvidia_glm": {
+      "type": "nvidia_glm",
       "enabled": true,
       "priority": 3,
       "description": "NVIDIA GLM-5.2 (coding, 32K tokens)",

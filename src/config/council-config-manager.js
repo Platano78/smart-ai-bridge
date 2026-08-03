@@ -22,7 +22,8 @@ const CONFIG_PATH = path.resolve(__dirname, '../../config/council-config.json');
 const VALID_BACKENDS = [
   'local',
   'nvidia_deepseek',
-  'nvidia_qwen',
+  'nvidia_glm',
+  'nvidia_qwen', // legacy alias, still resolves to nvidia_glm
   'nvidia_kimi',
   'gemini',
   'groq_llama',
@@ -126,12 +127,12 @@ class CouncilConfigManager {
     return {
       version: 1,
       topics: {
-        coding: { strategy: 'parallel', backends: ['nvidia_qwen', 'nvidia_deepseek'] },
-        architecture: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_qwen', 'gemini'] },
-        general: { strategy: 'parallel', backends: ['gemini', 'groq_llama', 'nvidia_qwen'] },
-        creative: { strategy: 'parallel', backends: ['gemini', 'nvidia_qwen', 'groq_llama'] },
-        security: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_qwen', 'gemini'] },
-        performance: { strategy: 'parallel', backends: ['nvidia_deepseek', 'nvidia_qwen'] }
+        coding: { strategy: 'parallel', backends: ['nvidia_glm', 'nvidia_deepseek'] },
+        architecture: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_glm', 'gemini'] },
+        general: { strategy: 'parallel', backends: ['gemini', 'groq_llama', 'nvidia_glm'] },
+        creative: { strategy: 'parallel', backends: ['gemini', 'nvidia_glm', 'groq_llama'] },
+        security: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_glm', 'gemini'] },
+        performance: { strategy: 'parallel', backends: ['nvidia_deepseek', 'nvidia_glm'] }
       },
       defaults: ['local', 'gemini'],
       availableBackends: VALID_BACKENDS

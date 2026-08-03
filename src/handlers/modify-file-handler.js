@@ -178,8 +178,8 @@ export class ModifyFileHandler extends BaseHandler {
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (originalContent.length > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
         console.error(`[ModifyFile] ⚠️ File size (${originalContent.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[ModifyFile] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
-        selectedBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
+        console.error(`[ModifyFile] 🔄 Auto-fallback to nvidia_glm (128K context)`);
+        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
       }
 
       // 9. Context limit check for cloud backends
@@ -259,9 +259,9 @@ export class ModifyFileHandler extends BaseHandler {
 
             // Cloud fallback - try cloud if local exhausted OR if already on cloud but still truncated
             if (RETRY_CONFIG.cloudFallbackEnabled) {
-              if (usedBackend !== 'nvidia_qwen') {
-                console.error(`[ModifyFile] 🌐 Falling back to cloud (nvidia_qwen)`);
-                usedBackend = 'nvidia_qwen';
+              if (usedBackend !== 'nvidia_glm') {
+                console.error(`[ModifyFile] 🌐 Falling back to cloud (nvidia_glm)`);
+                usedBackend = 'nvidia_glm';
                 currentTokens = Math.min(currentTokens * 2, 8000);
                 continue;
               } else if (attempts <= RETRY_CONFIG.maxLocalRetries) {
@@ -280,8 +280,8 @@ export class ModifyFileHandler extends BaseHandler {
 
           // Cloud fallback on error
           if (RETRY_CONFIG.cloudFallbackEnabled && usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
-            console.error(`[ModifyFile] 🌐 Error fallback to cloud (nvidia_qwen)`);
-            usedBackend = 'nvidia_qwen';
+            console.error(`[ModifyFile] 🌐 Error fallback to cloud (nvidia_glm)`);
+            usedBackend = 'nvidia_glm';
             continue;
           }
         }

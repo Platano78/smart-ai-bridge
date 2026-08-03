@@ -30,7 +30,7 @@ export class AnalyzeFileHandler extends BaseHandler {
     this.handlerType = 'analyze';
     if (this.backendRegistry) {
       this.backendRegistry.registerRoutingOverride('analyze', (ctx) => {
-        const map = { general: 'local', bug: 'local', security: 'nvidia_qwen', performance: 'nvidia_deepseek', architecture: 'nvidia_deepseek' };
+        const map = { general: 'local', bug: 'local', security: 'nvidia_glm', performance: 'nvidia_deepseek', architecture: 'nvidia_deepseek' };
         return map[ctx.analysisType] || null;
       });
     }
@@ -116,8 +116,8 @@ export class AnalyzeFileHandler extends BaseHandler {
         if (selectedBackend === 'local') {
           // Local can't handle it - escalate to cloud with larger context
           console.error(`[AnalyzeFile] ⚠️ File (${content.length} chars) exceeds local limit (${contextLimit} chars)`);
-          console.error(`[AnalyzeFile] 🔄 Falling back to nvidia_qwen (128K char limit)`);
-          selectedBackend = 'nvidia_qwen';
+          console.error(`[AnalyzeFile] 🔄 Falling back to nvidia_glm (128K char limit)`);
+          selectedBackend = 'nvidia_glm';
           contextLimit = this.getBackendContextLimit(selectedBackend);
         } else {
           // Cloud backend can't handle it - try local as fallback (might have larger context)
@@ -332,7 +332,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     const backendLimits = {
       'local': 4000,           // Fallback if no slot info (conservative)
       'nvidia_deepseek': 8000, // Free tier TPM protection
-      'nvidia_qwen': 8000,     // Free tier TPM protection
+      'nvidia_glm': 8000,     // Free tier TPM protection
       'gemini': 8000,          // Free tier friendly
       'groq_llama': 6000,      // Aggressive TPM limits on free tier
       'chatgpt': 4000          // Cost control (paid per token)

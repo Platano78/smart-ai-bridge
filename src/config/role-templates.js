@@ -64,7 +64,7 @@ Provide constructive feedback with specific line numbers and improvement suggest
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_qwen', 'gemini']
+    fallback_order: ['local', 'nvidia_glm', 'gemini']
   },
 
   'security-auditor': {
@@ -114,7 +114,7 @@ For each finding, provide:
     // Dynamic capability-based backend selection
     required_capabilities: ['deep_reasoning', 'security_focus'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_qwen']
+    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_glm']
   },
 
   'planner': {
@@ -168,7 +168,7 @@ Create clear, actionable plans that developers can follow immediately.`,
     // Dynamic capability-based backend selection with context awareness
     required_capabilities: ['deep_reasoning'],
     context_sensitivity: 'high',  // Triggers context-based routing
-    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_qwen'],
+    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_glm'],
     // Context-aware routing rules
     routing_rules: {
       small_task: { prefer: 'nvidia_deepseek', reason: 'Deep reasoning for architecture' },
@@ -220,7 +220,7 @@ Provide refactored code with clear before/after comparisons and explanations.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_qwen', 'gemini']
+    fallback_order: ['local', 'nvidia_glm', 'gemini']
   },
 
   'test-generator': {
@@ -267,7 +267,7 @@ Use appropriate testing frameworks and follow testing best practices.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_qwen', 'gemini']
+    fallback_order: ['local', 'nvidia_glm', 'gemini']
   },
 
   'documentation-writer': {
@@ -312,7 +312,7 @@ Write for developers with varying experience levels.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['fast_generation', 'documentation'],
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_qwen', 'gemini']
+    fallback_order: ['local', 'nvidia_glm', 'gemini']
   },
 
   // ===========================================
@@ -355,7 +355,7 @@ Output ONLY JSON. No markdown. No explanation.`,
     maxTokens: 4096,  // Increased from 2048 to handle complex decompositions (8+ tasks)
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_qwen']  // Worker-class models only
+    fallback_order: ['local', 'nvidia_glm']  // Worker-class models only
   },
 
   'tdd-test-writer': {
@@ -396,7 +396,7 @@ OUTPUT: Complete, runnable test code with imports, fixtures, and comprehensive d
     maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
+    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
   },
 
   'tdd-implementer': {
@@ -435,7 +435,7 @@ OUTPUT: Complete, working, production-quality implementation code with docstring
     maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
+    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
   },
 
   // Special meta-role: auto-selects best role using orchestrator
@@ -487,7 +487,7 @@ If it works and is readable, score 80+. Only iterate for real issues.`,
     maxTokens: 2048,  // Reduced - only needs JSON output
     required_capabilities: ['code_specialized'],  // Changed from deep_reasoning
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_qwen', 'nvidia_deepseek']
+    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
   }
 };
 

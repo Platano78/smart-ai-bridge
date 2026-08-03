@@ -240,7 +240,7 @@ class DualWorkflowManager {
         if (role === 'reviewer') {
           return { backend: 'nvidia_deepseek', routerModel: null }; // Reasoning model for review
         }
-        return { backend: 'nvidia_qwen', routerModel: null }; // Coding model for generation
+        return { backend: 'nvidia_glm', routerModel: null }; // Coding model for generation
     }
 
     // Default fallback
@@ -254,7 +254,7 @@ class DualWorkflowManager {
   _getFirstHealthyBackend() {
     const priority = [
       'local', 'local', 'local',
-      'nvidia_qwen', 'nvidia_deepseek', 'gemini', 'groq_llama'
+      'nvidia_glm', 'nvidia_deepseek', 'gemini', 'groq_llama'
     ];
 
     for (const backend of priority) {
@@ -262,7 +262,7 @@ class DualWorkflowManager {
       if (health?.healthy) return backend;
     }
 
-    return 'nvidia_qwen'; // Ultimate fallback
+    return 'nvidia_glm'; // Ultimate fallback
   }
 
   /**
@@ -275,18 +275,18 @@ class DualWorkflowManager {
     const chains = {
       [WorkflowMode.DUAL_ITERATIVE]: [
         'local', 'local', 'local',
-        'nvidia_qwen', 'nvidia_deepseek', 'groq_llama', 'gemini'
+        'nvidia_glm', 'nvidia_deepseek', 'groq_llama', 'gemini'
       ],
       [WorkflowMode.SINGLE_REFLECTION]: [
         ...Array.from(this.availableBackends),
-        'nvidia_qwen', 'nvidia_deepseek', 'groq_llama', 'gemini'
+        'nvidia_glm', 'nvidia_deepseek', 'groq_llama', 'gemini'
       ],
       [WorkflowMode.PASS_THROUGH]: [
         ...Array.from(this.availableBackends),
-        'groq_llama', 'nvidia_qwen', 'gemini'
+        'groq_llama', 'nvidia_glm', 'gemini'
       ],
       [WorkflowMode.CLOUD_FALLBACK]: [
-        'nvidia_qwen', 'nvidia_deepseek', 'groq_llama', 'gemini'
+        'nvidia_glm', 'nvidia_deepseek', 'groq_llama', 'gemini'
       ]
     };
 

@@ -12,7 +12,7 @@
  */
 
 import { LocalAdapter } from './local-adapter.js';
-import { NvidiaDeepSeekAdapter, NvidiaQwenAdapter } from './nvidia-adapter.js';
+import { NvidiaDeepSeekAdapter, NvidiaGlmAdapter } from './nvidia-adapter.js';
 import { GeminiAdapter } from './gemini-adapter.js';
 import { OpenAIAdapter } from './openai-adapter.js';
 import { GroqAdapter } from './groq-adapter.js';
@@ -34,9 +34,14 @@ const CUSTOM_BACKENDS_PATH = join(__dirname, '../../data/backends-custom.json');
 const FRIENDLY_NAME_MAP = {
   local: 'local',
   deepseek: 'nvidia_deepseek',
-  qwen3: 'nvidia_qwen',
   gemini: 'gemini',
-  groq: 'groq_llama'
+  groq: 'groq_llama',
+  glm: 'nvidia_glm',
+  // Back-compat: the code-specialist lane was Qwen3 Coder 480B until NVIDIA retired
+  // it on 2026-06-11. Both legacy names still resolve so existing callers and saved
+  // force_backend values keep working.
+  qwen3: 'nvidia_glm',
+  nvidia_qwen: 'nvidia_glm'
 };
 
 /**
@@ -45,7 +50,8 @@ const FRIENDLY_NAME_MAP = {
 const ADAPTER_CLASSES = {
   'local': LocalAdapter,
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
-  'nvidia_qwen': NvidiaQwenAdapter,
+  'nvidia_glm': NvidiaGlmAdapter,
+  'nvidia_qwen': NvidiaGlmAdapter,  // legacy type value, same lane
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter
@@ -302,7 +308,9 @@ class BackendRegistry {
    * @returns {Object|null}
    */
   getAdapter(name) {
-    return this.adapters.get(name) || null;
+    return this.adapters.get(name)
+      || this.adapters.get(FRIENDLY_NAME_MAP[name])
+      || null;
   }
 
   /**
@@ -311,7 +319,9 @@ class BackendRegistry {
    * @returns {Object|null}
    */
   getBackend(name) {
-    return this.backends.get(name) || null;
+    return this.backends.get(name)
+      || this.backends.get(FRIENDLY_NAME_MAP[name])
+      || null;
   }
 
   /**
@@ -665,7 +675,7 @@ class BackendRegistry {
       }
     }
     if (context.contentLength > 40000) {
-      return { backend: 'nvidia_qwen', recommendation: 'Large content — routed to cloud' };
+      return { backend: 'nvidia_glm', recommendation: 'Large content — routed to cloud' };
     }
     return { backend: 'local' };
   }

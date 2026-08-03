@@ -23,7 +23,7 @@ import { glob } from 'glob';
 // Refactoring complexity determines backend
 const REFACTOR_BACKEND_MAP = {
   function: 'local',
-  class: 'nvidia_qwen',
+  class: 'nvidia_glm',
   module: 'nvidia_deepseek',
   project: 'nvidia_deepseek'
 };
@@ -130,8 +130,8 @@ export class RefactorHandler extends BaseHandler {
       // Auto-fallback if total input exceeds local limit
       if (totalInputSize > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
         console.error(`[Refactor] ⚠️ Total input size (${totalInputSize} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[Refactor] 🔄 Auto-fallback to nvidia_qwen (128K context)`);
-        selectedBackend = 'nvidia_qwen'; // Fast cloud alternative with 128K context
+        console.error(`[Refactor] 🔄 Auto-fallback to nvidia_glm (128K context)`);
+        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
       }
 
       console.error(`[Refactor] 🎯 Backend: ${selectedBackend}`);
@@ -545,14 +545,14 @@ IMPORTANT:
       const backendMap = {
         local: 'local',
         deepseek: 'nvidia_deepseek',
-        qwen3: 'nvidia_qwen',
+        qwen3: 'nvidia_glm',
         gemini: 'gemini',
         groq: 'groq_llama'
       };
       return backendMap[requestedBackend] || requestedBackend;
     }
 
-    return REFACTOR_BACKEND_MAP[scope] || 'nvidia_qwen';
+    return REFACTOR_BACKEND_MAP[scope] || 'nvidia_glm';
   }
 
   /**

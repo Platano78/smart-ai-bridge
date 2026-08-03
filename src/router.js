@@ -128,9 +128,9 @@ export class MultiAIRouter {
   async _applyRuleBasedRouting(context) {
     const backends = await this.registry.checkHealth();
 
-    // Complex tasks -> prefer nvidia_qwen (480B model)
-    if (context.complexity === 'complex' && backends.nvidia_qwen?.healthy) {
-      return 'nvidia_qwen';
+    // Complex tasks -> prefer nvidia_glm (code-specialist lane)
+    if (context.complexity === 'complex' && backends.nvidia_glm?.healthy) {
+      return 'nvidia_glm';
     }
 
     // Code tasks -> prefer nvidia_deepseek (specialized coder)

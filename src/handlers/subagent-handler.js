@@ -508,7 +508,7 @@ class SubagentHandler extends BaseHandler {
    * @returns {Promise<string[]>}
    */
   async getAvailableBackendsForSubagent() {
-    const allBackends = ['local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini', 'groq_llama'];
+    const allBackends = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'groq_llama'];
     const circuitOpenBackends = [];
 
     const results = await Promise.all(allBackends.map(async (backend) => {
@@ -682,7 +682,7 @@ class SubagentHandler extends BaseHandler {
   /**
    * Check NVIDIA backend health with cached status
    * @private
-   * @param {string} backend - Backend name (nvidia_deepseek, nvidia_qwen)
+   * @param {string} backend - Backend name (nvidia_deepseek, nvidia_glm)
    * @param {number} timeout - Timeout in ms
    * @returns {Promise<boolean>}
    */
@@ -793,12 +793,12 @@ Best role:`;
     const LIMITS = {
       local: { maxTotalSize: 400000, maxSizePerFile: 100000 },
       nvidia_deepseek: { maxTotalSize: 50000, maxSizePerFile: 25000 },
-      nvidia_qwen: { maxTotalSize: 150000, maxSizePerFile: 50000 },
+      nvidia_glm: { maxTotalSize: 150000, maxSizePerFile: 50000 },
       gemini: { maxTotalSize: 150000, maxSizePerFile: 50000 },
       openai_chatgpt: { maxTotalSize: 500000, maxSizePerFile: 100000 },
       groq_llama: { maxTotalSize: 150000, maxSizePerFile: 50000 }
     };
-    return LIMITS[backend] || LIMITS.nvidia_qwen; // Safe default
+    return LIMITS[backend] || LIMITS.nvidia_glm; // Safe default
   }
 
   /**

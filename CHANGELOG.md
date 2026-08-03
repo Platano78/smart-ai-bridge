@@ -5,6 +5,22 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- The NVIDIA code-specialist lane is now `nvidia_glm` and serves GLM-5.2. It previously
+  served Qwen3 Coder 480B, which NVIDIA retired on 2026-06-11; no Qwen model remains in
+  the NIM catalog.
+
+### Deprecated
+- The backend names `nvidia_qwen` and `qwen3` still resolve to `nvidia_glm` and will
+  continue to work. Update `force_backend` values to `nvidia_glm` at your convenience.
+
+### Fixed
+- `getAdapter()` and `getBackend()` now resolve friendly/alias backend names. They
+  previously ignored the alias map entirely, so `getAdapter('qwen3')` returned `null`
+  even though the alias was configured.
+
 ## [2.10.0] - 2026-07-30
 
 Completes the write-verification work v2.8.1 started, and makes the

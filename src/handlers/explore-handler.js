@@ -30,7 +30,7 @@ const STOP_WORDS = new Set([
   'when', 'while', 'if', 'because', 'as', 'until', 'although', 'unless', 'since', 'being', 'been', 'being'
 ]);
 
-const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', qwen3: 'nvidia_qwen', groq: 'groq_llama' };
+const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', qwen3: 'nvidia_glm', groq: 'groq_llama' };
 
 export class ExploreHandler extends BaseHandler {
   constructor(context) {
@@ -107,7 +107,7 @@ export class ExploreHandler extends BaseHandler {
         tokens_saved: findings.tokensSaved,
         processing_time_ms: processingTime,
         depth,
-        backend_used: depth === 'deep' ? 'nvidia_qwen' : 'groq_llama'
+        backend_used: depth === 'deep' ? 'nvidia_glm' : 'groq_llama'
       });
 
     } catch (error) {
@@ -278,11 +278,11 @@ export class ExploreHandler extends BaseHandler {
       return `No matches found for: "${question}"`;
     }
 
-    // Select backend: groq for shallow (fast), nvidia_qwen for deep (thorough)
+    // Select backend: groq for shallow (fast), nvidia_glm for deep (thorough)
     const normalizedBackend = BACKEND_ALIASES[requestedBackend] || requestedBackend;
     const backend = normalizedBackend !== 'auto'
       ? normalizedBackend
-      : (depth === 'deep' ? 'nvidia_qwen' : 'groq_llama');
+      : (depth === 'deep' ? 'nvidia_glm' : 'groq_llama');
 
     // Build evidence summary for prompt
     let evidenceSummary = '';
