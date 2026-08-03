@@ -50,7 +50,11 @@ function classifyCatch(err) {
   if (err?.name === 'TimeoutError' || err?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' || String(err).includes('timeout')) {
     return { status: 'TRANSIENT', detail: 'timeout' };
   }
-  const networkish = err instanceof TypeError || ['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'EAI_AGAIN'].includes(err?.cause?.code ?? err?.code);
+  // Node's fetch reports a network failure as a TypeError carrying a `cause`
+  // (e.g. ECONNREFUSED). A TypeError with NO cause is a programming bug in this
+  // script — surface it as ERROR rather than burying it as a retryable blip.
+  const networkish = (err instanceof TypeError && err.cause !== undefined)
+    || ['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'EAI_AGAIN'].includes(err?.cause?.code ?? err?.code);
   if (networkish) {
     return { status: 'TRANSIENT', detail: clip(err.message || String(err)) };
   }
