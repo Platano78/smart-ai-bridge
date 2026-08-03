@@ -38,7 +38,7 @@ let _backendRegistry = null;
  */
 function setBackendRegistry(registry) {
   _backendRegistry = registry;
-  console.log('[CouncilConfig] Backend registry linked for dynamic validation');
+  console.error('[CouncilConfig] Backend registry linked for dynamic validation');
 }
 
 /**
@@ -106,12 +106,12 @@ class CouncilConfigManager {
         const content = fs.readFileSync(CONFIG_PATH, 'utf-8');
         this.config = JSON.parse(content);
         this.lastModified = new Date();
-        console.log('[CouncilConfig] Loaded config from file');
+        console.error('[CouncilConfig] Loaded config from file');
       } else {
         // Create default config
         this.config = this.getDefaultConfig();
         this.saveConfigAsync();
-        console.log('[CouncilConfig] Created default config');
+        console.error('[CouncilConfig] Created default config');
       }
     } catch (error) {
       console.error('[CouncilConfig] Failed to load config:', error.message);
@@ -269,7 +269,7 @@ class CouncilConfigManager {
     // Persist async (non-blocking)
     this.saveConfigAsync();
 
-    console.log(`[CouncilConfig] Config updated by ${user}`);
+    console.error(`[CouncilConfig] Config updated by ${user}`);
     return { success: true };
   }
 
@@ -300,7 +300,7 @@ class CouncilConfigManager {
       await fs.promises.writeFile(tempPath, content, 'utf-8');
       await fs.promises.rename(tempPath, CONFIG_PATH);
       
-      console.log('[CouncilConfig] Config persisted to disk');
+      console.error('[CouncilConfig] Config persisted to disk');
     } catch (error) {
       console.error('[CouncilConfig] Failed to persist config:', error.message);
     }
@@ -319,7 +319,7 @@ class CouncilConfigManager {
     this.lastModified = new Date();
     this.saveConfigAsync();
 
-    console.log(`[CouncilConfig] Rolled back to config from ${previous.timestamp}`);
+    console.error(`[CouncilConfig] Rolled back to config from ${previous.timestamp}`);
     return { success: true, rolledBackTo: previous.timestamp };
   }
 

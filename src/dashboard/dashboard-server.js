@@ -300,14 +300,14 @@ export class DashboardServer {
     // WebSocket for real-time updates
     this.wss = new WebSocketServer({ server: this.server });
     this.wss.on('connection', (ws) => {
-      console.log('Dashboard client connected');
+      console.error('Dashboard client connected');
       ws.send(JSON.stringify({ type: 'connected', message: 'Welcome to Smart AI Bridge Dashboard' }));
     });
 
     return new Promise((resolve) => {
       this.server.listen(this.port, () => {
         this.isRunning = true;
-        console.log(`🚀 Smart AI Bridge Dashboard running at http://localhost:${this.port}`);
+        console.error(`🚀 Smart AI Bridge Dashboard running at http://localhost:${this.port}`);
         resolve();
       });
     });

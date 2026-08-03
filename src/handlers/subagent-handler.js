@@ -65,11 +65,11 @@ class SubagentHandler extends BaseHandler {
       const selectedRole = await this.selectBestRole(task, context);
       if (selectedRole) {
         role = selectedRole;
-        console.log(`[SUBAGENT] Auto-selected role: ${role}`);
+        console.error(`[SUBAGENT] Auto-selected role: ${role}`);
       } else {
         // Default fallback
         role = 'code-reviewer';
-        console.log(`[SUBAGENT] Auto-selection fallback: ${role}`);
+        console.error(`[SUBAGENT] Auto-selection fallback: ${role}`);
       }
     }
 
@@ -101,11 +101,11 @@ class SubagentHandler extends BaseHandler {
       backend = await this.selectBackendForRole(role, task);
 
       // Read file contents with backend-specific size limits
-      console.log(`[SubagentHandler] Reading ${resolvedFiles.length} files for backend: ${backend}`);
+      console.error(`[SubagentHandler] Reading ${resolvedFiles.length} files for backend: ${backend}`);
       const fileContents = resolvedFiles.length > 0
         ? await this.readFileContents(resolvedFiles, this.getFileSizeLimits(backend))
         : [];
-      console.log(`[SubagentHandler] File contents loaded: ${fileContents.length} files, ${fileContents.filter(f => f.content).length} with content`);
+      console.error(`[SubagentHandler] File contents loaded: ${fileContents.length} files, ${fileContents.filter(f => f.content).length} with content`);
 
       // Generate specialized prompt with actual file contents
       const prompt = this.generatePrompt(template, task, fileContents, context);
@@ -731,7 +731,7 @@ Best role:`;
       // Use local backend for intelligent selection
       const router = this.context?.router;
       if (!router) {
-        console.log('[SUBAGENT] No router available for auto-selection');
+        console.error('[SUBAGENT] No router available for auto-selection');
         return null;
       }
 
@@ -760,7 +760,7 @@ Best role:`;
         if (match) return match;
       }
     } catch (error) {
-      console.log(`[SUBAGENT] Auto-selection error: ${error.message}`);
+      console.error(`[SUBAGENT] Auto-selection error: ${error.message}`);
     }
 
     return null;
@@ -816,7 +816,7 @@ Best role:`;
 
     for (const filePath of filePaths) {
       if (totalSize >= maxTotalSize) {
-        console.log(`[SubagentHandler] Skipping ${filePath} - total size limit reached (${totalSize}/${maxTotalSize})`);
+        console.error(`[SubagentHandler] Skipping ${filePath} - total size limit reached (${totalSize}/${maxTotalSize})`);
         break;
       }
 
@@ -835,7 +835,7 @@ Best role:`;
         });
 
         totalSize += finalContent.length;
-        console.log(`[SubagentHandler] Read ${filePath}: ${finalContent.length} bytes${truncated ? ' (truncated)' : ''}`);
+        console.error(`[SubagentHandler] Read ${filePath}: ${finalContent.length} bytes${truncated ? ' (truncated)' : ''}`);
       } catch (err) {
         console.error(`[SubagentHandler] Failed to read ${filePath}:`, err.message);
         contents.push({
@@ -845,7 +845,7 @@ Best role:`;
       }
     }
 
-    console.log(`[SubagentHandler] Total files read: ${contents.length}, total size: ${totalSize} bytes`);
+    console.error(`[SubagentHandler] Total files read: ${contents.length}, total size: ${totalSize} bytes`);
     return contents;
   }
 

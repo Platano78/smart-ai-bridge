@@ -244,7 +244,7 @@ class BackendAdapter {
       if (Date.now() - this.circuitOpenedAt > this.circuitResetTimeout) {
         this.circuitOpen = false;
         this.consecutiveFailures = 0;
-        console.log(`[${this.name}] Circuit breaker reset, attempting recovery`);
+        console.error(`[${this.name}] Circuit breaker reset, attempting recovery`);
       } else {
         return false;
       }
@@ -270,7 +270,7 @@ class BackendAdapter {
       if (Date.now() - this.circuitOpenedAt > this.circuitResetTimeout) {
         this.circuitOpen = false;
         this.consecutiveFailures = 0;
-        console.log(`[${this.name}] Circuit breaker reset, attempting request`);
+        console.error(`[${this.name}] Circuit breaker reset, attempting request`);
       } else {
         throw new Error(`Circuit breaker open for ${this.name}`);
       }

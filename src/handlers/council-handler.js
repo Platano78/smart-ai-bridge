@@ -126,7 +126,7 @@ class CouncilHandler extends BaseHandler {
       // Get strategy from config
       const strategy = configManager.getStrategyForTopic(topic);
 
-      console.log(`[Council] Topic: ${topic}, Strategy: ${strategy}, Confidence: ${confidence_needed}, Backends: ${availableBackends.join(', ')}`);
+      console.error(`[Council] Topic: ${topic}, Strategy: ${strategy}, Confidence: ${confidence_needed}, Backends: ${availableBackends.join(', ')}`);
 
       // Dispatch based on strategy
       let responses;
@@ -285,7 +285,7 @@ class CouncilHandler extends BaseHandler {
     const allResponses = [];
     
     for (let round = 1; round <= rounds; round++) {
-      console.log(`[Council] Debate round ${round}/${rounds}`);
+      console.error(`[Council] Debate round ${round}/${rounds}`);
       
       const roundPrompt = round === 1 
         ? currentContext 
@@ -562,7 +562,7 @@ SYNTHESIS: [Final unified answer]`;
     const allResponses = [];
 
     for (let round = 1; round <= rounds; round++) {
-      console.log(`[Council] Debate round ${round}/${rounds}`);
+      console.error(`[Council] Debate round ${round}/${rounds}`);
 
       const roundPrompt = round === 1
         ? prompt
@@ -599,7 +599,7 @@ SYNTHESIS: [Final unified answer]`;
 
         // Stop once we have enough successful responses
         if (responses.filter(r => r.success).length >= minSuccessful) {
-          console.log(`[Council] Fallback: ${minSuccessful} backends succeeded, stopping`);
+          console.error(`[Council] Fallback: ${minSuccessful} backends succeeded, stopping`);
           break;
         }
       } catch (error) {
