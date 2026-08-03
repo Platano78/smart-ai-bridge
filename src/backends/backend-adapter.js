@@ -6,6 +6,22 @@
  * New backends extend this class and implement required methods
  */
 
+import { isModelRetired, buildRetiredModelError } from './model-retirement.js';
+
+/**
+ * Drop keys whose value is undefined.
+ *
+ * Adapters spread `...config` AFTER their defaults, so a config carrying an explicit
+ * `apiKey: undefined` (from an unresolved "$SOME_KEY" reference) would clobber the
+ * resolved default and surface as an opaque 401. Stripping undefined lets defaults
+ * survive while real values still win.
+ * @param {Object} [obj={}]
+ * @returns {Object}
+ */
+export function stripUndefined(obj = {}) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+}
+
 /**
  * @typedef {Object} BackendConfig
  * @property {string} name - Backend identifier
@@ -145,10 +161,33 @@ class BackendAdapter {
     if (!response.ok) {
       const error = await response.text();
       const safeError = error.length > 200 ? error.slice(0, 200) + '...' : error;
+      const model = this.model || this.config.model || 'unknown';
+
+      if (isModelRetired(response.status, error, model)) {
+        let catalogIds = [];
+        try {
+          catalogIds = await this.getRetiredModelCatalog();
+        } catch {
+          // Fail-open — a catalog lookup failure must not block reporting the
+          // (already-confirmed) retirement.
+        }
+        throw buildRetiredModelError(this.name, model, response.status, error, catalogIds);
+      }
+
       throw new Error(`${errorPrefix}: ${response.status} - ${safeError}`);
     }
 
     return response.json();
+  }
+
+  /**
+   * Live provider catalog ids to suggest as a replacement in a retired-model error.
+   * Base implementation has no catalog to query; subclasses override where one exists
+   * (e.g. NVIDIA's NIM catalog).
+   * @returns {Promise<string[]>}
+   */
+  async getRetiredModelCatalog() {
+    return [];
   }
 
   /**
@@ -260,8 +299,15 @@ class BackendAdapter {
       this.metrics.failedRequests++;
       this.consecutiveFailures++;
 
-      // Open circuit breaker if threshold exceeded
-      if (this.consecutiveFailures >= this.circuitOpenThreshold) {
+      // A retired-model error is a permanent config error, not a transient failure —
+      // open the circuit immediately instead of waiting for circuitOpenThreshold
+      // consecutive failures, so later calls (and makeRequestWithFallback's chain)
+      // fail fast rather than repeatedly retrying a model the provider no longer serves.
+      if (error.isModelRetired) {
+        this.circuitOpen = true;
+        this.circuitOpenedAt = Date.now();
+        console.error(`[${this.name}] Circuit breaker opened: model retired (${error.message.slice(0, 100)})`);
+      } else if (this.consecutiveFailures >= this.circuitOpenThreshold) {
         this.circuitOpen = true;
         this.circuitOpenedAt = Date.now();
         console.error(`[${this.name}] Circuit breaker opened after ${this.consecutiveFailures} failures`);

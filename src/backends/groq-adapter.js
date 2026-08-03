@@ -9,7 +9,7 @@
  * Smart AI Bridge v2.0.0
  */
 
-import { BackendAdapter } from './backend-adapter.js';
+import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 
 class GroqAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -21,7 +21,7 @@ class GroqAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 30000, // Groq is fast
       streaming: false,
-      ...config
+      ...stripUndefined(config)
     });
 
     this.model = config.model || 'openai/gpt-oss-120b'; // llama-3.3-70b-versatile shuts down 2026-08-16
@@ -46,14 +46,17 @@ class GroqAdapter extends BackendAdapter {
   getHealthCheckBody() {
     return {
       model: this.model,
+      // gpt-oss is a reasoning model: it spends tokens thinking before emitting
+      // content, so a max_tokens:1 probe reported a working backend as down. This
+      // only checks reachability — the body is discarded.
       messages: [{ role: 'user', content: 'ok' }],
-      max_tokens: 1,
+      max_tokens: 16,
       temperature: 0
     };
   }
 
   getHealthCheckTimeout() {
-    return 3000;
+    return this.config.healthTimeout || 10000;
   }
 }
 

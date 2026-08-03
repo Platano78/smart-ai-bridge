@@ -10,9 +10,32 @@
  * Smart AI Bridge v2.0.0
  */
 
-import { BackendAdapter } from './backend-adapter.js';
+import { BackendAdapter, stripUndefined } from './backend-adapter.js';
+import { isModelRetired } from './model-retirement.js';
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NIM_CATALOG_URL = 'https://integrate.api.nvidia.com/v1/models';
+let _catalogCache = { ids: [], at: 0 };
+
+/**
+ * Fail-open catalog lookup, 10-minute TTL. Never throws — a catalog outage must
+ * not turn a useful error message into a second failure.
+ * @param {string} [apiKey] - NVIDIA API key
+ * @returns {Promise<string[]>} Live model ids, or the last-known list on failure
+ */
+async function discoverNimModels(apiKey) {
+  if (Date.now() - _catalogCache.at < 600000) return _catalogCache.ids;
+  try {
+    const res = await fetch(NIM_CATALOG_URL, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) return _catalogCache.ids;
+    const ids = (await res.json()).data?.map(m => m.id) ?? [];
+    _catalogCache = { ids, at: Date.now() };
+    return ids;
+  } catch { return _catalogCache.ids; }
+}
 
 /**
  * Calculate dynamic timeout based on requested max_tokens
@@ -39,7 +62,7 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 8192,
       timeout: config.timeout || 120000,
       streaming: true,
-      ...config
+      ...stripUndefined(config)
     });
 
     // config.model (from backends.json) is authoritative — the literal is only a
@@ -124,6 +147,14 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
       max_tokens: 5
     };
   }
+
+  /**
+   * Live NIM catalog ids, for suggesting a replacement in a retired-model error.
+   * @returns {Promise<string[]>}
+   */
+  async getRetiredModelCatalog() {
+    return discoverNimModels(this.config.apiKey);
+  }
 }
 
 /**
@@ -142,7 +173,7 @@ class NvidiaGlmAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 60000,
       streaming: false,
-      ...config
+      ...stripUndefined(config)
     });
 
     this.model = config.model || 'z-ai/glm-5.2';
@@ -184,9 +215,19 @@ class NvidiaGlmAdapter extends BackendAdapter {
       max_tokens: 5
     };
   }
+
+  /**
+   * Live NIM catalog ids, for suggesting a replacement in a retired-model error.
+   * @returns {Promise<string[]>}
+   */
+  async getRetiredModelCatalog() {
+    return discoverNimModels(this.config.apiKey);
+  }
 }
 
 export {
   NvidiaDeepSeekAdapter,
-  NvidiaGlmAdapter
+  NvidiaGlmAdapter,
+  isModelRetired,
+  discoverNimModels
 };

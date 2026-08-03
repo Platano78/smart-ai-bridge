@@ -8,7 +8,7 @@
  * Smart AI Bridge v2.0.0
  */
 
-import { BackendAdapter } from './backend-adapter.js';
+import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { LocalServiceDetector } from '../utils/local-service-detector.js';
 import { inferCapabilitiesFromModelId, isOrchestratorModel } from '../utils/capability-matcher.js';
 import {
@@ -33,7 +33,7 @@ class LocalAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 65536,
       timeout: config.timeout || 120000,
       streaming: false,
-      ...config
+      ...stripUndefined(config)
     });
 
     // Model will be discovered dynamically from /v1/models

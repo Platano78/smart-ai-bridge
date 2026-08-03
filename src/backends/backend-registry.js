@@ -134,6 +134,8 @@ class BackendRegistry {
 
     this._healthCache = null;
     this._healthCacheTime = 0;
+    /** @type {Promise|null} The in-flight sweep, if one is currently running */
+    this._healthSweepPromise = null;
 
     if (this.config.autoInitialize) {
       this.initializeDefaults();
@@ -470,12 +472,20 @@ class BackendRegistry {
     // stays fresh. Caching the in-flight promise (not the result) is what prevents the
     // concurrent-caller thundering herd.
     const CACHE_TTL_MS = 10000;
+
+    // Always join an in-flight sweep, regardless of TTL. Without this, a sweep that
+    // takes longer than the TTL to resolve is "expired" the instant it completes, so
+    // no sequential caller made during the sweep ever gets a cache hit — each one
+    // starts its own full re-probe instead of joining the one already running.
+    if (!force && this._healthSweepPromise) {
+      return this._healthSweepPromise;
+    }
+
     if (!force && this._healthCache && (Date.now() - this._healthCacheTime) < CACHE_TTL_MS) {
       return this._healthCache;
     }
 
-    this._healthCacheTime = Date.now();
-    this._healthCache = (async () => {
+    const sweep = (async () => {
       const entries = await Promise.all(
         Array.from(this.adapters, async ([name, adapter]) => {
           try {
@@ -487,7 +497,30 @@ class BackendRegistry {
       );
       return Object.fromEntries(entries);
     })();
-    return this._healthCache;
+
+    this._healthSweepPromise = sweep;
+
+    try {
+      const result = await sweep;
+      // Stamp the TTL from completion, not from start — measuring from start let a
+      // sweep slower than the TTL expire the instant it resolved, starving every
+      // sequential caller of a cache hit. Store the resolved value (not the promise)
+      // so the TTL-hit path above returns the same plain object shape as this path.
+      this._healthCache = result;
+      this._healthCacheTime = Date.now();
+      return result;
+    } catch (error) {
+      // A failed sweep must not poison the cache forever: clear it so the next call
+      // retries cleanly instead of serving (or perpetually re-rejecting with) a dead
+      // promise. In practice each adapter's checkHealth() is already try/caught above,
+      // so this only fires on a genuinely unexpected failure (e.g. Promise.all itself
+      // throwing), but it's the correct behavior either way.
+      this._healthCache = null;
+      this._healthCacheTime = 0;
+      throw error;
+    } finally {
+      this._healthSweepPromise = null;
+    }
   }
 
   /**
@@ -497,13 +530,19 @@ class BackendRegistry {
   getStats() {
     const total = this.backends.size;
     const enabled = this.getEnabledBackends().length;
-    const healthy = Array.from(this.adapters.values())
-      .filter(a => a.lastHealth?.healthy).length;
+    const adapterList = Array.from(this.adapters.values());
+    const healthy = adapterList.filter(a => a.lastHealth?.healthy === true).length;
+    // A backend that has never been probed is UNKNOWN, not unhealthy. Counting the
+    // two together made a freshly-started server report "0 healthy" before the first
+    // health sweep, which reads as a total outage.
+    const unknown = adapterList.filter(a => a.lastHealth == null).length;
 
     return {
       totalBackends: total,
       enabledBackends: enabled,
       healthyBackends: healthy,
+      unknownBackends: unknown,
+      healthChecked: unknown < adapterList.length,
       fallbackChain: this.fallbackChain,
       backends: Array.from(this.backends.values()).map(b => {
         const adapter = this.adapters.get(b.name);

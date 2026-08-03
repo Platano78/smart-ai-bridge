@@ -8,7 +8,8 @@
  * Smart AI Bridge v2.0.0
  */
 
-import { BackendAdapter } from './backend-adapter.js';
+import { BackendAdapter, stripUndefined } from './backend-adapter.js';
+import { isModelRetired, buildRetiredModelError } from './model-retirement.js';
 import { GeminiRateLimiter } from '../utils/gemini-rate-limiter.js';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -27,7 +28,7 @@ class GeminiAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 60000,
       streaming: false,
-      ...config
+      ...stripUndefined(config)
     });
 
     this.model = model;
@@ -56,6 +57,14 @@ class GeminiAdapter extends BackendAdapter {
       if (response.status === 429 || error.includes('quota')) {
         console.error('[GeminiAdapter] API rate limit hit');
         this.rateLimiter.metrics.limitReachedCount++;
+      }
+      // Gemini overrides makeAPICall entirely, so it does not inherit the base
+      // class's retirement check — give it the same classification directly.
+      // No catalog lookup here (unlike NVIDIA's NIM catalog, there is no public
+      // "list live Gemini models" endpoint this adapter already talks to), so the
+      // error omits replacement suggestions but is otherwise identical in shape.
+      if (isModelRetired(response.status, error, this.model)) {
+        throw buildRetiredModelError(this.name, this.model, response.status, error);
       }
       throw new Error(`${errorPrefix}: ${response.status} - ${error}`);
     }

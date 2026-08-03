@@ -8,7 +8,7 @@
  * Smart AI Bridge v2.0.0
  */
 
-import { BackendAdapter } from './backend-adapter.js';
+import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 
 class OpenAIAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -20,7 +20,7 @@ class OpenAIAdapter extends BackendAdapter {
       maxTokens: config.maxTokens || 128000,
       timeout: config.timeout || 120000,
       streaming: false,
-      ...config
+      ...stripUndefined(config)
     });
 
     this.model = config.model || 'gpt-5.2';
