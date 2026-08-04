@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
+import { promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
 import { BaseHandler } from '../src/handlers/base-handler.js';
 import { AnalyzeFileHandler } from '../src/handlers/analyze-file-handler.js';
+import { ExploreHandler } from '../src/handlers/explore-handler.js';
 
 class TestHandler extends BaseHandler {
   async execute() { return { success: true }; }
@@ -103,5 +107,101 @@ describe('AnalyzeFileHandler.tryVerbatimExtraction — verbatim regression (end-
     expect(result).toBeTruthy();
     const fileTokens = Math.ceil(content.length / 4);
     expect(result.tokens_saved).toBeGreaterThan(fileTokens * 0.9);
+  });
+});
+
+describe('ExploreHandler.performShallowSearch / performDeepSearch — tokens_saved regression (end-to-end)', () => {
+  // Exercises the real handler methods (they only do fs.readFile + regex matching,
+  // no network/backend call) against real temp files on disk, rather than restating
+  // measureTokensSaved with explore-shaped fixtures. This is the actual code path
+  // that had the bug: `tokensSaved: Math.floor(totalChars / 4)` counted the ENTIRE
+  // input as saved and subtracted nothing for the evidence/filesFound it returns.
+  const handler = new ExploreHandler({ handlerName: 'Explore' });
+  const tempDirs = [];
+
+  afterAll(async () => {
+    await Promise.all(tempDirs.map(dir => fsp.rm(dir, { recursive: true, force: true })));
+  });
+
+  /**
+   * Writes `n` deterministic files of `linesPerFile` lines (each padded to
+   * `lineLen` chars) into a fresh temp dir. Every `matchEvery`-th line contains
+   * the literal string "findme" so match frequency (and therefore evidence
+   * size) is controlled precisely.
+   */
+  async function makeFiles(n, linesPerFile, matchEvery, lineLen = 40) {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-explore-test-'));
+    tempDirs.push(dir);
+    const files = [];
+    for (let i = 0; i < n; i++) {
+      const lines = [];
+      for (let j = 0; j < linesPerFile; j++) {
+        lines.push(j % matchEvery === 0
+          ? `findme_widget_${j}`.padEnd(lineLen, 'x')
+          : `filler_${j}`.padEnd(lineLen, 'y'));
+      }
+      const file = path.join(dir, `f${i}.js`);
+      await fsp.writeFile(file, lines.join('\n'), 'utf8');
+      files.push(file);
+    }
+    return files;
+  }
+
+  async function realTotalChars(files) {
+    let total = 0;
+    for (const f of files) total += (await fsp.stat(f)).size;
+    return total;
+  }
+
+  it('regression: a large read with a large evidence list reports substantially less than totalChars/4', async () => {
+    // Frequent matches (every 5th line) -> a large evidence/context payload.
+    const files = await makeFiles(8, 60, 5);
+    const totalChars = await realTotalChars(files);
+    const oldFormulaClaim = Math.floor(totalChars / 4); // the exact old, reverted formula
+
+    const deep = await handler.performDeepSearch(files, ['findme'], 8);
+
+    expect(deep.evidence.length).toBeGreaterThan(0);
+    // This is the assertion that fails if anyone reverts to the old formula:
+    // the old formula and the new measurement would be identical.
+    expect(deep.tokensSaved).toBeLessThan(oldFormulaClaim * 0.9);
+  });
+
+  it('the response genuinely affects the number: same totalChars, different evidence size -> different tokensSaved', async () => {
+    // Same file count/size/line length in both cases (so totalChars matches),
+    // only match frequency (and thus evidence payload size) differs.
+    const frequentFiles = await makeFiles(8, 60, 5);   // large evidence payload
+    const rareFiles = await makeFiles(8, 60, 60);      // ~one match per file: small evidence payload
+
+    const totalCharsFrequent = await realTotalChars(frequentFiles);
+    const totalCharsRare = await realTotalChars(rareFiles);
+    expect(totalCharsFrequent).toBe(totalCharsRare); // sanity: identical input size
+
+    const largeEvidence = await handler.performDeepSearch(frequentFiles, ['findme'], 8);
+    const smallEvidence = await handler.performDeepSearch(rareFiles, ['findme'], 8);
+
+    // Both touch all 8 files, but frequent matches pack far more match/context
+    // objects per file (performDeepSearch caps at 5 matches/file) -> a larger
+    // serialized response, independent of the (identical) input size.
+    const totalMatches = (findings) => findings.evidence.reduce((sum, e) => sum + e.matches.length, 0);
+    expect(totalMatches(smallEvidence)).toBeLessThan(totalMatches(largeEvidence));
+    expect(JSON.stringify(smallEvidence).length).toBeLessThan(JSON.stringify(largeEvidence).length);
+    // The old formula could not express this at all (same totalChars -> same
+    // claimed saving no matter what came back). The new measurement must.
+    expect(smallEvidence.tokensSaved).not.toBe(largeEvidence.tokensSaved);
+    expect(smallEvidence.tokensSaved).toBeGreaterThan(largeEvidence.tokensSaved);
+  });
+
+  it('a legitimate high-saving case still reports high: large read, small evidence list', async () => {
+    // Rare matches (one per file) out of a moderately large read -> the
+    // response is tiny relative to the input, so the saving should still be strong.
+    const files = await makeFiles(8, 60, 60);
+    const totalChars = await realTotalChars(files);
+    const oldFormulaClaim = Math.floor(totalChars / 4);
+
+    const deep = await handler.performDeepSearch(files, ['findme'], 8);
+
+    expect(deep.tokensSaved).toBeGreaterThan(oldFormulaClaim * 0.8);
+    expect(deep.tokensSaved).toBeGreaterThan(0);
   });
 });
