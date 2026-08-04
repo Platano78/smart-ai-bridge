@@ -5,6 +5,56 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.1] - 2026-08-04
+
+Documentation and measurement corrections. v2.11.0 shipped docs that described
+things which no longer existed, and a token-savings figure that measured less than
+it claimed to. No behavior change to routing, backends, or the tool surface.
+
+### Fixed
+
+- **Docs described tools that do not exist.** `EXAMPLES.md` carried worked examples
+  for `manage_conversation` (removed in 2.11.0) and `validate_changes` (removed back
+  in 2.5.0). Anyone following either got "Unknown tool". `EXTENDING.md`'s tool table
+  also listed `read` and `validate_changes` and counted 20; it now lists the real 17,
+  verified name by name against `CORE_TOOL_DEFINITIONS`.
+- **`tokens_saved` measured a subset of the response.** It counted a compact
+  serialization of only the payload each handler passed in — never the
+  `{success, handler, timestamp, ...}` envelope, and never the pretty-printed
+  serialization the server actually emits. That understated the response by roughly a
+  constant 100 tokens, so it overstated the saving. Negligible on large files
+  (96% vs 97% at 20KB), decisive on small ones (4% vs 30% at 800 characters). The
+  figure is now measured against the finished response, serialized exactly as the
+  caller receives it.
+- **`explore` counted its whole input as saved**, subtracting nothing for the
+  response it returned. It now measures like the rest.
+- Stale docs across `CONFIGURATION.md`, `TROUBLESHOOTING-GUIDE.md`, `EXTENDING.md`,
+  `docs/COUNCIL.md` and `API-KEYS.template.md`: v2.6.0-era version headers, the
+  pre-rename `nvidia_qwen` lane, retired model ids, and wrong tool and backend counts.
+- README prose still promised 18 tools in two places while the (CI-guarded) heading
+  said 17.
+
+### Removed
+
+- **Every published token-savings percentage.** The README advertised flat per-tool
+  figures (~90%, ~95%) that came from estimators which never looked at the real data —
+  `batch_analyze` reported an identical 19,500 tokens saved for ten 200-character files
+  and ten 60KB files, because the formula was a function of file count alone.
+  `generate_file` was advertised at ~80% while returning no such field at all. Rather
+  than republish corrected numbers, we publish none: we have not benchmarked these
+  tools against real backends over a real corpus, and the per-call `tokens_saved` field
+  is the claim we can actually defend.
+
+### Added
+
+- `tests/docs-tool-references.test.js` — fails if any tracked doc invokes a tool that
+  is not in `CORE_TOOL_DEFINITIONS`, naming each offender by file and line. Twice now a
+  doc has shipped instructions for a tool that no longer existed; the tool-count guard
+  never caught either, because the rot lives in prose.
+- Regression tests for the savings measurement, including the case that was most wrong:
+  `analyze_file`'s verbatim path returns file content to the caller and previously
+  reported ~98% saved. It now reports ~0.
+
 ## [2.11.0] - 2026-08-03
 
 Three of six backends were pointing at models their providers had retired, and the
