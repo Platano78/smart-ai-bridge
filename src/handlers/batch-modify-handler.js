@@ -173,7 +173,7 @@ export class BatchModifyHandler extends BaseHandler {
           error: r.error
         }));
 
-        return this.buildSuccessResponse({
+        return this.buildSuccessResponseWithSavings({
           status: 'pending_review',
           filesProcessed: resolvedFiles.length,
           patterns: files,
@@ -182,9 +182,8 @@ export class BatchModifyHandler extends BaseHandler {
           successCount: successes.length,
           failureCount: failures.length,
           processing_time: processingTime,
-          approval_instructions: 'Review each modification. Use write_files_atomic to apply approved changes.',
-          tokens_saved: this.measureTokensSaved(totalFileChars, reviewModifications).tokensSaved
-        });
+          approval_instructions: 'Review each modification. Use write_files_atomic to apply approved changes.'
+        }, totalFileChars);
       }
 
       // Auto-write mode (review=false)
@@ -211,7 +210,7 @@ export class BatchModifyHandler extends BaseHandler {
         error: r.error
       }));
 
-      return this.buildSuccessResponse({
+      return this.buildSuccessResponseWithSavings({
         status: failures.length === 0 ? 'completed' : 'partial',
         filesProcessed: resolvedFiles.length,
         patterns: files,
@@ -220,9 +219,8 @@ export class BatchModifyHandler extends BaseHandler {
         successCount: successes.length,
         failureCount: failures.length,
         transactionMode,
-        processing_time: processingTime,
-        tokens_saved: this.measureTokensSaved(totalFileChars, writtenModifications).tokensSaved
-      });
+        processing_time: processingTime
+      }, totalFileChars);
 
     } catch (error) {
       console.error(`[BatchModify] ❌ Error: ${error.message}`);

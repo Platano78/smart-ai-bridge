@@ -357,6 +357,44 @@ class BaseHandler {
   }
 
   /**
+   * Build a success response AND compute `tokens_saved` against what the
+   * caller actually receives on the wire — not a partial/compact stand-in.
+   *
+   * `measureTokensSaved()` alone understates the real saving: the dispatch
+   * chokepoint (src/server.js) wraps every handler's data in the full
+   * `{success, handler, timestamp, ...data}` envelope and serializes it with
+   * `JSON.stringify(x, null, 2)` (pretty-printed, 2-space indent) — both the
+   * sibling envelope fields and the indentation add real characters that a
+   * bare `JSON.stringify(data)` never counts. This method measures the
+   * SAME envelope, serialized the SAME way, so the reported figure matches
+   * what actually crosses the wire.
+   *
+   * Circularity: `tokens_saved` is itself a field of the payload being
+   * measured, so its own size can't be known before it's computed. This is
+   * resolved with a realistic-width numeric placeholder (7 digits — larger
+   * than any tokens_saved value observed in practice) rather than a
+   * fixed-point loop, which would be over-engineering for a few characters
+   * of drift. A too-narrow placeholder would make the measured response
+   * look smaller than it really is and inflate tokens_saved, so the
+   * placeholder is sized to avoid ever understating the response.
+   *
+   * @param {Object} data - Response data (same shape passed to buildSuccessResponse,
+   *   WITHOUT a tokens_saved field — this method injects it).
+   * @param {number} inputChars - Total characters of file content actually read
+   *   on the caller's behalf (sum across all files for batch operations).
+   * @returns {Object} The full response object with an honest `tokens_saved` field.
+   */
+  buildSuccessResponseWithSavings(data, inputChars) {
+    const PLACEHOLDER_TOKENS_SAVED = 9999999; // 7-digit realistic-width placeholder
+    const draft = this.buildSuccessResponse({ ...data, tokens_saved: PLACEHOLDER_TOKENS_SAVED });
+    const wireStr = JSON.stringify(draft, null, 2); // matches src/server.js's dispatch serialization exactly
+    const inputTokens = Math.ceil(Math.max(0, inputChars || 0) / 4);
+    const responseTokens = Math.ceil((wireStr?.length || 0) / 4);
+    const tokensSaved = Math.max(0, inputTokens - responseTokens);
+    return { ...draft, tokens_saved: tokensSaved };
+  }
+
+  /**
    * Calculate string similarity using Levenshtein distance
    * @param {string} str1 - First string
    * @param {string} str2 - Second string

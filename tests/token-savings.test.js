@@ -78,6 +78,119 @@ describe('BaseHandler.measureTokensSaved', () => {
   });
 });
 
+describe('BaseHandler.buildSuccessResponseWithSavings — measures the actual wire payload', () => {
+  const handler = new TestHandler({ handlerName: 'Test' });
+
+  // A realistic analyze_file-shaped payload, matching what handlers actually pass.
+  function realisticAnalysisData(fileSize) {
+    return {
+      filePath: '/repo/src/auth.js',
+      fileSize,
+      lineCount: Math.round(fileSize / 33),
+      language: 'javascript',
+      analysisType: 'security',
+      question: 'What are the security vulnerabilities?',
+      summary: 'This module handles user auth via JWT validation and session refresh.',
+      findings: [
+        'Missing rate limiting on login endpoint',
+        'Password reset token has no expiry check',
+        'SQL query in getUserById uses string concatenation'
+      ],
+      confidence: 0.82,
+      suggestedActions: ['Add rate limiting middleware', 'Set token expiry', 'Use parameterized queries'],
+      backend_used: 'local',
+      processing_time: 4200
+    };
+  }
+
+  it('regression: reports a SMALLER saving than measuring the bare payload alone, for the same input', () => {
+    const inputChars = 6000;
+    const data = realisticAnalysisData(inputChars);
+
+    // What the old (partial) measurement would have claimed: bare data, compact stringify.
+    const bareTokensSaved = handler.measureTokensSaved(inputChars, data).tokensSaved;
+
+    // What the new path actually returns.
+    const full = handler.buildSuccessResponseWithSavings(data, inputChars);
+
+    expect(full.tokens_saved).toBeLessThan(bareTokensSaved);
+  });
+
+  it('the envelope (success/handler/timestamp) is actually counted', () => {
+    const inputChars = 6000;
+    const data = realisticAnalysisData(inputChars);
+    const full = handler.buildSuccessResponseWithSavings(data, inputChars);
+
+    // Envelope fields must be present on the object actually returned...
+    expect(full.success).toBe(true);
+    expect(full.handler).toBe('TestHandler');
+    expect(typeof full.timestamp).toBe('string');
+
+    // ...and their characters must be reflected in the measurement: the finished
+    // wire payload is strictly larger than a compact stringify of the bare data,
+    // and tokens_saved is computed from that larger figure.
+    const wireLen = JSON.stringify(full, null, 2).length;
+    const bareLen = JSON.stringify(data).length;
+    expect(wireLen).toBeGreaterThan(bareLen);
+  });
+
+  it('the pretty-print indentation (2-space, matching src/server.js) is actually counted', () => {
+    const inputChars = 20000;
+    const data = { summary: 'ok', findings: ['a', 'b'], confidence: 0.9, suggestedActions: [] };
+    const full = handler.buildSuccessResponseWithSavings(data, inputChars);
+
+    const prettyLen = JSON.stringify(full, null, 2).length;
+    const compactLen = JSON.stringify(full).length;
+    // Pretty-printing must add real characters (newlines + 2-space indents) beyond
+    // just the envelope fields, and tokens_saved must reflect the pretty length.
+    expect(prettyLen).toBeGreaterThan(compactLen);
+    const inputTokens = Math.ceil(inputChars / 4);
+    const expectedFromPretty = Math.max(0, inputTokens - Math.ceil(prettyLen / 4));
+    // Allow a couple of characters of drift from the placeholder-width
+    // substitution used to resolve the tokens_saved circularity (documented in
+    // buildSuccessResponseWithSavings — a fixed-point loop is not used).
+    expect(Math.abs(full.tokens_saved - expectedFromPretty)).toBeLessThanOrEqual(1);
+  });
+
+  it('the small-input case: an ~800-char input with a realistic response reports a MODEST saving, not 80%+', () => {
+    const inputChars = 800;
+    const data = realisticAnalysisData(inputChars);
+    const full = handler.buildSuccessResponseWithSavings(data, inputChars);
+
+    const inputTokens = Math.ceil(inputChars / 4);
+    const percent = inputTokens > 0 ? (full.tokens_saved / inputTokens) * 100 : 0;
+
+    // This is the case the old (bare-payload) measurement got most wrong: it
+    // claimed ~83% saved here. The finished response (envelope + indentation)
+    // is comparable in size to an 800-char input, so the honest figure is small.
+    expect(percent).toBeLessThan(80);
+  });
+
+  it('the medium/large-input cases still show a strong, honest saving', () => {
+    for (const inputChars of [6000, 20000]) {
+      const data = realisticAnalysisData(inputChars);
+      const full = handler.buildSuccessResponseWithSavings(data, inputChars);
+      const inputTokens = Math.ceil(inputChars / 4);
+      const percent = (full.tokens_saved / inputTokens) * 100;
+      expect(percent).toBeGreaterThan(50);
+    }
+  });
+
+  it('never returns a negative tokens_saved, even for a tiny input with a large response', () => {
+    const full = handler.buildSuccessResponseWithSavings({ dump: 'x'.repeat(5000) }, 10);
+    expect(full.tokens_saved).toBe(0);
+  });
+
+  it('does not mutate or lose fields from the original data object', () => {
+    const data = { filePath: '/x.js', status: 'written', nested: { a: 1 } };
+    const full = handler.buildSuccessResponseWithSavings(data, 1000);
+    expect(full.filePath).toBe('/x.js');
+    expect(full.status).toBe('written');
+    expect(full.nested).toEqual({ a: 1 });
+    expect(typeof full.tokens_saved).toBe('number');
+  });
+});
+
 describe('AnalyzeFileHandler.tryVerbatimExtraction — verbatim regression (end-to-end)', () => {
   const handler = new AnalyzeFileHandler({ handlerName: 'AnalyzeFile' });
 

@@ -181,7 +181,7 @@ export class AnalyzeFileHandler extends BaseHandler {
       );
 
       // 9. Return structured response (NOT the full file content)
-      return this.buildSuccessResponse({
+      return this.buildSuccessResponseWithSavings({
         filePath: absolutePath,
         fileSize: fileStats.size,
         lineCount: content.split('\n').length,
@@ -193,9 +193,8 @@ export class AnalyzeFileHandler extends BaseHandler {
         confidence: analysis.confidence,
         suggestedActions: analysis.suggestedActions,
         backend_used: selectedBackend,
-        processing_time: processingTime,
-        tokens_saved: this.measureTokensSaved(content.length, analysis).tokensSaved
-      });
+        processing_time: processingTime
+      }, content.length);
 
     } catch (error) {
       console.error(`[AnalyzeFile] ❌ Error: ${error.message}`);
@@ -350,17 +349,17 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     const lines = content.split('\n');
     const extracted = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`).join('\n');
     const findings = [`Extracted lines ${start}-${end} (${end - start + 1} lines)`];
-    return this.buildSuccessResponse({
+    // Verbatim mode returns the requested lines themselves (real content, not a
+    // summary) — measure against the actual finished response (envelope +
+    // pretty-print included) so a request that returns most/all of the file
+    // correctly reports ~0 saved, not ~99%.
+    return this.buildSuccessResponseWithSavings({
       filePath: absolutePath, fileSize: fileStats.size, lineCount: lines.length,
       language: this.detectLanguage(absolutePath), analysisType: 'verbatim', question,
       summary: extracted, findings,
       confidence: 1.0, suggestedActions: [], backend_used: 'direct_extraction',
-      processing_time: Date.now() - startTime,
-      // Verbatim mode returns the requested lines themselves (real content, not a
-      // summary) — measure against what's actually handed back so a request that
-      // returns most/all of the file correctly reports ~0 saved, not ~99%.
-      tokens_saved: this.measureTokensSaved(content.length, { summary: extracted, findings }).tokensSaved
-    });
+      processing_time: Date.now() - startTime
+    }, content.length);
   }
 }
 

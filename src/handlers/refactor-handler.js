@@ -184,7 +184,12 @@ export class RefactorHandler extends BaseHandler {
           impact: analysis.impact
         };
 
-        return this.buildSuccessResponse({
+        // Measured against the actual finished response (envelope + pretty-print
+        // included), using the real characters read while locating/analyzing the
+        // target (analysis.totalContentChars) — refactor_handler reads every
+        // target file's content in analyzeCurrentState(), so this is a real
+        // measurement, not an assumed per-file/per-scope constant.
+        return this.buildSuccessResponseWithSavings({
           status: dryRun ? 'dry_run' : 'pending_review',
           scope,
           target,
@@ -193,16 +198,8 @@ export class RefactorHandler extends BaseHandler {
           modifications: responseModifications,
           analysis: responseAnalysis,
           backend_used: selectedBackend,
-          processing_time: processingTime,
-          // Measured against the real characters read while locating/analyzing
-          // the target (analysis.totalContentChars) — refactor_handler reads
-          // every target file's content in analyzeCurrentState(), so this is a
-          // real measurement, not an assumed per-file/per-scope constant.
-          tokens_saved: this.measureTokensSaved(
-            analysis.totalContentChars,
-            { plan: responsePlan, modifications: responseModifications, analysis: responseAnalysis }
-          ).tokensSaved
-        });
+          processing_time: processingTime
+        }, analysis.totalContentChars);
       }
 
       // Auto-apply mode

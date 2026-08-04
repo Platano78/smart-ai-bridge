@@ -64,14 +64,15 @@ export class ExploreHandler extends BaseHandler {
       // 2. Generate search patterns from question (uses orchestrator when available)
       const searchPatterns = await this.extractSearchPatterns(question);
       if (searchPatterns.length === 0) {
-        return this.buildSuccessResponse({
+        // No files were ever read on this path, so 0 is a real measurement, not
+        // a placeholder — buildSuccessResponseWithSavings(..., 0) yields 0 too.
+        return this.buildSuccessResponseWithSavings({
           summary: 'Could not extract meaningful search terms from the question.',
           files_found: [],
           search_patterns: [],
           evidence: [],
-          tokens_saved: 0,
           processing_time_ms: Date.now() - startTime
-        });
+        }, 0);
       }
 
       console.error(`[ExploreHandler] Searching for patterns: ${searchPatterns.join(', ')}`);
@@ -99,16 +100,19 @@ export class ExploreHandler extends BaseHandler {
         { tool: 'explore', depth, scope }
       );
 
-      return this.buildSuccessResponse({
+      // Measured against the actual finished response (envelope + pretty-print
+      // included, and the real LLM summary text) — findings.tokensSaved above
+      // only covers the evidence/filesFound subset and is computed before the
+      // summary and envelope exist, so it is not what's used here.
+      return this.buildSuccessResponseWithSavings({
         summary,
         files_found: findings.filesFound,
         search_patterns: searchPatterns,
         evidence: findings.evidence.slice(0, 15), // Limit evidence in response
-        tokens_saved: findings.tokensSaved,
         processing_time_ms: processingTime,
         depth,
         backend_used: depth === 'deep' ? 'nvidia_glm' : 'groq_llama'
-      });
+      }, findings.totalChars);
 
     } catch (error) {
       console.error(`[ExploreHandler] Error: ${error.message}`);
@@ -211,9 +215,14 @@ export class ExploreHandler extends BaseHandler {
     return {
       evidence,
       filesFound: filesFoundArr,
+      totalChars, // real chars read — the final response (execute()) measures against this
       // Measured against the evidence/file list actually handed back to the
       // caller, not the full totalChars read — counting the whole input as
-      // "saved" ignores the size of what we're actually returning.
+      // "saved" ignores the size of what we're actually returning. Kept for
+      // internal/diagnostic use; the tokens_saved actually returned to the
+      // caller is computed in execute() against the finished response (see
+      // buildSuccessResponseWithSavings), which also counts the LLM summary
+      // and the response envelope.
       tokensSaved: this.measureTokensSaved(totalChars, { evidence, filesFound: filesFoundArr }).tokensSaved
     };
   }
@@ -271,7 +280,8 @@ export class ExploreHandler extends BaseHandler {
     return {
       evidence,
       filesFound: filesFoundArr,
-      // Same measured treatment as performShallowSearch (see comment above).
+      totalChars, // real chars read — the final response (execute()) measures against this
+      // Same treatment as performShallowSearch (see comment above).
       tokensSaved: this.measureTokensSaved(totalChars, { evidence, filesFound: filesFoundArr }).tokensSaved
     };
   }

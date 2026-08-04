@@ -148,7 +148,10 @@ export class BatchAnalyzeHandler extends BaseHandler {
           confidence: r.confidence
         }));
 
-        return this.buildSuccessResponse({
+        // Measured against the actual finished response (envelope + pretty-print
+        // included), using the real characters read across all matched files —
+        // not a fixed "average file = 2000 tokens" assumption.
+        return this.buildSuccessResponseWithSavings({
           status: 'completed',
           filesAnalyzed: files.length,
           patterns: normalizedPatterns,
@@ -158,11 +161,8 @@ export class BatchAnalyzeHandler extends BaseHandler {
           aggregatedActions: aggregated.suggestedActions,
           overallConfidence: aggregated.confidence,
           perFileResults,
-          processing_time: processingTime,
-          // Measured against the real characters read across all matched files,
-          // not a fixed "average file = 2000 tokens" assumption.
-          tokens_saved: this.measureTokensSaved(totalFileChars, { aggregated, perFileResults }).tokensSaved
-        });
+          processing_time: processingTime
+        }, totalFileChars);
       }
 
       // Return individual results

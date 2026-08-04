@@ -473,7 +473,7 @@ export class ModifyFileHandler extends BaseHandler {
         }
       );
 
-      return this.buildSuccessResponse({
+      return this.buildSuccessResponseWithSavings({
         status: 'written',
         filePath: absolutePath,
         diff,
@@ -482,9 +482,8 @@ export class ModifyFileHandler extends BaseHandler {
         warnings,
         backupCreated: backup,
         backend_used: selectedBackend,
-        processing_time: processingTime,
-        tokens_saved: this.measureTokensSaved(originalContent.length, { diff, summary, stats, warnings }).tokensSaved
-      });
+        processing_time: processingTime
+      }, originalContent.length);
 
     } catch (error) {
       console.error(`[ModifyFile] ❌ Error: ${error.message}`);
