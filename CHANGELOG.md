@@ -5,12 +5,102 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.11.0] - 2026-08-03
+
+Three of six backends were pointing at models their providers had retired, and the
+ids could not be fixed from config. This release repairs the outage, makes the next
+retirement loud instead of silent, and fixes two bugs found along the way — one of
+which was corrupting the MCP protocol itself.
+
+### Fixed — SAB was broken
+
+- **Retired models replaced.** Verified live against the providers on 2026-08-03:
+  `deepseek-v3.1-terminus` and `deepseek-v3.2` both returned HTTP 404,
+  `qwen3-coder-480b-a35b-instruct` returned HTTP 410 ("end of life 2026-06-11"), and
+  `llama-3.3-70b-versatile` was scheduled for shutdown on 2026-08-16. The lanes now
+  serve `deepseek-ai/deepseek-v4-pro`, `z-ai/glm-5.2`, `gemini-3-pro-preview`, and
+  `openai/gpt-oss-120b`.
+- **`config.model` is authoritative.** The real bug was not the stale ids but that
+  they could not be changed from config: three adapters assigned `this.model` to a
+  literal *after* `super(config)`, making `backends.json` inert for those backends.
+  A retired model now takes a config edit, not a code change. Gemini's model id is
+  additionally embedded in its URL path, so the URL is derived from `config.model`
+  and the two cannot desynchronize.
+- **`console.log` was corrupting the MCP stdio protocol.** stdout carries JSON-RPC
+  frames and nothing else, but 23 `console.log` calls across five files in `src/`
+  were writing to it. A real handshake produced 4 stdout lines, 2 of which were not
+  JSON. Two fired at startup; the rest fired *during tool calls* — council on every
+  invocation, subagent per file read, the circuit breaker exactly when a backend was
+  recovering. It went unnoticed because the MCP SDK skips unparseable lines, which is
+  tolerance, not correctness. All converted to `console.error`, with a regression
+  guard (see Added).
+- **Phantom 401s.** An unresolved `"$VAR"` reference produced a present-but-`undefined`
+  `apiKey`, which clobbered an adapter's already-resolved default through the trailing
+  `...config` spread and surfaced as `Authorization: Bearer undefined` — an opaque 401
+  that read as a bad key rather than a config problem.
+- **Health checks reported working backends as down.** Groq's probe used
+  `max_tokens: 1` with a 3s timeout; a reasoning model spends tokens thinking before
+  emitting content.
+- **"0 healthy" on a fresh server.** `getStats()` counted a never-probed backend as
+  unhealthy, so a freshly started server reported a total outage. Never-probed is now
+  reported as unknown.
+- **Health-cache TTL was measured from the wrong end.** The cache stamped its clock
+  when a sweep *started*, so a sweep slower than the 10s TTL expired the instant it
+  resolved and no sequential caller ever got a hit. The clock is now stamped on
+  completion, an in-flight sweep is always joined, and a failed sweep clears the cache
+  rather than poisoning it.
+- **`getAdapter()` and `getBackend()` now resolve friendly/alias backend names.** They
+  ignored the alias map entirely, so `getAdapter('qwen3')` returned `null` even though
+  the alias had been configured all along.
+
+### Added
+
+- **Model-retirement detection.** A retired model is a permanent configuration error,
+  and it is now reported as one — with the backend, the model, the status, any
+  end-of-life text from the provider, and suggested live replacements. Saturation
+  (429/5xx) and auth failure (401) are explicitly *not* treated as retirement, and a
+  retired model opens the circuit breaker immediately instead of being retried.
+- **Startup readiness audit.** Reports drift before the first request instead of after
+  it, on stderr, as fire-and-forget work that runs only after the MCP handshake
+  completes so it can never delay or abort startup. Disable with
+  `SAB_DISABLE_READINESS_AUDIT=true`.
+- **`npm run audit:backends`** — an on-demand probe that sends every configured backend
+  a real completion. Catalog presence is not proof: ids appear in `/v1/models` that
+  404 per-account on use. Supports `--json` and `--timeout`.
+- **Dashboard API-key management.** `GET`/`PUT`/`DELETE /api/backends/:name/key` plus
+  per-row UI to set and clear a key. Keys are stored in `data/backends-secrets.json`
+  at mode `0600` (never in the tracked config), and no endpoint ever returns key
+  material — only the source and the last four characters. Setting a key rebuilds the
+  adapter and re-probes health without a restart.
+- **First tests for `src/backends/`**, which had zero coverage, plus a stdio-purity
+  guard that fails the build on any new `console.log` under `src/` and a live test that
+  asserts the server's stdout stays valid JSON. Suite grew from 88 to 145 passing.
+
+### Security
+
+- **Keys could reach a git-tracked file.** `saveConfig()` writes
+  `src/config/backends.json`, which is tracked, and the dashboard's add-backend path
+  put a resolved plaintext key into it. Latent rather than active — the file held no
+  key — but it would have fired the first time anyone used that form with a key, and
+  a user who forked this repo could then have published their own credential.
+  `saveConfig()` now strips `apiKey` unconditionally.
+- **The dashboard bound every interface with no authentication.** `listen(port)` with
+  no host argument binds `0.0.0.0`, leaving an unauthenticated admin API that can add
+  and delete backends reachable from the whole LAN. It now binds `127.0.0.1` by
+  default; `SAB_DASHBOARD_HOST` is an explicit opt-out that prints a warning.
 
 ### Changed
 - The NVIDIA code-specialist lane is now `nvidia_glm` and serves GLM-5.2. It previously
   served Qwen3 Coder 480B, which NVIDIA retired on 2026-06-11; no Qwen model remains in
   the NIM catalog.
+- **Backends with no API key are reported as "cannot verify", never as broken.** SAB is
+  public and users supply their own keys, most configuring a single provider. The
+  readiness audit and the probe script both report an absent key as unknown, do not
+  probe it, and do not fail the run.
+- `parseResponse` now handles Groq's `reasoning` field and uses `??` rather than `||`.
+  This affects every backend: an empty-string response is now returned as the empty
+  answer it is, instead of silently falling through to the model's reasoning
+  scratchpad.
 
 ### Deprecated
 - The backend names `nvidia_qwen` and `qwen3` still resolve to `nvidia_glm` and will
