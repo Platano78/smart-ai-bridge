@@ -403,23 +403,6 @@ Answer questions about the codebase using intelligent search. Returns a summary,
 })
 ```
 
-### validate_changes -- Pre-Flight Validation
-
-```javascript
-// Validate proposed changes before applying
-@validate_changes({
-  file_path: "src/auth/login.js",
-  proposed_changes: [
-    {
-      find: "const token = jwt.sign(payload, secret)",
-      replace: "const token = jwt.sign(payload, secret, { expiresIn: '1h' })"
-    }
-  ],
-  language: "javascript",
-  validation_rules: ["syntax", "security", "logic"]
-})
-```
-
 ## Infrastructure Tools
 
 ### check_backend_health -- Backend Health
@@ -542,11 +525,11 @@ Answer questions about the codebase using intelligent search. Returns a summary,
   options: { review: true, backup: true }
 })
 
-// Step 4: Validate the changes
-@validate_changes({
-  file_path: "src/auth/login.js",
-  proposed_changes: [{ find: "old code", replace: "new code" }],
-  validation_rules: ["security", "logic", "performance"]
+// Step 4: Re-check the file to confirm the issues are gone
+@analyze_file({
+  filePath: "src/auth/login.js",
+  question: "Are the SQL injection, input validation, and rate limiting issues resolved?",
+  options: { analysisType: "security" }
 })
 ```
 
