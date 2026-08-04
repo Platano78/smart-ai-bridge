@@ -112,6 +112,19 @@
         }
         .priority-btn:hover { background: rgba(255,255,255,0.2); }
         .priority-num { font-size: 0.9em; color: #ffd700; min-width: 20px; text-align: center; }
+        .key-indicator { font-size: 0.8em; color: #888; font-family: monospace; }
+        .key-indicator.configured { color: #4ade80; }
+        .key-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+        }
+        .key-btn:hover { background: rgba(255,255,255,0.2); }
+        .key-btn.clear-key { color: #f87171; }
         .fallback-chain {
             margin-top: 15px;
             padding: 10px;
@@ -521,19 +534,28 @@
                 // Skip disabled backends unless toggle is on
                 if (!isEnabled && !showDisabledBackends) return;
                 
+                // Key indicator: never renders the key itself, only source + last4.
+                const keyConfigured = !!backend.keyConfigured;
+                const keyLabel = keyConfigured
+                    ? `${backend.keySource}: ••••${backend.last4 || ''}`
+                    : 'no key';
+
                 listEl.innerHTML += `
                     <li class="backend-item">
                         <div style="flex:1">
                             <span class="backend-name">${backend.name || backend.id}</span>
                             <span class="backend-status ${healthClass}" style="margin-left:10px">${healthText}</span>
+                            <span class="key-indicator ${keyConfigured ? 'configured' : ''}" style="margin-left:10px">${keyLabel}</span>
                         </div>
                         <div class="backend-controls">
                             <button class="priority-btn" onclick="changePriority('${backend.name}', -1)" title="Increase priority">&#9650;</button>
                             <span class="priority-num">${backend.priority || index + 1}</span>
                             <button class="priority-btn" onclick="changePriority('${backend.name}', 1)" title="Decrease priority">&#9660;</button>
-                            <div class="toggle-switch ${isEnabled ? 'active' : ''}" 
+                            <div class="toggle-switch ${isEnabled ? 'active' : ''}"
                                  onclick="toggleBackend('${backend.name}', ${!isEnabled})"
                                  title="${isEnabled ? 'Click to disable' : 'Click to enable'}"></div>
+                            <button class="key-btn" onclick="setBackendKey('${backend.name}')" title="Set API key">Set key</button>
+                            ${keyConfigured ? `<button class="key-btn clear-key" onclick="clearBackendKey('${backend.name}')" title="Clear API key">Clear</button>` : ''}
                             <button class="delete-btn" onclick="deleteBackend('${backend.name}')" title="Delete backend">&#10005;</button>
                         </div>
                     </li>
@@ -545,14 +567,14 @@
             const demoBackends = [
                 { name: 'local', priority: 1, enabled: true, healthy: true },
                 { name: 'nvidia_deepseek', priority: 2, enabled: true, healthy: true },
-                { name: 'nvidia_qwen', priority: 3, enabled: true, healthy: true },
+                { name: 'nvidia_glm', priority: 3, enabled: true, healthy: true },
                 { name: 'gemini', priority: 4, enabled: true, healthy: true },
                 { name: 'openai_chatgpt', priority: 5, enabled: true, healthy: false },
                 { name: 'groq_llama', priority: 6, enabled: true, healthy: false }
             ];
             currentBackends = demoBackends;
             renderBackends(demoBackends);
-            updateFallbackChain(['local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini']);
+            updateFallbackChain(['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini']);
             log('Demo mode: using sample backend data', 'info');
         }
 
@@ -635,6 +657,55 @@
                 }
             } catch (err) {
                 log(`Delete error: ${err.message}`, 'error');
+            }
+        }
+
+        // Never logs, renders, or puts the key value in a URL — only status
+        // fields (source/last4/health) that the server already scrubbed.
+        async function setBackendKey(name) {
+            const apiKey = prompt(`Set API key for '${name}':`);
+            if (!apiKey) return;
+
+            log(`Setting API key for: ${name}`, 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/${name}/key`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Key set for '${name}' (source: ${data.source})`, 'success');
+                    loadBackends();
+                } else {
+                    log(`Set key failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Set key error: ${err.message}`, 'error');
+            }
+        }
+
+        async function clearBackendKey(name) {
+            if (!confirm(`Clear the stored API key for '${name}'?`)) {
+                return;
+            }
+
+            log(`Clearing API key for: ${name}`, 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/backends/${name}/key`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Key cleared for '${name}'`, 'success');
+                    loadBackends();
+                } else {
+                    log(`Clear key failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                log(`Clear key error: ${err.message}`, 'error');
             }
         }
 

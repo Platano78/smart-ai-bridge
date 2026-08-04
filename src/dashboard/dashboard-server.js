@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { BackendRegistry } from '../backends/backend-registry.js';
 import { registerCouncilConfigAPI } from './council-config-api.js';
 import { setBackendRegistry } from '../config/council-config-manager.js';
+import { setSecret, deleteSecret } from '../backends/secret-store.js';
 
 /**
  * Model aliases for the ask command
@@ -30,6 +31,20 @@ export class DashboardServer {
   constructor(options = {}) {
     this.app = express();
     this.port = options.port || 3456;
+    // S2: bind to loopback only by default — an admin API with add/delete/key
+    // endpoints and no auth has no business being LAN-reachable. Explicit
+    // opt-out via SAB_DASHBOARD_HOST, loudly flagged when non-loopback.
+    this.host = options.host || process.env.SAB_DASHBOARD_HOST || '127.0.0.1';
+    if (!['127.0.0.1', 'localhost', '::1'].includes(this.host)) {
+      console.error('╔══════════════════════════════════════════════════════════════════╗');
+      console.error('║ [SAB Dashboard] WARNING: binding to a non-loopback host!          ║');
+      console.error(`║   host = "${this.host}"`);
+      console.error('║ This exposes an UNAUTHENTICATED admin API — including endpoints   ║');
+      console.error('║ that add/remove backends and set/read API-key status — to         ║');
+      console.error('║ anything that can reach this address (e.g. your whole LAN).       ║');
+      console.error('║ Set SAB_DASHBOARD_HOST=127.0.0.1 to bind loopback-only.            ║');
+      console.error('╚══════════════════════════════════════════════════════════════════╝');
+    }
     this.conversationThreading = options.conversationThreading || null;
     this.backendRegistry = options.backendRegistry || new BackendRegistry();
     this.isRunning = false;
@@ -63,9 +78,24 @@ export class DashboardServer {
     this.app.get('/api/backends', (req, res) => {
       const stats = this.backendRegistry.getStats();
       const fallbackChain = this.backendRegistry.getFallbackChain();
+      // F4: decorate here, not in getStats() — that shape is shared with the
+      // MCP tool surface (get_analytics, etc.) and must not change.
+      const backends = stats.backends.map((b) => {
+        const keyStatus = this.backendRegistry.getKeyStatus(b.name);
+        return {
+          ...b,
+          keyConfigured: keyStatus?.configured ?? false,
+          keySource: keyStatus?.source ?? 'none',
+          keyEnvVar: keyStatus?.envVar ?? null,
+          // Not part of the F4 contract but needed for the UI's "no key"/
+          // "source: ••••last4" indicator, and safe to include — last4 is
+          // never key material.
+          last4: keyStatus?.last4 ?? null
+        };
+      });
       res.json({
         success: true,
-        backends: stats.backends,
+        backends,
         fallbackChain: fallbackChain,
         totalBackends: stats.totalBackends,
         healthyBackends: stats.healthyBackends
@@ -194,6 +224,80 @@ export class DashboardServer {
       });
     });
 
+    // === Backend API-key management (F3) ===
+    // Registered BEFORE the plain GET /api/backends/:name route below — this
+    // file already has a running note about Express matching path segments
+    // in registration order, and these three routes share the :name prefix
+    // with it, so they must come first.
+
+    // Never returns the key itself — only source + last4 for display.
+    // All three routes canonicalize `req.params.name` through getBackend()
+    // ONCE at the top, then use `backend.name` (canonical) for every
+    // subsequent call — setSecret/deleteSecret/rebuildAdapter/getAdapter/
+    // getKeyStatus must all agree, or a legacy alias (nvidia_qwen, qwen3)
+    // stores/reads a key that the real adapter never sees.
+    this.app.get('/api/backends/:name/key', (req, res) => {
+      const backend = this.backendRegistry.getBackend(req.params.name);
+      if (!backend) {
+        return res.json({ success: false, error: `Backend '${req.params.name}' not found` });
+      }
+      const status = this.backendRegistry.getKeyStatus(backend.name);
+      res.json({ success: true, ...status });
+    });
+
+    this.app.put('/api/backends/:name/key', async (req, res) => {
+      const backend = this.backendRegistry.getBackend(req.params.name);
+      if (!backend) {
+        return res.json({ success: false, error: `Backend '${req.params.name}' not found` });
+      }
+      const name = backend.name; // canonical from here on
+
+      const { apiKey } = req.body || {};
+      if (typeof apiKey !== 'string' || apiKey.length === 0 || /\s/.test(apiKey)) {
+        return res.json({ success: false, error: 'apiKey must be a non-empty string with no whitespace or newlines' });
+      }
+
+      try {
+        await setSecret(name, apiKey);
+      } catch (error) {
+        return res.json({ success: false, error: `Failed to store key: ${error.message}` });
+      }
+
+      this.backendRegistry.rebuildAdapter(name);
+
+      let health = null;
+      const adapter = this.backendRegistry.getAdapter(name);
+      if (adapter && typeof adapter.checkHealth === 'function') {
+        try {
+          health = await adapter.checkHealth();
+        } catch (error) {
+          health = { healthy: false, error: error.message };
+        }
+      }
+
+      this.broadcast({ type: 'backend_key_changed', backend: name });
+      res.json({ success: true, ...this.backendRegistry.getKeyStatus(name), health });
+    });
+
+    this.app.delete('/api/backends/:name/key', async (req, res) => {
+      const backend = this.backendRegistry.getBackend(req.params.name);
+      if (!backend) {
+        return res.json({ success: false, error: `Backend '${req.params.name}' not found` });
+      }
+      const name = backend.name; // canonical from here on
+
+      try {
+        await deleteSecret(name);
+      } catch (error) {
+        return res.json({ success: false, error: `Failed to delete key: ${error.message}` });
+      }
+
+      this.backendRegistry.rebuildAdapter(name);
+
+      this.broadcast({ type: 'backend_key_changed', backend: name });
+      res.json({ success: true, ...this.backendRegistry.getKeyStatus(name) });
+    });
+
     // Get single backend details (registered AFTER /health and /types to avoid Express param capture)
     this.app.get('/api/backends/:name', (req, res) => {
       const { name } = req.params;
@@ -305,9 +409,9 @@ export class DashboardServer {
     });
 
     return new Promise((resolve) => {
-      this.server.listen(this.port, () => {
+      this.server.listen(this.port, this.host, () => {
         this.isRunning = true;
-        console.error(`🚀 Smart AI Bridge Dashboard running at http://localhost:${this.port}`);
+        console.error(`🚀 Smart AI Bridge Dashboard running at http://${this.host}:${this.port}`);
         resolve();
       });
     });

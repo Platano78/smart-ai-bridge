@@ -19,6 +19,8 @@ import { GroqAdapter } from './groq-adapter.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { getSecret } from './secret-store.js';
+import { PROVIDER_ENDPOINTS } from './provider-endpoints.js';
 
 // Get directory of current module for resolving config paths
 const __filename = fileURLToPath(import.meta.url);
@@ -199,6 +201,12 @@ class BackendRegistry {
 
       const backends = {};
       for (const [name, backend] of this.backends) {
+        // S1 fix: apiKey NEVER goes into this file — it is git-tracked. This
+        // applies unconditionally, whether the key is a resolved secret-store
+        // value or a plain `$VAR` reference; there is no case where key
+        // material belongs here. A key supplied inline goes to the secrets
+        // store instead (see secret-store.js / register()).
+        const { apiKey: _apiKey, ...configWithoutKey } = backend.config || {};
         backends[name] = {
           type: backend.type,
           enabled: backend.enabled,
@@ -209,7 +217,7 @@ class BackendRegistry {
           ...(backend.strengths && { strengths: backend.strengths }),
           ...(backend.excludeFromSubagent && { excludeFromSubagent: backend.excludeFromSubagent }),
           ...(backend.ports && { ports: backend.ports }),
-          config: backend.config || {}
+          config: configWithoutKey
         };
       }
 
@@ -242,10 +250,13 @@ class BackendRegistry {
   register(name, backendConfig) {
     const { type, enabled = true, priority = 99, config = {} } = backendConfig;
 
+    // rawApiKey preserves the literal/`$VAR` value as configured (never the
+    // resolved secret) so key-status reporting and saveConfig() can tell
+    // "user set an explicit config.apiKey" apart from "resolved from the
+    // secrets store" without re-deriving it from a resolved value.
+    const rawApiKey = config.apiKey;
     const resolvedConfig = { ...config };
-    if (resolvedConfig.apiKey) {
-      resolvedConfig.apiKey = resolveApiKey(resolvedConfig.apiKey);
-    }
+    resolvedConfig.apiKey = this._resolveEffectiveApiKey({ name, rawApiKey });
 
     this.backends.set(name, {
       name,
@@ -253,6 +264,7 @@ class BackendRegistry {
       enabled,
       priority,
       config: resolvedConfig,
+      rawApiKey,
       description: backendConfig.description || `Backend: ${name}`,
       ...(backendConfig.capabilities && { capabilities: backendConfig.capabilities }),
       ...(backendConfig.context_limit && { context_limit: backendConfig.context_limit }),
@@ -290,6 +302,87 @@ class BackendRegistry {
       console.error(`[BackendRegistry] Failed to create adapter ${name}:`, error.message);
       return null;
     }
+  }
+
+  /**
+   * Resolve the API key that should actually reach the adapter, in priority
+   * order (highest first):
+   *   1. config.apiKey — literal or `$VAR` reference (existing behavior)
+   *   2. the secrets store, looked up by backend name
+   *   3. undefined — leaves apiKey unset so the adapter's own
+   *      process.env.<PROVIDER>_API_KEY fallback applies
+   * A stored key beats the env fallback deliberately: it is the more recent,
+   * more explicit user action.
+   * @private
+   */
+  _resolveEffectiveApiKey({ name, rawApiKey }) {
+    if (rawApiKey) {
+      const resolved = resolveApiKey(rawApiKey);
+      if (resolved) return resolved;
+    }
+    return getSecret(name) || undefined;
+  }
+
+  /**
+   * Report where a backend's active API key is coming from, without ever
+   * returning the key itself. Computed here (not in getStats(), which is
+   * shared with the MCP tool surface) so dashboard callers can decorate rows
+   * and answer GET/PUT/DELETE .../key without duplicating resolution logic.
+   * @param {string} name - Backend name
+   * @returns {{configured: boolean, source: 'config'|'store'|'env'|'none', last4: string|null, envVar: string|null}|null}
+   */
+  getKeyStatus(name) {
+    const backend = this.getBackend(name);
+    if (!backend) return null;
+
+    const envVar = PROVIDER_ENDPOINTS[backend.type]?.envVar ?? null;
+
+    const fromConfig = backend.rawApiKey ? resolveApiKey(backend.rawApiKey) : undefined;
+    if (fromConfig) {
+      return { configured: true, source: 'config', last4: fromConfig.slice(-4), envVar };
+    }
+
+    const stored = getSecret(backend.name);
+    if (stored) {
+      return { configured: true, source: 'store', last4: stored.slice(-4), envVar };
+    }
+
+    const fromEnv = envVar ? process.env[envVar] : undefined;
+    if (fromEnv) {
+      return { configured: true, source: 'env', last4: fromEnv.slice(-4), envVar };
+    }
+
+    return { configured: false, source: 'none', last4: null, envVar };
+  }
+
+  /**
+   * Re-resolve a backend's effective API key (config -> store -> env
+   * fallback) and rebuild its adapter so a secrets-store change takes effect
+   * without a server restart.
+   * @param {string} name - Backend name
+   * @returns {boolean} whether the backend exists
+   */
+  rebuildAdapter(name) {
+    // Alias-tolerant: getBackend() resolves nvidia_qwen/qwen3 -> nvidia_glm
+    // via FRIENDLY_NAME_MAP; the raw this.backends map is keyed by the
+    // canonical name only. Resolving here means callers can't reintroduce
+    // the alias/raw-lookup mismatch that silently rebuilt the wrong (or no)
+    // adapter.
+    const backend = this.getBackend(name);
+    if (!backend) return false;
+    const canonicalName = backend.name;
+
+    backend.config = {
+      ...backend.config,
+      apiKey: this._resolveEffectiveApiKey({ name: canonicalName, rawApiKey: backend.rawApiKey })
+    };
+
+    if (backend.enabled) {
+      this.adapters.delete(canonicalName);
+      this.createAdapter(canonicalName);
+    }
+
+    return true;
   }
 
   /**

@@ -211,7 +211,9 @@ Check the output for `original=N/15` vs `crushed=M/15` per dimension. If crushed
 
 ## Adding a Backend
 
-**Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3456` (override with `SAB_DASHBOARD_PORT`) to add, remove, enable/disable, and re-prioritize backends without editing JSON.
+**Via Dashboard** (recommended): Start the server with `SAB_DASHBOARD=true`, then use the web UI at `http://localhost:3456` (override with `SAB_DASHBOARD_PORT`) to add, remove, enable/disable, and re-prioritize backends without editing JSON. The dashboard also lets you set/clear an API key per backend (stored in the gitignored `data/backends-secrets.json`, mode `0600` — never written to the tracked `src/config/backends.json`); a stored key takes effect immediately, no restart required, and beats the backend's `process.env` fallback.
+
+The dashboard binds to `127.0.0.1` only by default — it has no authentication, so it must not be reachable off-box. Override with `SAB_DASHBOARD_HOST` if you need it reachable elsewhere; a non-loopback host prints a warning on startup naming the risk.
 
 **Via Config File**: Any OpenAI-compatible provider can be added as a config entry in `src/config/backends.json`:
 
