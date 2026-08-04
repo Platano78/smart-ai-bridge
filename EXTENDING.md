@@ -1,10 +1,10 @@
-# Smart AI Bridge v2.6.0 - Extension Guide
+# Smart AI Bridge v2.11.0 - Extension Guide
 
 ## Adding New Backends
 
 ### Overview
 
-Smart AI Bridge v2.6.0 uses a config-driven backend system. Adding a new backend requires:
+Smart AI Bridge v2.11.0 uses a config-driven backend system. Adding a new backend requires:
 
 1. Creating an adapter class (or reusing an existing one like `openai`)
 2. Registering it in `src/config/backends.json`
@@ -165,7 +165,8 @@ import { CustomAdapter } from './custom-adapter.js';
 const ADAPTER_CLASSES = {
   'local': LocalAdapter,
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
-  'nvidia_qwen': NvidiaQwenAdapter,
+  'nvidia_glm': NvidiaGlmAdapter,
+  'nvidia_qwen': NvidiaGlmAdapter,  // legacy type value, same lane -- keep for back-compat
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter,
@@ -223,9 +224,9 @@ Add a new entry to the `CORE_TOOL_DEFINITIONS` array in `src/tools/tool-definiti
         properties: {
           backend: {
             type: 'string',
-            enum: ['auto', 'local', 'nvidia_deepseek', 'nvidia_qwen', 'gemini', 'openai', 'groq'],
+            enum: ['auto', 'local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'openai', 'groq'],
             default: 'auto',
-            description: 'AI backend to use'
+            description: 'AI backend to use (nvidia_qwen and the friendly alias qwen3 still resolve to nvidia_glm for back-compat)'
           }
         }
       }
@@ -421,8 +422,8 @@ async _applyRuleBasedRouting(context) {
   }
 
   // Existing rules
-  if (context.complexity === 'complex' && backends.nvidia_qwen?.healthy) {
-    return 'nvidia_qwen';
+  if (context.complexity === 'complex' && backends.nvidia_glm?.healthy) {
+    return 'nvidia_glm';
   }
   if (context.taskType === 'code' && backends.nvidia_deepseek?.healthy) {
     return 'nvidia_deepseek';
@@ -451,15 +452,15 @@ _extractContext(prompt, options) {
 }
 ```
 
-## Current Tool Categories (v2.6.0)
+## Current Tool Categories (v2.11.0)
 
 | Category | Tools | Count |
 |----------|-------|-------|
-| Token-Saving | `analyze_file`, `modify_file`, `batch_analyze`, `batch_modify`, `generate_file`, `explore`, `read` | 7 |
+| Token-Saving | `analyze_file`, `modify_file`, `batch_analyze`, `batch_modify`, `generate_file`, `explore` | 6 |
 | Multi-AI Workflows | `ask`, `council`, `dual_iterate`, `parallel_agents`, `spawn_subagent` | 5 |
-| Code Quality | `review`, `refactor`, `validate_changes` | 3 |
-| Infrastructure | `check_backend_health`, `backup_restore`, `write_files_atomic`, `manage_conversation`, `get_analytics` | 5 |
-| **Total** | | **20** |
+| Code Quality | `review`, `refactor` | 2 |
+| Infrastructure | `check_backend_health`, `backup_restore`, `write_files_atomic`, `get_analytics` | 4 |
+| **Total** | | **17** |
 
 ## Current Adapter Types
 
@@ -467,7 +468,7 @@ _extractContext(prompt, options) {
 |------|---------------|------|
 | `local` | LocalAdapter | `src/backends/local-adapter.js` |
 | `nvidia_deepseek` | NvidiaDeepSeekAdapter | `src/backends/nvidia-adapter.js` |
-| `nvidia_qwen` | NvidiaQwenAdapter | `src/backends/nvidia-adapter.js` |
+| `nvidia_glm` | NvidiaGlmAdapter | `src/backends/nvidia-adapter.js` (`nvidia_qwen` still resolves as a legacy alias to the same adapter) |
 | `gemini` | GeminiAdapter | `src/backends/gemini-adapter.js` |
 | `openai` | OpenAIAdapter | `src/backends/openai-adapter.js` |
 | `groq` | GroqAdapter | `src/backends/groq-adapter.js` |

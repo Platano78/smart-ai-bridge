@@ -1,8 +1,8 @@
-# Smart AI Bridge v2.6.0 - Troubleshooting Guide
+# Smart AI Bridge v2.11.0 - Troubleshooting Guide
 
 ## Overview
 
-This guide covers common issues when running Smart AI Bridge v2.6.0, the modular MCP server with 18 tools, 7 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
+This guide covers common issues when running Smart AI Bridge v2.11.0, the modular MCP server with 17 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
@@ -18,7 +18,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 
 **Diagnosis and Solutions:**
 
-1. **Check Node.js version** -- v2.6.0 requires Node.js 18.0.0 or later (ESM support).
+1. **Check Node.js version** -- v2.11.0 requires Node.js 18.0.0 or later (ESM support).
    ```bash
    node --version
    # Must be >= 18.0.0
@@ -32,7 +32,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
    npm install
    ```
 
-4. **Check the entry point path** -- The v2.6.0 entry point is `src/server.js`, not the legacy monolithic file.
+4. **Check the entry point path** -- The v2.11.0 entry point is `src/server.js`, not the legacy monolithic file.
    ```bash
    # Correct
    node src/server.js
@@ -115,7 +115,7 @@ The local backend expects an OpenAI-compatible API at `http://127.0.0.1:8081/v1/
 ```
 Error: 401 Unauthorized
 Error: 429 Too Many Requests
-Error: Model not found: deepseek-ai/deepseek-v3.2
+Error: Model not found: deepseek-ai/deepseek-v4-pro
 ```
 
 **Solutions:**
@@ -129,13 +129,40 @@ Error: Model not found: deepseek-ai/deepseek-v3.2
 
 2. **Rate limits** -- NVIDIA's free tier has strict rate limits. If you hit 429 errors, the circuit breaker will trip (threshold: 5 failures, reset: 30 seconds per backends.json). Wait for the reset or reduce request frequency.
 
-3. **Model availability** -- Model names change. If `deepseek-ai/deepseek-v3.2` or the Qwen model is unavailable, check the NVIDIA API catalog for current model IDs and update backends.json:
+3. **Model availability** -- Model names change. If `deepseek-ai/deepseek-v4-pro` or `z-ai/glm-5.2` is unavailable, check the NVIDIA API catalog for current model IDs and update backends.json:
    ```bash
    curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
         https://integrate.api.nvidia.com/v1/models
    ```
 
-4. **Token limits** -- nvidia_deepseek is configured for 8192 max tokens, nvidia_qwen for 32768. Requests exceeding these limits will be rejected by the API. The router should handle this, but forced backend selection can bypass routing limits.
+4. **Token limits** -- nvidia_deepseek is configured for 8192 max tokens, nvidia_glm for 32768. Requests exceeding these limits will be rejected by the API. The router should handle this, but forced backend selection can bypass routing limits.
+
+### Backend Model Retired
+
+**Symptoms:**
+```
+Error: Backend "nvidia_glm" model retired: z-ai/glm-5.2 is no longer served
+```
+
+A provider retired the configured model. This is treated as a configuration error (the
+circuit breaker opens immediately instead of retrying) and the message names the backend,
+the model, and replacement candidates.
+
+**Solutions:**
+
+1. **Run the on-demand probe** to check every configured backend against a real completion:
+   ```bash
+   npm run audit:backends            # human-readable table
+   npm run audit:backends -- --json  # machine-readable, for CI
+   ```
+   Exits non-zero only on `RETIRED`, `ERROR`, or `NO_MODEL`.
+
+2. **Check the startup readiness audit** -- it runs automatically after the MCP handshake
+   and logs findings to stderr. Disable it with `SAB_DISABLE_READINESS_AUDIT=true` if it's
+   noisy in your environment.
+
+3. **A missing API key is not the same as a retired model** -- an unset key reports
+   `cannot verify -- <VAR> not set` and does not fail the audit.
 
 ### OpenAI Connection Issues
 
@@ -218,12 +245,12 @@ McpError: Unknown tool: my_tool. Available: ask, review, analyze_file, ...
 
 **Solutions:**
 
-1. **Check tool name** -- v2.6.0 has 18 tools. The complete list:
+1. **Check tool name** -- v2.11.0 has 17 tools. The complete list:
    - `ask`, `review`, `analyze_file`, `modify_file`, `batch_modify`
    - `explore`, `generate_file`, `refactor`, `write_files_atomic`
    - `backup_restore`, `batch_analyze`, `check_backend_health`
    - `dual_iterate`, `council`, `spawn_subagent`, `parallel_agents`
-   - `manage_conversation`, `get_analytics`
+   - `get_analytics`
 
 2. **Tool names are exact** -- No aliases, no prefixes. Use exactly the names listed above.
 
@@ -467,7 +494,7 @@ If you experience cascading failures (one backend down causing slow responses as
 All API keys the server may need, depending on which backends are enabled:
 
 ```bash
-# NVIDIA backends (nvidia_deepseek, nvidia_qwen)
+# NVIDIA backends (nvidia_deepseek, nvidia_glm)
 export NVIDIA_API_KEY="nvapi-xxxxx"
 
 # OpenAI backend
@@ -516,4 +543,4 @@ When something is not working, run through this checklist:
 ---
 
 *Last Updated: February 2026*
-*System Version: v2.6.0*
+*System Version: v2.11.0*

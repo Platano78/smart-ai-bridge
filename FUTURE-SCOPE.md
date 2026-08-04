@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Version:** v2.6.0
+**Current Version:** v2.11.0
 **Architecture:** Modular (65 source files in src/)
 **Status:** Production-Ready
 **Last Updated:** March 2026
@@ -221,4 +221,4 @@ Items that score high on multiple criteria should be prioritized first.
 ---
 
 *Last Updated: March 2026*
-*System Version: v2.6.0*
+*System Version: v2.11.0*

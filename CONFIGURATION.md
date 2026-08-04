@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.6.0 - Configuration Guide
+# Smart AI Bridge v2.11.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -8,8 +8,8 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 
 ```json
 {
-  "version": "2.6.0",
-  "description": "Smart AI Bridge v2.6.0 Backend Configuration",
+  "version": "2.11.0",
+  "description": "Smart AI Bridge v2.11.0 Backend Configuration",
   "backends": {
     "local": {
       "type": "local",
@@ -41,11 +41,11 @@ All backend configuration lives in `src/config/backends.json`. This file is load
         "model": "deepseek-ai/deepseek-v3.2"
       }
     },
-    "nvidia_qwen": {
-      "type": "nvidia_qwen",
+    "nvidia_glm": {
+      "type": "nvidia_glm",
       "enabled": true,
       "priority": 3,
-      "description": "NVIDIA Qwen (coding, 32K tokens)",
+      "description": "NVIDIA GLM-5.2 (coding, 32K tokens)",
       "capabilities": ["code_specialized", "deep_reasoning"],
       "context_limit": 32768,
       "config": {
@@ -107,7 +107,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | string | Adapter type: `local`, `nvidia_deepseek`, `nvidia_qwen`, `gemini`, `openai`, `groq` |
+| `type` | string | Adapter type: `local`, `nvidia_deepseek`, `nvidia_glm`, `gemini`, `openai`, `groq` (`nvidia_qwen` still resolves as a legacy alias for `nvidia_glm`) |
 | `enabled` | boolean | Whether the backend is active |
 | `priority` | number | Fallback chain order (lower = higher priority) |
 | `description` | string | Human-readable description |
@@ -151,7 +151,7 @@ Additional backends can be added at `data/backends-custom.json`. These extend or
 These are the primary environment variables consumed by the backend adapters:
 
 ```bash
-# NVIDIA API (used by nvidia_deepseek and nvidia_qwen backends)
+# NVIDIA API (used by nvidia_deepseek and nvidia_glm backends)
 NVIDIA_API_KEY=your-nvidia-api-key
 
 # OpenAI API
@@ -237,7 +237,7 @@ The fallback policy in `backends.json` controls retry behavior:
 }
 ```
 
-The `MultiAIRouter` uses these thresholds when applying rule-based routing (Tier 3). Complex tasks are routed to higher-capability backends (nvidia_qwen), while simple tasks stay on the default backend.
+The `MultiAIRouter` uses these thresholds when applying rule-based routing (Tier 3). Complex tasks are routed to higher-capability backends (nvidia_glm), while simple tasks stay on the default backend.
 
 ## Claude Code MCP Configuration
 
@@ -397,16 +397,16 @@ Override which backend handles specific subagent roles:
 # Per-role overrides
 SUBAGENT_BACKEND_CODE_REVIEWER=nvidia_deepseek
 SUBAGENT_BACKEND_SECURITY_AUDITOR=nvidia_deepseek
-SUBAGENT_BACKEND_PLANNER=nvidia_qwen
+SUBAGENT_BACKEND_PLANNER=nvidia_glm
 SUBAGENT_BACKEND_TEST_GENERATOR=nvidia_deepseek
 SUBAGENT_BACKEND_DOCUMENTATION_WRITER=gemini
-SUBAGENT_BACKEND_TDD_DECOMPOSER=nvidia_qwen
+SUBAGENT_BACKEND_TDD_DECOMPOSER=nvidia_glm
 SUBAGENT_BACKEND_TDD_TEST_WRITER=nvidia_deepseek
-SUBAGENT_BACKEND_TDD_IMPLEMENTER=nvidia_qwen
+SUBAGENT_BACKEND_TDD_IMPLEMENTER=nvidia_glm
 SUBAGENT_BACKEND_TDD_QUALITY_REVIEWER=nvidia_deepseek
 
 # Or set a global default
-SUBAGENT_DEFAULT_BACKEND=nvidia_qwen
+SUBAGENT_DEFAULT_BACKEND=nvidia_glm
 ```
 
 ## Disabling Backends
@@ -433,11 +433,11 @@ After modifying `backends.json`, verify the server starts correctly:
 ```bash
 node src/server.js 2>&1 | head -5
 # Expected output:
-# Smart AI Bridge v2.6.0 starting...
+# Smart AI Bridge v2.11.0 starting...
 # [BackendRegistry] Initialized 6 backends from backends.json
 # [Router] MultiAIRouter initialized
-# Smart AI Bridge v2.6.0 connected via stdio
-# Tools: 20 | Backends: 6
+# Smart AI Bridge v2.11.0 connected via stdio
+# Tools: 17 | Backends: 6
 ```
 
 Then use `check_backend_health` to verify each backend:
@@ -446,3 +446,28 @@ Then use `check_backend_health` to verify each backend:
 @check_backend_health({ "backend": "local", "force": true })
 @check_backend_health({ "backend": "nvidia_deepseek", "force": true })
 ```
+
+### Backend Readiness and Drift
+
+A startup readiness audit checks each configured backend's model against the provider's
+catalog and prints findings to stderr after the MCP handshake completes; it never delays
+or aborts startup. Disable it with `SAB_DISABLE_READINESS_AUDIT=true`.
+
+Run an on-demand probe at any time:
+
+```bash
+npm run audit:backends            # human-readable table
+npm run audit:backends -- --json  # machine-readable
+```
+
+It exits non-zero only on `RETIRED`, `ERROR`, or `NO_MODEL`. A backend with no API key
+set is never reported as broken — it shows `cannot verify — <VAR> not set`.
+
+### Dashboard API Keys
+
+Backend API keys can also be set/cleared per backend from the dashboard UI instead of
+editing `backends.json`. Keys are stored in the gitignored `data/backends-secrets.json`
+at mode `0600`, take effect immediately without a restart, and take precedence over the
+backend's `process.env` fallback. The dashboard binds to `127.0.0.1` only by default;
+override with `SAB_DASHBOARD_HOST` if it needs to be reachable off-box (a non-loopback
+host prints a startup warning).

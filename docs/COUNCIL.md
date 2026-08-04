@@ -35,8 +35,8 @@ Council config is stored in `config/council-config.json`:
 {
   "version": 1,
   "topics": {
-    "coding": { "strategy": "parallel", "backends": ["nvidia_qwen", "nvidia_deepseek"] },
-    "architecture": { "strategy": "debate", "backends": ["nvidia_deepseek", "nvidia_qwen", "gemini"] }
+    "coding": { "strategy": "parallel", "backends": ["nvidia_glm", "nvidia_deepseek"] },
+    "architecture": { "strategy": "debate", "backends": ["nvidia_deepseek", "nvidia_glm", "gemini"] }
   },
   "defaults": ["local", "gemini"]
 }

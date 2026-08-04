@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.6.0 - Usage Examples
+# Smart AI Bridge v2.11.0 - Usage Examples
 
 ## Token-Saving File Operations
 
@@ -207,7 +207,7 @@ Answer questions about the codebase using intelligent search. Returns a summary,
   instructions: "Split this module into separate files: string-utils.js, date-utils.js, and math-utils.js",
   options: {
     review: true,
-    backend: "nvidia_qwen"
+    backend: "nvidia_glm"
   }
 })
 
@@ -492,27 +492,6 @@ Answer questions about the codebase using intelligent search. Returns a summary,
     }
   ],
   create_backup: true
-})
-```
-
-### manage_conversation -- Conversation Threading
-
-```javascript
-// Start new conversation
-@manage_conversation({
-  action: "start",
-  topic: "Backend refactoring discussion"
-})
-
-// Search conversations
-@manage_conversation({
-  action: "search",
-  query: "authentication"
-})
-
-// Get analytics
-@manage_conversation({
-  action: "analytics"
 })
 ```
 

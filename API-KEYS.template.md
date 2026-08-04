@@ -14,12 +14,12 @@ NVIDIA_API_KEY="nvapi-YOUR-KEY-HERE"
 
 **Endpoints**:
 - NVIDIA NVIDIA DeepSeek: For complex reasoning tasks
-- NVIDIA Qwen 3 Coder 480B: For advanced coding tasks
+- NVIDIA GLM-5.2: For advanced coding tasks (the `nvidia_qwen` backend name and `qwen3` alias still resolve here for back-compat)
 
 **Features**:
 - Free tier available
 - 65,536 token context (DeepSeek)
-- 32,768 token context (Qwen)
+- 32,768 token context (GLM)
 
 ### Google Gemini (Optional)
 
