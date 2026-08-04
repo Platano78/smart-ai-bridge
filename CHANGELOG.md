@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously ignored the alias map entirely, so `getAdapter('qwen3')` returned `null`
   even though the alias was configured.
 
+### Removed
+- The `manage_conversation` tool. Its action enum (`start`, `continue`, `resume`,
+  `history`, `search`, `analytics`) never included an action that could record a
+  conversation turn — the only turn-recording method, `addTurn()`, had zero callers
+  anywhere in the codebase. Every thread the tool created stayed permanently empty
+  (`turns: 0` on disk). Net tool count: 18 → 17. The underlying `src/threading/`
+  module is untouched — it still backs the dashboard's `/api/conversation` endpoint.
+  `dual_iterate` was reviewed in the same pass and deliberately **kept**: unlike its
+  counterpart in the private sibling MCP server, SAB's copy is fully wired and live.
+
 ## [2.10.0] - 2026-07-30
 
 Completes the write-verification work v2.8.1 started, and makes the

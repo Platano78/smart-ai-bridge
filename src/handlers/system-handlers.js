@@ -224,112 +224,6 @@ class HealthHandler extends BaseHandler {
 }
 
 /**
- * Manage conversation handler
- */
-class ManageConversationHandler extends BaseHandler {
-  async execute(args) {
-    const {
-      action,
-      thread_id,
-      continuation_id,
-      topic = 'general',
-      query,
-      user_id = 'default',
-      platform = 'claude_code',
-      limit = 10
-    } = args;
-
-    try {
-      let result;
-
-      // Check if conversation threading is available
-      if (!this.context.conversationThreading) {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              action,
-              error: 'Conversation threading not initialized in v2'
-            }, null, 2)
-          }],
-          isError: true
-        };
-      }
-
-      switch (action) {
-        case 'start':
-          result = await this.context.conversationThreading.startOrContinueThread({
-            topic,
-            user_id,
-            platform
-          });
-          break;
-
-        case 'continue':
-          if (!continuation_id) {
-            throw new Error('continuation_id is required for continue action');
-          }
-          result = await this.context.conversationThreading.continueThread(continuation_id);
-          break;
-
-        case 'resume':
-          if (!thread_id) {
-            throw new Error('thread_id is required for resume action');
-          }
-          result = await this.context.conversationThreading.resumeThread(thread_id);
-          break;
-
-        case 'history':
-          if (!thread_id) {
-            throw new Error('thread_id is required for history action');
-          }
-          result = await this.context.conversationThreading.getThreadHistory(thread_id, limit);
-          break;
-
-        case 'search':
-          if (!query) {
-            throw new Error('query is required for search action');
-          }
-          result = await this.context.conversationThreading.searchConversations(query);
-          break;
-
-        case 'analytics':
-          result = await this.context.conversationThreading.getConversationAnalytics();
-          break;
-
-        default:
-          throw new Error(`Unknown action: '${action}'. Valid actions: start, continue, resume, history, search, analytics`);
-      }
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            action,
-            data: result
-          }, null, 2)
-        }]
-      };
-    } catch (error) {
-      console.error(`Error in handleManageConversation (${action}):`, error);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: false,
-            action,
-            error: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-  }
-}
-
-/**
  * Get analytics handler
  */
 class GetAnalyticsHandler extends BaseHandler {
@@ -428,6 +322,5 @@ class GetAnalyticsHandler extends BaseHandler {
 
 export {
   HealthHandler,
-  ManageConversationHandler,
   GetAnalyticsHandler
 };

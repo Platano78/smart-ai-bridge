@@ -66,7 +66,7 @@ After restarting, all 18 tools will be available. Verify with:
 @check_backend_health({ "backend": "local" })
 ```
 
-## Tools (18)
+## Tools (17)
 
 ### Token-Saving File Operations
 
@@ -103,7 +103,6 @@ After restarting, all 18 tools will be available. Verify with:
 | `check_backend_health` | Health diagnostics for specific backends |
 | `backup_restore` | Timestamped backup management |
 | `write_files_atomic` | Atomic multi-file writes with backup |
-| `manage_conversation` | Multi-turn conversation threading |
 | `get_analytics` | Usage analytics and optimization recommendations |
 
 ## Smart Routing

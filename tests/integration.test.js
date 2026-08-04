@@ -21,7 +21,6 @@ const EXPECTED_TOOL_NAMES = new Set([
   'explore',
   'generate_file',
   'get_analytics',
-  'manage_conversation',
   'modify_file',
   'parallel_agents',
   'refactor',
@@ -31,9 +30,9 @@ const EXPECTED_TOOL_NAMES = new Set([
 ]);
 
 describe('integration smoke tests', () => {
-  it('CORE_TOOL_DEFINITIONS is an array of length 18', () => {
+  it('CORE_TOOL_DEFINITIONS is an array of length 17', () => {
     expect(Array.isArray(CORE_TOOL_DEFINITIONS)).toBe(true);
-    expect(CORE_TOOL_DEFINITIONS.length).toBe(18);
+    expect(CORE_TOOL_DEFINITIONS.length).toBe(17);
   });
 
   it('tool names exactly match the expected set', () => {

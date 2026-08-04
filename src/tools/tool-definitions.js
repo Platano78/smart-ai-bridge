@@ -161,51 +161,6 @@ const CORE_TOOL_DEFINITIONS = [
     }
   },
   {
-    name: 'manage_conversation',
-    description: "Manage long-running conversation threads across sessions. The conversation state machine: call `start` (topic is recommended but not required — used for search/grouping) to receive a thread_id + continuation_id; pass `continuation_id` on each follow-up turn with `continue` to extend the thread; use `resume` with a stored thread_id to pick up an old thread from any session. `history` returns the messages in one thread; `search` queries across all stored conversations by free-text query; `analytics` reports per-thread/per-user usage stats. Each action requires only the parameters listed in its description below — extra fields are ignored. Persists conversation state to the configured threading store (non-destructive to user files; the threading store grows over time). Returns: `{success, action, data}` where `data` shape varies — start: `{thread_id, continuation_id, topic, created_at}`. continue: `{thread_id, continuation_id, response, message_count}`. resume: `{thread_id, topic, last_message_at, message_count}`. history: `{thread_id, messages:[{role, content, timestamp}]}` (capped at `limit`, default 10). search: `{query, matches:[{thread_id, topic, snippet, score}]}`. analytics: `{total_threads, threads_by_user, avg_messages_per_thread, recent_topics}`.",
-    handler: 'handleManageConversation',
-    schema: {
-      type: 'object',
-      properties: {
-        action: {
-          type: 'string',
-          enum: ['start', 'continue', 'resume', 'history', 'search', 'analytics'],
-          description: 'Action to perform: start (new thread), continue (with continuation_id), resume (with thread_id), history (get thread history), search (search conversations), analytics (get analytics)'
-        },
-        thread_id: {
-          type: 'string',
-          description: 'Thread ID to resume or get history (optional)'
-        },
-        continuation_id: {
-          type: 'string',
-          description: 'Continuation ID from previous response (optional)'
-        },
-        topic: {
-          type: 'string',
-          description: 'Topic for new conversation (optional)'
-        },
-        query: {
-          type: 'string',
-          description: 'Search query for conversations (optional)'
-        },
-        user_id: {
-          type: 'string',
-          description: 'User identifier (optional, defaults to "default")'
-        },
-        platform: {
-          type: 'string',
-          enum: ['claude_desktop', 'claude_code'],
-          description: 'Platform identifier (optional)'
-        },
-        limit: {
-          type: 'number',
-          description: 'Limit for history results (optional, default 10)'
-        }
-      },
-      required: ['action']
-    }
-  },
-  {
     name: 'get_analytics',
     description: "Inspect SAB's internal telemetry: backend invocation counts, success/failure rates, latency distributions, estimated token spend per provider, and recent routing decisions. Read-only — never calls an LLM, never writes to disk. Use to diagnose 'why did SAB pick backend X', tune routing rules, or understand cost trade-offs across providers. Report types are cumulative: `full_report` includes everything from the other types. Returns: `{success, report_type, data}` where `data` depends on report_type — current: `{backends:{[name]:{invocations, success_rate, p50_ms, p95_ms}}, session_uptime, timestamp}`. historical: `{time_range, series:[{timestamp, backend, calls, errors, latency}]}`. cost: `{by_backend:{[name]:{tokens_in, tokens_out, estimated_usd}}, total_estimated_usd}`. recommendations: `{recommendations:[{type, suggestion, confidence}]}`. full_report: a merged object with all sections. If analytics hasn't initialized, returns `{message, basic_stats:{uptime, memory, timestamp}}`.",
     handler: 'handleGetAnalytics',
