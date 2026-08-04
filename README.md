@@ -120,7 +120,7 @@ When a backend fails, requests automatically fall to the next healthy backend. C
 
 There are two layers of backend naming, and both are intentional:
 
-- **Friendly names** are what you pass to tools (e.g. `backend: "qwen3"` or
+- **Friendly names** are what you pass to tools (e.g. `backend: "glm"` or
   `model="groq"`). They are stable, provider-neutral aliases.
 - **Internal names** are the registry/config identifiers used in
   `src/config/backends.json` and analytics.
@@ -131,15 +131,61 @@ The presets map as follows:
 |---------------|---------------|--------------|
 | `local` | `local` | `local` |
 | `deepseek` | `nvidia_deepseek` | `nvidia_deepseek` |
-| `qwen3` | `nvidia_qwen` | `nvidia_qwen` |
+| `glm` | `nvidia_glm` | `nvidia_glm` |
 | `gemini` | `gemini` | `gemini` |
 | `groq` | `groq_llama` | `groq` |
+
+**Legacy aliases.** The code-specialist lane was Qwen3 Coder 480B until NVIDIA retired it
+on 2026-06-11; it now serves GLM-5.2 under the name `nvidia_glm`. The old names still
+work and will continue to:
+
+| Legacy name | Resolves to |
+|-------------|-------------|
+| `qwen3` | `nvidia_glm` |
+| `nvidia_qwen` | `nvidia_glm` |
+
+A saved `force_backend: "nvidia_qwen"` keeps working; update it at your convenience. A
+config still carrying `"type": "nvidia_qwen"` also still constructs the right adapter.
 
 The OpenAI-compatible backend ships under the internal name `openai_chatgpt` (adapter
 type `openai`) and is reached through smart routing rather than a friendly alias. For the
 `ask` tool, `openai` is accepted as a compatibility alias for the configured
 OpenAI-compatible backend. Custom backends you add via config use their `name` field
 directly as the internal name.
+
+### Backend Drift and Model Retirement
+
+Providers retire models without notice, and the failure is otherwise silent until a
+request fails. Two things catch that:
+
+**A readiness audit at startup.** It checks each configured backend's model against the
+provider's catalog and prints findings to stderr. It runs only *after* the MCP handshake
+completes and is never awaited, so it cannot delay or abort startup. Disable it with
+`SAB_DISABLE_READINESS_AUDIT=true`.
+
+**An on-demand probe** that sends every configured backend a real completion:
+
+```bash
+npm run audit:backends            # human-readable table
+npm run audit:backends -- --json  # machine-readable
+```
+
+A real completion is the only trustworthy check — model ids appear in a provider's
+`/v1/models` listing that still return 404 for a given account. Backends are classified
+`OK`, `RETIRED`, `TRANSIENT`, `ERROR`, `NO_MODEL`, or `NO_KEY`. It exits non-zero only on
+`RETIRED`, `ERROR`, or `NO_MODEL`, so it can gate CI.
+
+**A backend with no API key is never reported as broken.** You supply your own keys and
+most setups configure a single provider, so an unset key reports as
+`cannot verify — <VAR> not set` and does not fail the run. The `local` backend is
+reachability-checked only, never catalog-checked: its configured `"model": "dynamic"` is
+a handle, not a catalog id.
+
+When a model *has* been retired, the resulting error says so explicitly — naming the
+backend, the model, the provider's end-of-life text, and live replacement candidates —
+rather than surfacing as a generic HTTP failure. Retirement is a configuration error, so
+it opens the circuit breaker immediately instead of being retried; saturation (429/5xx)
+and auth failures (401) are deliberately not treated as retirement.
 
 ### Response Reliability (v2.4.0)
 
@@ -255,6 +301,7 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 npm test              # Run the unit + integration suite (Vitest)
 npm run test:watch    # Watch mode
 npm run test:bench    # Performance benchmarks (25 benchmarks, 6 categories)
+npm run audit:backends # Probe every configured backend with a real completion
 
 # SmartCrusher fidelity eval (opt-in, requires a running local model):
 RUN_CRUSH_EVAL=1 \
