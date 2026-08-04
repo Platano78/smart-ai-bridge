@@ -483,7 +483,7 @@ export class ModifyFileHandler extends BaseHandler {
         backupCreated: backup,
         backend_used: selectedBackend,
         processing_time: processingTime,
-        tokens_saved: this.estimateTokensSaved(originalContent.length, instructions.length)
+        tokens_saved: this.measureTokensSaved(originalContent.length, { diff, summary, stats, warnings }).tokensSaved
       });
 
     } catch (error) {
@@ -847,17 +847,6 @@ SUMMARY: [1-2 sentence description after all blocks]
       linesUnchanged: unchanged,
       changeRatio: ((added + removed) / originalLines.length).toFixed(2)
     };
-  }
-
-  /**
-   * Estimate tokens saved
-   */
-  estimateTokensSaved(originalLength, instructionsLength) {
-    // Claude would need to see the full file content + instructions
-    const withoutSAB = Math.ceil(originalLength / 4) + Math.ceil(instructionsLength / 4);
-    // With SAB, Claude only sees instructions + structured response
-    const withSAB = Math.ceil(instructionsLength / 4) + 200; // ~200 tokens for response
-    return Math.max(0, withoutSAB - withSAB);
   }
 
   /**

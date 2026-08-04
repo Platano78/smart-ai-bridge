@@ -194,7 +194,7 @@ export class AnalyzeFileHandler extends BaseHandler {
         suggestedActions: analysis.suggestedActions,
         backend_used: selectedBackend,
         processing_time: processingTime,
-        tokens_saved: this.estimateTokensSaved(content.length)
+        tokens_saved: this.measureTokensSaved(content.length, analysis).tokensSaved
       });
 
     } catch (error) {
@@ -297,16 +297,6 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
   }
 
   /**
-   * Estimate tokens saved by not sending file content to Claude
-   */
-  estimateTokensSaved(contentLength) {
-    // Rough estimation: ~4 characters per token
-    const fileTokens = Math.ceil(contentLength / 4);
-    const responseTokens = 150; // Typical structured response size
-    return Math.max(0, fileTokens - responseTokens);
-  }
-
-  /**
    * Calculate dynamic token allocation based on model speed and file size
    * @param {string} backendName - Backend identifier
    * @param {number} fileSize - File size in characters
@@ -359,12 +349,17 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
     const start = parseInt(match[1], 10), end = match[2] ? parseInt(match[2], 10) : Math.min(start + 20, content.split('\n').length);
     const lines = content.split('\n');
     const extracted = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`).join('\n');
+    const findings = [`Extracted lines ${start}-${end} (${end - start + 1} lines)`];
     return this.buildSuccessResponse({
       filePath: absolutePath, fileSize: fileStats.size, lineCount: lines.length,
       language: this.detectLanguage(absolutePath), analysisType: 'verbatim', question,
-      summary: extracted, findings: [`Extracted lines ${start}-${end} (${end - start + 1} lines)`],
+      summary: extracted, findings,
       confidence: 1.0, suggestedActions: [], backend_used: 'direct_extraction',
-      processing_time: Date.now() - startTime, tokens_saved: this.estimateTokensSaved(content.length)
+      processing_time: Date.now() - startTime,
+      // Verbatim mode returns the requested lines themselves (real content, not a
+      // summary) — measure against what's actually handed back so a request that
+      // returns most/all of the file correctly reports ~0 saved, not ~99%.
+      tokens_saved: this.measureTokensSaved(content.length, { summary: extracted, findings }).tokensSaved
     });
   }
 }

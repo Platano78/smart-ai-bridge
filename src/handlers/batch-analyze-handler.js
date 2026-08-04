@@ -86,16 +86,19 @@ export class BatchAnalyzeHandler extends BaseHandler {
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
 
-      // Calculate total input size (question + aggregated file sizes)
-      let totalInputSize = question.length;
+      // Calculate total input size (question + aggregated file sizes).
+      // totalFileChars is the real, measured size of the files actually read —
+      // used later for an honest tokens_saved figure (see measureTokensSaved).
+      let totalFileChars = 0;
       for (const filePath of files) {
         try {
           const stat = await fs.stat(filePath);
-          totalInputSize += stat.size;
+          totalFileChars += stat.size;
         } catch {
           // Skip on error
         }
       }
+      const totalInputSize = question.length + totalFileChars;
 
       // Auto-fallback if total input exceeds local limit
       const routingResult = this.selectBackend(backend, { contentLength: totalInputSize });
@@ -138,6 +141,13 @@ export class BatchAnalyzeHandler extends BaseHandler {
           }
         );
 
+        const perFileResults = results.map(r => ({
+          filePath: r.filePath,
+          summary: r.summary,
+          findingCount: r.findings?.length || 0,
+          confidence: r.confidence
+        }));
+
         return this.buildSuccessResponse({
           status: 'completed',
           filesAnalyzed: files.length,
@@ -147,14 +157,11 @@ export class BatchAnalyzeHandler extends BaseHandler {
           aggregatedFindings: aggregated.findings,
           aggregatedActions: aggregated.suggestedActions,
           overallConfidence: aggregated.confidence,
-          perFileResults: results.map(r => ({
-            filePath: r.filePath,
-            summary: r.summary,
-            findingCount: r.findings?.length || 0,
-            confidence: r.confidence
-          })),
+          perFileResults,
           processing_time: processingTime,
-          tokens_saved: this.estimateBatchTokensSaved(files.length)
+          // Measured against the real characters read across all matched files,
+          // not a fixed "average file = 2000 tokens" assumption.
+          tokens_saved: this.measureTokensSaved(totalFileChars, { aggregated, perFileResults }).tokensSaved
         });
       }
 
@@ -437,16 +444,6 @@ export class BatchAnalyzeHandler extends BaseHandler {
     }
 
     return summary;
-  }
-
-  /**
-   * Estimate tokens saved by batch processing
-   */
-  estimateBatchTokensSaved(fileCount) {
-    // Average file = 2000 tokens
-    // Without SAB: Claude sees all files = 2000 * fileCount
-    // With SAB: Claude sees only aggregated results = ~500 tokens
-    return Math.max(0, (2000 * fileCount) - 500);
   }
 
   /**

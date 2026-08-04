@@ -330,6 +330,33 @@ class BaseHandler {
   }
 
   /**
+   * Measure tokens saved: what the caller would have had to read, minus what we
+   * are actually handing back. Both sides are measured from real data — never
+   * from an assumed file size or an assumed response size.
+   *
+   * ~4 chars/token is a rough conversion and is the ONLY estimated quantity
+   * here; the input and response sizes themselves are always real measurements
+   * of what was actually read and what is actually being returned.
+   *
+   * @param {number} inputChars - Total characters of file content actually read
+   *   on the caller's behalf (sum across all files for batch operations).
+   * @param {*} responsePayload - The object (or string) actually returned to
+   *   the caller. Non-string payloads are JSON-stringified so summaries,
+   *   findings, diffs, and extracted lines all count against the saving.
+   * @returns {{tokensSaved: number, tokensSavedPercent: number, inputTokens: number, responseTokens: number}}
+   */
+  measureTokensSaved(inputChars, responsePayload) {
+    const inputTokens = Math.ceil(Math.max(0, inputChars || 0) / 4);
+    const responseStr = typeof responsePayload === 'string'
+      ? responsePayload
+      : JSON.stringify(responsePayload ?? '');
+    const responseTokens = Math.ceil((responseStr?.length || 0) / 4);
+    const tokensSaved = Math.max(0, inputTokens - responseTokens);
+    const tokensSavedPercent = inputTokens > 0 ? Math.round((tokensSaved / inputTokens) * 100) : 0;
+    return { tokensSaved, tokensSavedPercent, inputTokens, responseTokens };
+  }
+
+  /**
    * Calculate string similarity using Levenshtein distance
    * @param {string} str1 - First string
    * @param {string} str2 - Second string

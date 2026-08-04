@@ -8,7 +8,7 @@
 
 ## What It Does
 
-Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 18 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
+Smart AI Bridge is an MCP server that sits between Claude Code and your AI backends. It provides 17 tools for token-saving file operations, multi-AI workflows, code quality checks, and intelligent routing -- all configured through a single JSON file.
 
 - **Any OpenAI-compatible provider works.** Local models (vLLM, LM Studio, Ollama), cloud APIs, or a mix of both. The included presets cover common providers, but adding your own is just a config entry.
 - **Smart routing** selects the best backend per task using a 4-tier system: forced selection, learned preferences, rule-based heuristics, and health-based fallback.
@@ -60,7 +60,7 @@ You only need at least one working backend (a local model or one cloud API key).
 
 ### 4. Restart Claude Code
 
-After restarting, all 18 tools will be available. Verify with:
+After restarting, all 17 tools will be available. Verify with:
 
 ```
 @check_backend_health({ "backend": "local" })
@@ -70,14 +70,23 @@ After restarting, all 18 tools will be available. Verify with:
 
 ### Token-Saving File Operations
 
-| Tool | Savings | Description |
-|------|---------|-------------|
-| `analyze_file` | ~90% | Backend reads and analyzes files, returns structured findings |
-| `modify_file` | ~95% | Backend applies natural-language edits, returns diff |
-| `batch_analyze` | ~90%/file | Analyze multiple files via glob patterns |
-| `batch_modify` | ~95%/file | Apply same instructions across multiple files |
-| `generate_file` | ~80% | Generate code from a natural-language spec |
-| `explore` | ~90% | Answer codebase questions using intelligent search |
+| Tool | Description |
+|------|-------------|
+| `analyze_file` | Backend reads and analyzes files, returns structured findings |
+| `modify_file` | Backend applies natural-language edits, returns diff |
+| `batch_analyze` | Analyze multiple files via glob patterns |
+| `batch_modify` | Apply same instructions across multiple files |
+| `generate_file` | Generate code from a natural-language spec |
+| `explore` | Answer codebase questions using intelligent search |
+
+All but `generate_file` return a `tokens_saved` field measured for that specific call: the
+characters of file content the backend read on your behalf, minus the characters of the
+response handed back. Both sides are measured from the real data rather than assumed, so
+the figure reflects what actually happened on that call -- though the character-to-token
+conversion (~4 characters per token) is itself approximate, so treat the result as a good
+indicator rather than an exact token count. It varies enormously with file size and
+response length: a small file can save nothing at all. We publish no headline percentage
+because we have not benchmarked one we could defend.
 
 ### Multi-AI Workflows
 

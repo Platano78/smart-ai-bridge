@@ -164,33 +164,44 @@ export class RefactorHandler extends BaseHandler {
 
       // 7. Build response
       if (dryRun || review) {
+        const responsePlan = {
+          description: plan.description,
+          steps: plan.steps.map(s => s.description),
+          filesAffected: plan.files.length,
+          estimatedChanges: plan.estimatedChanges
+        };
+        const responseModifications = results.map(r => ({
+          filePath: r.filePath,
+          status: r.error ? 'error' : (dryRun ? 'dry_run' : 'pending_review'),
+          summary: r.summary,
+          diff: r.diff,
+          stats: r.stats,
+          error: r.error
+        }));
+        const responseAnalysis = {
+          occurrences: analysis.occurrences,
+          references: analysis.references,
+          impact: analysis.impact
+        };
+
         return this.buildSuccessResponse({
           status: dryRun ? 'dry_run' : 'pending_review',
           scope,
           target,
           instructions,
-          plan: {
-            description: plan.description,
-            steps: plan.steps.map(s => s.description),
-            filesAffected: plan.files.length,
-            estimatedChanges: plan.estimatedChanges
-          },
-          modifications: results.map(r => ({
-            filePath: r.filePath,
-            status: r.error ? 'error' : (dryRun ? 'dry_run' : 'pending_review'),
-            summary: r.summary,
-            diff: r.diff,
-            stats: r.stats,
-            error: r.error
-          })),
-          analysis: {
-            occurrences: analysis.occurrences,
-            references: analysis.references,
-            impact: analysis.impact
-          },
+          plan: responsePlan,
+          modifications: responseModifications,
+          analysis: responseAnalysis,
           backend_used: selectedBackend,
           processing_time: processingTime,
-          tokens_saved: this.estimateTokensSaved(targetFiles.length, scope)
+          // Measured against the real characters read while locating/analyzing
+          // the target (analysis.totalContentChars) — refactor_handler reads
+          // every target file's content in analyzeCurrentState(), so this is a
+          // real measurement, not an assumed per-file/per-scope constant.
+          tokens_saved: this.measureTokensSaved(
+            analysis.totalContentChars,
+            { plan: responsePlan, modifications: responseModifications, analysis: responseAnalysis }
+          ).tokensSaved
         });
       }
 
@@ -311,10 +322,12 @@ export class RefactorHandler extends BaseHandler {
   async analyzeCurrentState(files, target, scope) {
     const occurrences = [];
     let totalReferences = 0;
+    let totalContentChars = 0;
 
     for (const filePath of files) {
       try {
         const content = await fs.readFile(filePath, 'utf8');
+        totalContentChars += content.length;
         const lines = content.split('\n');
 
         // Find lines containing target
@@ -343,7 +356,8 @@ export class RefactorHandler extends BaseHandler {
       totalOccurrences: occurrences.length,
       references: totalReferences,
       impact,
-      filesAffected: files.length
+      filesAffected: files.length,
+      totalContentChars // real chars read across files — used for tokens_saved
     };
   }
 
@@ -553,26 +567,6 @@ IMPORTANT:
     }
 
     return REFACTOR_BACKEND_MAP[scope] || 'nvidia_glm';
-  }
-
-  /**
-   * Estimate tokens saved
-   */
-  estimateTokensSaved(fileCount, scope) {
-    // Refactoring without SAB: Claude processes all files, understands context
-    // With SAB: Claude sends instructions, local LLM does the work
-    const basePerFile = 3000; // Average refactoring context per file
-    const scopeMultiplier = {
-      function: 1,
-      class: 1.5,
-      module: 2,
-      project: 3
-    };
-
-    const withoutSAB = basePerFile * fileCount * (scopeMultiplier[scope] || 1);
-    const withSAB = 500 + (200 * fileCount); // Instructions + summaries
-
-    return Math.max(0, withoutSAB - withSAB);
   }
 
   /**

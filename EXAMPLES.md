@@ -2,7 +2,7 @@
 
 ## Token-Saving File Operations
 
-### analyze_file -- 90% Token Savings
+### analyze_file -- Token-Saving Analysis
 
 Local LLM reads and analyzes files. Claude never sees full file content, only structured findings.
 
@@ -36,7 +36,7 @@ Local LLM reads and analyzes files. Claude never sees full file content, only st
 })
 ```
 
-### modify_file -- 95% Token Savings
+### modify_file -- Token-Saving Modification
 
 Local LLM applies natural language edits. Claude reviews a small diff instead of the full file.
 

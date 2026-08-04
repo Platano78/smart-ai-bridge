@@ -81,16 +81,19 @@ export class BatchModifyHandler extends BaseHandler {
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
 
-      // Calculate total input size (instructions + aggregated file sizes for context)
-      let totalInputSize = instructions.length;
+      // Calculate total input size (instructions + aggregated file sizes for context).
+      // totalFileChars is the real, measured size of the files actually being
+      // modified — used later for an honest tokens_saved figure.
+      let totalFileChars = 0;
       for (const filePath of resolvedFiles) {
         try {
           const stat = await fs.stat(filePath);
-          totalInputSize += stat.size;
+          totalFileChars += stat.size;
         } catch {
           // Skip on error
         }
       }
+      const totalInputSize = instructions.length + totalFileChars;
 
       // Auto-fallback if total input exceeds local limit
       let effectiveBackend = backend;
@@ -161,24 +164,26 @@ export class BatchModifyHandler extends BaseHandler {
           }
         );
 
+        const reviewModifications = results.map(r => ({
+          filePath: r.filePath,
+          status: r.error ? 'error' : 'pending_review',
+          summary: r.summary,
+          diff: r.diff,
+          stats: r.stats,
+          error: r.error
+        }));
+
         return this.buildSuccessResponse({
           status: 'pending_review',
           filesProcessed: resolvedFiles.length,
           patterns: files,
           instructions,
-          modifications: results.map(r => ({
-            filePath: r.filePath,
-            status: r.error ? 'error' : 'pending_review',
-            summary: r.summary,
-            diff: r.diff,
-            stats: r.stats,
-            error: r.error
-          })),
+          modifications: reviewModifications,
           successCount: successes.length,
           failureCount: failures.length,
           processing_time: processingTime,
           approval_instructions: 'Review each modification. Use write_files_atomic to apply approved changes.',
-          tokens_saved: this.estimateBatchTokensSaved(resolvedFiles.length)
+          tokens_saved: this.measureTokensSaved(totalFileChars, reviewModifications).tokensSaved
         });
       }
 
@@ -198,23 +203,25 @@ export class BatchModifyHandler extends BaseHandler {
         }
       );
 
+      const writtenModifications = results.map(r => ({
+        filePath: r.filePath,
+        status: r.error ? 'error' : 'written',
+        summary: r.summary,
+        stats: r.stats,
+        error: r.error
+      }));
+
       return this.buildSuccessResponse({
         status: failures.length === 0 ? 'completed' : 'partial',
         filesProcessed: resolvedFiles.length,
         patterns: files,
         instructions,
-        modifications: results.map(r => ({
-          filePath: r.filePath,
-          status: r.error ? 'error' : 'written',
-          summary: r.summary,
-          stats: r.stats,
-          error: r.error
-        })),
+        modifications: writtenModifications,
         successCount: successes.length,
         failureCount: failures.length,
         transactionMode,
         processing_time: processingTime,
-        tokens_saved: this.estimateBatchTokensSaved(resolvedFiles.length)
+        tokens_saved: this.measureTokensSaved(totalFileChars, writtenModifications).tokensSaved
       });
 
     } catch (error) {
@@ -353,18 +360,6 @@ export class BatchModifyHandler extends BaseHandler {
         console.error(`[BatchModify] ⚠️ Could not restore ${filePath}: ${error.message}`);
       }
     }
-  }
-
-  /**
-   * Estimate tokens saved
-   */
-  estimateBatchTokensSaved(fileCount) {
-    // Average file = 2000 tokens + instructions
-    // Without SAB: Claude processes each file individually
-    // With SAB: Claude sends instructions once, gets summaries
-    const withoutSAB = 2000 * fileCount + 500; // Files + instructions repeated
-    const withSAB = 500 + 200 * fileCount; // Instructions once + summaries
-    return Math.max(0, withoutSAB - withSAB);
   }
 
   /**

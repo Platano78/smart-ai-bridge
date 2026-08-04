@@ -207,10 +207,14 @@ export class ExploreHandler extends BaseHandler {
       }
     }
 
+    const filesFoundArr = Array.from(filesFound);
     return {
       evidence,
-      filesFound: Array.from(filesFound),
-      tokensSaved: Math.floor(totalChars / 4) // ~4 chars per token
+      filesFound: filesFoundArr,
+      // Measured against the evidence/file list actually handed back to the
+      // caller, not the full totalChars read — counting the whole input as
+      // "saved" ignores the size of what we're actually returning.
+      tokensSaved: this.measureTokensSaved(totalChars, { evidence, filesFound: filesFoundArr }).tokensSaved
     };
   }
 
@@ -263,10 +267,12 @@ export class ExploreHandler extends BaseHandler {
       }
     }
 
+    const filesFoundArr = Array.from(filesFound);
     return {
       evidence,
-      filesFound: Array.from(filesFound),
-      tokensSaved: Math.floor(totalChars / 4)
+      filesFound: filesFoundArr,
+      // Same measured treatment as performShallowSearch (see comment above).
+      tokensSaved: this.measureTokensSaved(totalChars, { evidence, filesFound: filesFoundArr }).tokensSaved
     };
   }
 
