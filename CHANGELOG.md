@@ -5,6 +5,66 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-08-07
+
+Selective capability port from the private upstream bridge, plus two defects found
+by running things rather than reading them. The headline change: **`ask` against a
+local backend is no longer capped by default.** No tool was added or removed — the
+surface stays at 17.
+
+### Changed
+
+- **The local backend no longer caps `max_tokens`.** A default 4096-token budget is
+  inherited cloud-API economics that does not apply to hardware you own: with
+  thinking enabled, reasoning could consume the entire budget and return 200 OK with
+  empty content. `BackendAdapter` gains an overridable `omitDefaultMaxTokens` (default
+  `false`); only `LocalAdapter` opts in. **Cloud adapters are untouched and keep their
+  budgets** — they still cost money. An explicit caller-supplied `max_tokens` always
+  wins on every backend.
+- **Uncapped requests report honestly.** `ask` returns `max_tokens: 'uncapped'` and
+  `dynamic_tokens: null` rather than a number that was never sent on the wire, and the
+  token tiering is skipped entirely instead of computed and discarded. Whether a
+  backend is uncapped is derived from the adapter's own flag, not a hardcoded
+  backend-name list, so it cannot drift as backends are added or renamed.
+
+### Fixed
+
+- **Truncated reasoning no longer returns a stringified object as the answer.** When
+  llama.cpp parses reasoning (its stock `auto` default, or an explicit `deepseek`) and
+  a `<think>` block is cut off before its closing tag, the whole generation lands in
+  `reasoning_content` and `content` is empty. That empty string survived to the
+  response extractor, matched no branch, and fell through to `JSON.stringify` — so
+  callers received `{"content":"","tokens":0,...}` as the model's reply.
+  `LocalAdapter` now recovers the reasoning text. A real answer is never clobbered.
+- **Chunked continuations no longer re-impose the cap.** `performChunkedGeneration`
+  substituted an explicit 4096 whenever no budget was set, re-capping the very
+  requests meant to be uncapped. Because truncation detection fires on a trailing code
+  fence, this affected ordinary complete code answers, not just edge cases.
+- **The adapter records the model actually observed running.** `ensureModelLoaded`
+  wrote back the resolved model only when falling back to an alternative; when the
+  requested model was already loaded it returned without recording it, so
+  `detectedModel` and telemetry could attribute results to a model that was not
+  running. Failure paths deliberately still do not write back — recording there would
+  replace a stale-but-plausible value with a confidently wrong one.
+- **Council configs are validated against the runtime contract.** Convening requires
+  at least two available backends, but a one-backend config validated cleanly and then
+  failed at request time with a confusing error. Validation now enforces the minimum of
+  two and counts only *enabled* backends. It runs on config updates only, never at
+  load, so an existing server cannot be broken at startup.
+- **The backend picker no longer offers a retired alias.** `getAvailableTypes()`
+  listed `nvidia_qwen`, a legacy alias of the GLM lane, as a creatable backend type. It
+  is filtered from the picker while remaining resolvable for back-compat.
+
+### Notes
+
+- `reasoning_format` is deliberately **not** defaulted to `'deepseek'`. llama.cpp's
+  default is `auto`, which selects a parser per model family, so pinning one value
+  would be narrower rather than safer for a bridge that cannot know your model fleet —
+  and would silently override your own server-level setting.
+- Tests: 165 → 199 passing, 4 skipped, 0 failed. The dashboard key-management suite is
+  now hermetic; `npm test` no longer depends on which provider API keys happen to be
+  exported in your shell.
+
 ## [2.11.1] - 2026-08-04
 
 Documentation and measurement corrections. v2.11.0 shipped docs that described
