@@ -59,6 +59,31 @@ function getEffectiveBackends() {
   return [...base];
 }
 
+/**
+ * Get effective backends that are actually convenable right now — i.e. known AND
+ * not disabled. council-handler.js requires ≥2 of these to run; validateConfig uses
+ * this (not getEffectiveBackends) for that runtime-minimum check so a config isn't
+ * accepted with a second backend that exists but is switched off.
+ */
+function getActiveBackends() {
+  if (!_backendRegistry) {
+    // No registry wired (e.g. registry not yet linked) — enabled/disabled state is
+    // unknowable, so fall back to name-validity only rather than guessing.
+    return getEffectiveBackends();
+  }
+  try {
+    const stats = _backendRegistry.getStats();
+    const enabledNames = new Set((stats?.backends || []).filter(b => b.enabled).map(b => b.name));
+    // Base allow-list names not present in the live registry can't be confirmed
+    // enabled either, so they're excluded from "active" even though they remain
+    // valid backend names via getEffectiveBackends().
+    return getEffectiveBackends().filter(name => enabledNames.has(name));
+  } catch (e) {
+    console.error('[CouncilConfig] Failed to read registry for active backends:', e.message);
+    return getEffectiveBackends();
+  }
+}
+
 // Valid topics
 const VALID_TOPICS = [
   'coding',
@@ -185,6 +210,11 @@ class CouncilConfigManager {
   validateConfig(newConfig) {
     const errors = [];
     const effectiveBackends = getEffectiveBackends();
+    // council-handler.js's runtime contract: a topic/default can't convene with fewer
+    // than 2 available backends. Validating only "at least one" here lets a config
+    // pass that will always fail at request time — check the real minimum too.
+    const activeBackends = getActiveBackends();
+    const RUNTIME_MIN_BACKENDS = 2;
 
     // Check version
     if (typeof newConfig.version !== 'number') {
@@ -216,6 +246,18 @@ class CouncilConfigManager {
               errors.push(`Invalid backend '${backend}' in topic ${topic}. Must be one of: ${effectiveBackends.join(', ')}`);
             }
           }
+
+          // Runtime-convenability check: council-handler.js needs ≥2 AVAILABLE
+          // (enabled) backends to run a topic, not just ≥1 named in config.
+          const availableCount = config.backends.filter(b => activeBackends.includes(b)).length;
+          if (availableCount < RUNTIME_MIN_BACKENDS) {
+            const disabled = config.backends.filter(b => effectiveBackends.includes(b) && !activeBackends.includes(b));
+            errors.push(
+              `Topic ${topic} has only ${availableCount} available backend(s) but council needs ≥${RUNTIME_MIN_BACKENDS} to convene` +
+              (disabled.length ? ` (disabled: ${disabled.join(', ')})` : '') +
+              `. Available backends: ${activeBackends.join(', ') || 'none'}.`
+            );
+          }
         }
       }
     }
@@ -228,6 +270,16 @@ class CouncilConfigManager {
         if (!effectiveBackends.includes(backend)) {
           errors.push(`Invalid default backend: ${backend}`);
         }
+      }
+
+      const availableDefaults = newConfig.defaults.filter(b => activeBackends.includes(b)).length;
+      if (availableDefaults < RUNTIME_MIN_BACKENDS) {
+        const disabledDefaults = newConfig.defaults.filter(b => effectiveBackends.includes(b) && !activeBackends.includes(b));
+        errors.push(
+          `defaults has only ${availableDefaults} available backend(s) but council needs ≥${RUNTIME_MIN_BACKENDS} to convene` +
+          (disabledDefaults.length ? ` (disabled: ${disabledDefaults.join(', ')})` : '') +
+          `. Available backends: ${activeBackends.join(', ') || 'none'}.`
+        );
       }
     }
 
@@ -356,5 +408,6 @@ export {
   VALID_TOPICS,
   VALID_STRATEGIES,
   setBackendRegistry,
-  getEffectiveBackends
+  getEffectiveBackends,
+  getActiveBackends
 };
