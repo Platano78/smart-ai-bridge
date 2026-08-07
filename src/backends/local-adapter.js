@@ -613,6 +613,20 @@ class LocalAdapter extends BackendAdapter {
    */
   parseResponse(response) {
     const result = super.parseResponse(response);
+
+    // super.parseResponse() treats an empty-string `content` as a real (if unhelpful)
+    // answer via `??` (backend-adapter.js), deliberately, so it never falls through to
+    // reasoning_content there. But llama.cpp's reasoning parser (its default 'auto', or
+    // an explicit 'deepseek') can land the ENTIRE generation in reasoning_content when a
+    // <think> block gets truncated before its closing tag — leaving `content` genuinely
+    // empty. Recover that case here rather than letting the caller see empty content.
+    if (typeof result.content === 'string' && result.content.trim().length === 0) {
+      const reasoningContent = response.choices?.[0]?.message?.reasoning_content;
+      if (typeof reasoningContent === 'string' && reasoningContent.trim().length > 0) {
+        result.content = reasoningContent;
+      }
+    }
+
     result.metadata = {
       ...result.metadata,
       model: response.model || this.modelId || 'local',
