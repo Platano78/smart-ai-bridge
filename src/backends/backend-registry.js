@@ -59,6 +59,12 @@ const ADAPTER_CLASSES = {
   'groq': GroqAdapter
 };
 
+// Retired aliases kept in ADAPTER_CLASSES/FRIENDLY_NAME_MAP for back-compat resolution
+// only — they must not be offered as a creatable type (e.g. the dashboard's add-backend
+// picker). getAvailableTypes() filters these out; getAdapter()/getBackend() still resolve
+// them via FRIENDLY_NAME_MAP.
+const DEPRECATED_TYPES = new Set(['nvidia_qwen']);
+
 /**
  * Load backends from the main config file (single source of truth)
  * @returns {Object} Backend configurations
@@ -821,7 +827,7 @@ class BackendRegistry {
    * @returns {string[]}
    */
   getAvailableTypes() {
-    return Object.keys(ADAPTER_CLASSES);
+    return Object.keys(ADAPTER_CLASSES).filter(type => !DEPRECATED_TYPES.has(type));
   }
 }
 
