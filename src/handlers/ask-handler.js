@@ -119,18 +119,32 @@ class AskHandler extends BaseHandler {
       selectedBackend = 'local';
     }
 
-    // Dynamic token optimization
-    const dynamicTokens = this.calculateDynamicTokens(prompt, selectedBackend);
-    const finalMaxTokens = max_tokens || dynamicTokens;
+    // Dynamic token optimization. Skip the tiering entirely for a local-fleet backend
+    // when the caller passed no explicit max_tokens — local hardware isn't billed
+    // per-token, so imposing a computed cap here would just re-introduce the capping
+    // behavior LocalAdapter/BackendAdapter deliberately omit by default. Derived from
+    // the adapter's own omitDefaultMaxTokens flag (not a hardcoded backend-name list)
+    // so it can't drift as backends are added/renamed.
+    const selectedAdapter = this.router?.backends?.getAdapter?.(selectedBackend);
+    const isUncappedBackend = !max_tokens && selectedAdapter?.omitDefaultMaxTokens === true;
+
+    // Skip the tiering computation entirely when uncapped — its result would only be
+    // discarded, and reporting a discarded number back to the caller (dynamic_tokens)
+    // is exactly the misleading-budget defect the 'uncapped' sentinel exists to avoid.
+    const dynamicTokens = isUncappedBackend ? null : this.calculateDynamicTokens(prompt, selectedBackend);
+    const finalMaxTokens = isUncappedBackend ? null : (max_tokens || dynamicTokens);
+    // Truthful sentinel for response fields — finalMaxTokens is null when uncapped,
+    // and reporting a number here would claim a budget that was never sent on the wire.
+    const reportedMaxTokens = finalMaxTokens === null ? 'uncapped' : finalMaxTokens;
 
     const options = {
       thinking,
-      maxTokens: finalMaxTokens,
+      maxTokens: finalMaxTokens ?? undefined,
       forceBackend: force_backend,
       routerModel: routerModelProfile  // Pass router profile name as model for router mode
     };
 
-    console.error(`🚀 MULTI-AI: Processing ${model} → ${selectedBackend} with ${finalMaxTokens} tokens`);
+    console.error(`🚀 MULTI-AI: Processing ${model} → ${selectedBackend} with ${reportedMaxTokens} tokens`);
 
     const startTime = Date.now();
 
@@ -155,7 +169,7 @@ class AskHandler extends BaseHandler {
           backend_used: responseHeaders['X-AI-Backend'] || selectedBackend,
           fallback_chain: responseHeaders['X-Fallback-Chain'] || 'none',
           thinking_enabled: thinking,
-          max_tokens: finalMaxTokens,
+          max_tokens: reportedMaxTokens,
           dynamic_tokens: dynamicTokens,
           chunked: true,
           processing_time: processingTime
@@ -211,7 +225,7 @@ class AskHandler extends BaseHandler {
         response_time: responseHeaders['X-Response-Time'],
         cache_status: responseHeaders['X-Cache-Status'] || 'MISS',
         thinking_enabled: thinking,
-        max_tokens: finalMaxTokens,
+        max_tokens: reportedMaxTokens,
         dynamic_tokens: dynamicTokens,
         was_truncated: wasTruncated,
         smart_routing_applied: !force_backend && (selectedBackend !== requestedBackend),
@@ -270,8 +284,11 @@ class AskHandler extends BaseHandler {
       /^\s*$/.test(content.slice(-100)) // Ends with whitespace
     ];
 
+    // maxTokens is null/undefined for uncapped (local-fleet) requests — there's no
+    // limit to be "near", so skip the numeric check explicitly rather than relying on
+    // NaN comparisons always evaluating false.
     const estimatedTokens = this.estimateTokens(content);
-    const nearLimit = estimatedTokens >= maxTokens * 0.95;
+    const nearLimit = maxTokens != null && estimatedTokens >= maxTokens * 0.95;
 
     return nearLimit || truncationIndicators.some(pattern =>
       typeof pattern === 'object' ? pattern.test(content) : false
@@ -292,10 +309,12 @@ class AskHandler extends BaseHandler {
         ? continuation
         : `Continue from: "${chunks[chunks.length - 1].slice(-100)}"\n\nOriginal task: ${prompt.substring(0, 200)}`;
 
-      const response = await this.makeRequest(chunkPrompt, backend, {
-        ...options,
-        maxTokens: options.maxTokens || 4096
-      });
+      // options.maxTokens is already the resolved value from execute() — a real
+      // number when capped, or deliberately absent (undefined) when uncapped. The
+      // old `options.maxTokens || 4096` fallback substituted an EXPLICIT 4096 for an
+      // uncapped request (undefined is falsy), re-imposing the cap item 1.1a removed.
+      // Passing options through unchanged preserves both cases correctly.
+      const response = await this.makeRequest(chunkPrompt, backend, { ...options });
 
       const content = this.extractResponseText(response);
       chunks.push(content);

@@ -36,6 +36,10 @@ class LocalAdapter extends BackendAdapter {
       ...stripUndefined(config)
     });
 
+    // Local hardware is user-owned, not billed per-token — never silently cap
+    // generation length. See BackendAdapter.omitDefaultMaxTokens.
+    this.omitDefaultMaxTokens = true;
+
     // Model will be discovered dynamically from /v1/models
     this.model = config.model || null;
     this.modelId = null;  // The actual model ID from server
@@ -418,6 +422,9 @@ class LocalAdapter extends BackendAdapter {
       modelToUse = loadedModel;
     }
 
+    // requestedTokens sizes the TIMEOUT below regardless of whether a cap is sent on
+    // the wire — an uncapped generation still needs the dynamic (longer) timeout, not
+    // the short static one, or it will time out sooner than the capped case did.
     const requestedTokens = options.maxTokens !== undefined
       ? options.maxTokens
       : this.config.maxTokens;
@@ -425,10 +432,16 @@ class LocalAdapter extends BackendAdapter {
     const body = {
       model: modelToUse,
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: requestedTokens,
       temperature: options.temperature || 0.7,
       stream: false
     };
+
+    // Only emit max_tokens on the wire when the caller explicitly asked for a cap.
+    // Local models run on hardware the user owns; capping by default risks the
+    // response getting cut off mid-reasoning for no cost benefit.
+    if (options.maxTokens !== undefined) {
+      body.max_tokens = options.maxTokens;
+    }
 
     // Opt-in: suppress reasoning/thinking emission for qwen3-family + similar
     // models whose chat template defaults thinking=true. Without this, max_tokens

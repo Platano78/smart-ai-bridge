@@ -109,6 +109,14 @@ class BackendAdapter {
 
     /** @type {number|null} */
     this.circuitOpenedAt = null;
+
+    // When true, buildRequestBody omits max_tokens entirely unless the caller passed
+    // an explicit options.maxTokens. Cloud adapters never opt in — their token budgets
+    // are cost-relevant and must stay as-is. LocalAdapter opts in (see local-adapter.js):
+    // capping generation on hardware the user owns is a user-hostile default, not a
+    // cost control.
+    /** @type {boolean} */
+    this.omitDefaultMaxTokens = false;
   }
 
   /**
@@ -386,12 +394,22 @@ class BackendAdapter {
    * @returns {Object}
    */
   buildRequestBody(prompt, options) {
-    return {
+    const body = {
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: options.maxTokens || this.config.maxTokens,
       temperature: options.temperature || 0.7,
       stream: options.stream || this.config.streaming
     };
+
+    // An explicit caller-supplied maxTokens always wins. Otherwise, only fall back to
+    // the configured default when this adapter hasn't opted out of capping (see
+    // omitDefaultMaxTokens above) — omitting the key entirely, not sending null/undefined.
+    if (options.maxTokens !== undefined) {
+      body.max_tokens = options.maxTokens;
+    } else if (!this.omitDefaultMaxTokens) {
+      body.max_tokens = this.config.maxTokens;
+    }
+
+    return body;
   }
 
   /**
