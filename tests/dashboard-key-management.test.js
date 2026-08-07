@@ -216,13 +216,24 @@ describe('saveConfig() never writes an apiKey (S1)', () => {
   });
 });
 
+// Provider env vars that resolveBackendKey() (src/backends/provider-endpoints.js)
+// falls back to, per PROVIDER_ENDPOINTS. A real dev machine may have any of
+// these exported for unrelated projects, which would falsely satisfy
+// "configured" via the env fallback and break the "not configured" /
+// "falls back to none after delete" assertions below. Isolate them for the
+// duration of this suite only.
+const PROVIDER_ENV_VARS = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'NVIDIA_API_KEY'];
+
 describe('dashboard key-management endpoints', () => {
   let tmpDir;
   let tmpFile;
   let dashboard;
   let baseUrl;
+  const origEnv = { ...process.env };
 
   beforeEach(async () => {
+    for (const name of PROVIDER_ENV_VARS) delete process.env[name];
+
     tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sab-secrets-'));
     tmpFile = path.join(tmpDir, 'backends-secrets.json');
     redirectSecretsPath(tmpFile);
@@ -256,6 +267,7 @@ describe('dashboard key-management endpoints', () => {
   afterEach(async () => {
     await dashboard.stop();
     vi.restoreAllMocks();
+    process.env = { ...origEnv };
     await fsPromises.rm(tmpDir, { recursive: true, force: true });
   });
 
