@@ -1,10 +1,10 @@
-# Smart AI Bridge v2.11.0 - Extension Guide
+# Smart AI Bridge v2.12.0 - Extension Guide
 
 ## Adding New Backends
 
 ### Overview
 
-Smart AI Bridge v2.11.0 uses a config-driven backend system. Adding a new backend requires:
+Smart AI Bridge v2.12.0 uses a config-driven backend system. Adding a new backend requires:
 
 1. Creating an adapter class (or reusing an existing one like `openai`)
 2. Registering it in `src/config/backends.json`
@@ -116,6 +116,11 @@ export class CustomAdapter extends BackendAdapter {
       throw new Error(`Custom API error: ${response.status} ${response.statusText}`);
     }
 
+    // NOTE: the `max_tokens` line above is correct for a metered cloud API, where a
+    // default budget is cost control. If your adapter targets hardware the user owns,
+    // set `this.omitDefaultMaxTokens = true` in the constructor instead — see
+    // "Opting out of the default token cap" below.
+
     const data = await response.json();
     const latency = Date.now() - startTime;
 
@@ -193,6 +198,42 @@ const ADAPTER_CLASSES = {
   }
 }
 ```
+
+### Opting out of the default token cap
+
+`BackendAdapter` applies `config.maxTokens` as a default `max_tokens` on every request.
+That is right for a metered API and wrong for a backend running on hardware the user
+owns, where a cap buys nothing and can truncate a response mid-reasoning.
+
+If your adapter targets local/self-hosted inference, opt out in the constructor:
+
+```javascript
+class MyLocalAdapter extends BackendAdapter {
+  constructor(config) {
+    super(config);
+    this.omitDefaultMaxTokens = true;  // default is false
+  }
+}
+```
+
+With the flag set, `buildRequestBody()` omits `max_tokens` **entirely** — the key is
+absent, not `null` or `undefined` — unless the caller passed an explicit
+`options.maxTokens`, which always wins. Leave the flag alone (`false`) for any adapter
+that costs money per token.
+
+Two things to get right if you build the request body yourself rather than calling
+`buildRequestBody()`:
+
+- **Still size your timeout from `config.maxTokens`.** If you derive the timeout from
+  the now-absent wire value, an uncapped generation falls to the short static timeout
+  and times out *sooner* than a capped one would have.
+- **Don't substitute a fallback number on absence.** With this flag, an absent
+  `maxTokens` means "deliberately uncapped", not "caller forgot" — so
+  `options.maxTokens || 4096` re-imposes the cap you just removed.
+
+Handlers can detect this class of backend generically via
+`registry.getAdapter(name)?.omitDefaultMaxTokens` rather than testing backend names,
+which drift as backends are added and renamed.
 
 ## Adding New Tools
 
@@ -452,7 +493,7 @@ _extractContext(prompt, options) {
 }
 ```
 
-## Current Tool Categories (v2.11.0)
+## Current Tool Categories (v2.12.0)
 
 | Category | Tools | Count |
 |----------|-------|-------|

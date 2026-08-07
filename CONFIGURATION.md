@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.11.0 - Configuration Guide
+# Smart AI Bridge v2.12.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -6,10 +6,15 @@
 
 All backend configuration lives in `src/config/backends.json`. This file is loaded by the `BackendRegistry` at startup and defines every backend, its adapter type, priority, and connection details.
 
+> The file's own top-level `version` field is **not** the product version and is not
+> used for gating — it has read `2.0.0` since the file was introduced. The product
+> version lives in `package.json`. Shown below as it actually is, so this example
+> matches the real file.
+
 ```json
 {
-  "version": "2.11.0",
-  "description": "Smart AI Bridge v2.11.0 Backend Configuration",
+  "version": "2.0.0",
+  "description": "Smart AI Bridge v2.0.0 Backend Configuration",
   "backends": {
     "local": {
       "type": "local",
@@ -116,9 +121,26 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 | `strengths` | string | What the backend excels at |
 | `config.url` | string | API endpoint URL |
 | `config.model` | string | Model identifier |
-| `config.maxTokens` | number | Maximum response tokens |
+| `config.maxTokens` | number | Maximum response tokens. **On the `local` backend this no longer caps the request** (see below) — it only sizes the dynamic request timeout. An explicit `max_tokens` from the caller still applies on every backend. |
 | `config.timeout` | number | Request timeout in milliseconds |
 | `config.apiKey` | string | API key (or `$ENV_VAR_NAME` to read from environment) |
+
+### Token caps and the local backend
+
+As of v2.12.0 the `local` backend does **not** send a default `max_tokens`. A cap is
+cloud-API cost control, and it does not apply to hardware you own — with thinking
+enabled, a small budget could be consumed entirely by reasoning, returning `200 OK`
+with empty content.
+
+- **Local:** no `max_tokens` is sent unless the caller passes one explicitly. `ask`
+  reports `max_tokens: "uncapped"` and `dynamic_tokens: null` in that case.
+- **Cloud backends:** unchanged — they still apply `config.maxTokens`, because they
+  cost money per token.
+- **Either way**, an explicit `max_tokens` from the caller always wins.
+
+`config.maxTokens` is still read on the local backend to size the request timeout, so
+long uncapped generations get the longer dynamic timeout rather than the short static
+one. Lowering it will shorten that timeout even though it no longer caps output.
 
 ### Custom Backends
 
@@ -433,10 +455,10 @@ After modifying `backends.json`, verify the server starts correctly:
 ```bash
 node src/server.js 2>&1 | head -5
 # Expected output:
-# Smart AI Bridge v2.11.0 starting...
+# Smart AI Bridge v2.12.0 starting...
 # [BackendRegistry] Initialized 6 backends from backends.json
 # [Router] MultiAIRouter initialized
-# Smart AI Bridge v2.11.0 connected via stdio
+# Smart AI Bridge v2.12.0 connected via stdio
 # Tools: 17 | Backends: 6
 ```
 
