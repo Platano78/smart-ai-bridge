@@ -193,6 +193,10 @@ class LocalAdapter extends BackendAdapter {
 
       // Check if requested model is loaded
       if (loadedModels.some(m => m.id === requestedModel)) {
+        // Record what was actually observed running, so detectedModel/telemetry
+        // (parseResponse) attribute results to the confirmed model, not a stale value.
+        this.model = requestedModel;
+        this.modelId = requestedModel;
         return requestedModel;
       }
 
