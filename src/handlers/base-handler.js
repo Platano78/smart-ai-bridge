@@ -104,21 +104,19 @@ class BaseHandler {
   }
 
   /**
-   * Get context limit for a backend (in characters, ~4 chars per token)
-   * @param {string} backendName - Backend identifier
+   * Final-fallback context limit (in characters, ~4 chars per token), only
+   * reached when a backend's capacity is neither DISCOVERED nor CONFIGURED
+   * (see _resolveCapacity). One deliberately conservative constant — 32K
+   * tokens — rather than a per-backend table: a name-keyed table invents
+   * facts that rot, and at this point in the chain nothing is known about
+   * the backend. Erring small produces an honest refusal naming the limit,
+   * recoverable by declaring `context_limit` in backends.json; erring large
+   * ships payloads the provider silently truncates.
+   * @param {string} [backendName] - unused; kept for call-site stability
    * @returns {number} Context limit in characters
    */
   getBackendContextLimit(backendName) {
-    const contextLimits = {
-      'local': 512000,           // 128K tokens * 4 = 512K chars (YARN extended)
-      'nvidia_deepseek': 128000, // 32K tokens * 4 = 128K chars
-      'nvidia_glm': 128000,      // 32K tokens * 4 = 128K chars
-      'gemini': 128000,          // 32K tokens * 4 = 128K chars
-      'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'openai_chatgpt': 512000   // 128K tokens * 4 = 512K chars, matching the 128K context declared
-                                 // in backends.json; not confirmed against a live provider response
-    };
-    return contextLimits[backendName] || 128000;
+    return 128000;
   }
 
   /**
@@ -145,8 +143,8 @@ class BaseHandler {
    *        (tokens * 4) purely for capacityFor's char-denominated callers.
    *     2. CONFIGURED — the backend's `context_limit` from the registry
    *        config (tokens), if one is set.
-   *     3. CONSERVATIVE DEFAULT — the static per-backend table in
-   *        getBackendContextLimit(), unchanged, as the final fallback.
+   *     3. CONSERVATIVE DEFAULT — the single fallback constant in
+   *        getBackendContextLimit(), as the final fallback.
    *   Response headroom: when discovery yields a real output limit, that
    *   actual number is reserved instead of the flat 10% (matching the
    *   reserve this repo already used in generate-file-handler's cloud

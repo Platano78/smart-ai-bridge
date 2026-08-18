@@ -62,9 +62,9 @@ describe('findBackendWithCapacity', () => {
 });
 
 describe('getBackendContextLimit', () => {
-  it('resolves openai_chatgpt to 512000, and the dead "chatgpt" alias to the 128000 default', () => {
+  it('resolves every name — known, unknown, or dead alias — to the one conservative constant', () => {
     const handler = stubbedAnalyzeHandler();
-    expect(handler.getBackendContextLimit('openai_chatgpt')).toBe(512000);
+    expect(handler.getBackendContextLimit('openai_chatgpt')).toBe(128000);
     expect(handler.getBackendContextLimit('chatgpt')).toBe(128000);
   });
 });
@@ -76,10 +76,10 @@ describe('capacityFor', () => {
     expect(await handler.capacityFor('auto')).toBe(85196);
   });
 
-  it('resolves cloud backends to 90% of their static caps, reserving response headroom', async () => {
+  it('resolves cloud backends to 90% of the fallback constant, reserving response headroom', async () => {
     const handler = stubbedAnalyzeHandler();
     expect(await handler.capacityFor('nvidia_glm')).toBe(115200); // 128000 * 0.9
-    expect(await handler.capacityFor('openai_chatgpt')).toBe(460800); // 512000 * 0.9
+    expect(await handler.capacityFor('openai_chatgpt')).toBe(115200); // 128000 * 0.9
   });
 });
 

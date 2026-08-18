@@ -71,6 +71,7 @@
       "enabled": true,
       "priority": 5,
       "description": "OpenAI GPT-5.2 (premium reasoning, 128K context)",
+      "context_limit": 131072,
       "config": {
         "maxTokens": 128000,
         "timeout": 120000
