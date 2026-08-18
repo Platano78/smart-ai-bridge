@@ -143,7 +143,9 @@ const CACHE_TTL = 60000; // 1 minute - short TTL for experimentation flexibility
  *   Normalized at discovery time so consumers never have to divide by `slots`.
  * @property {number} slots - Parallel slots available
  * @property {string[]} capabilities - Inferred capabilities
- * @property {boolean} isOrchestrator - Whether this is an orchestrator model
+ * @property {boolean} isOrchestrator - Always false from discovery: a server
+ *   never reports a lane's ROLE. Operator-declared exclusion is applied via
+ *   capability-matcher.isExcludedFromSubagent where the config is in scope.
  * @property {string} endpoint - Full endpoint URL
  */
 
@@ -320,7 +322,6 @@ async function discoverModelOnPort(port, timeout = 2000) {
 
           // Infer capabilities from actual metadata
           model.capabilities = inferCapabilitiesFromMetadata(model);
-          model.isOrchestrator = checkIfOrchestrator(model);
 
           return model;
         });
@@ -381,7 +382,6 @@ async function discoverModelOnPort(port, timeout = 2000) {
 
     // Infer capabilities from actual metadata
     model.capabilities = inferCapabilitiesFromMetadata(model);
-    model.isOrchestrator = checkIfOrchestrator(model);
 
     // Cache the result
     modelCache.set(port, { model, timestamp: Date.now() });
@@ -411,31 +411,6 @@ function inferCapabilitiesFromMetadata(model) {
   return resolveModelCapabilities(model || {});
 }
 
-/**
- * Check if model is an orchestrator (should be excluded from subagent work)
- * @param {Object} model - Model info
- * @returns {boolean}
- */
-function checkIfOrchestrator(model) {
-  const name = (model.modelAlias || '').toLowerCase();
-  const path = (model.modelPath || '').toLowerCase();
-
-  // Check name
-  if (/orchestrator/i.test(name) || /orchestrator/i.test(path)) {
-    return true;
-  }
-
-  // Small context + small params = likely orchestrator
-  // Orchestrators are typically 8B or less with minimal context
-  if (model.nParams > 0 && model.nParams <= 10e9 && model.nCtx <= 4096) {
-    // Additional check: if name contains "orchestrator", it's definitely one
-    if (/orchestrator/i.test(`${name}${path}`)) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 /**
  * Discover all running llama-server instances on given ports
@@ -463,7 +438,20 @@ async function discoverAllModels(ports = DEFAULT_SCAN_PORTS, timeout = 2000) {
 }
 
 /**
- * Discover models suitable for subagent work (excludes orchestrators)
+ * Discover models suitable for subagent work.
+ *
+ * Discovery does NOT classify a model's ROLE. It cannot: a server reports
+ * structural facts (context size, template caps, modalities) and never "this
+ * lane is a router, keep it out of subagent work". That is an operator
+ * decision, declared as `excludeFromSubagent` on the backend's config and
+ * applied where the config is actually in scope (see
+ * capability-matcher.isExcludedFromSubagent).
+ *
+ * The heuristic that used to live here tested /orchestrator/i against the model
+ * name and path, with a `nParams <= 10e9 && nCtx <= 4096` branch that re-tested
+ * the same regex the first branch had already caught — so the size test could
+ * never independently fire. It was a name check wearing a param-count disguise,
+ * and it silently dropped any model whose name happened to contain the word.
  * @param {number[]} [ports=DEFAULT_SCAN_PORTS] - Ports to scan
  * @returns {Promise<DiscoveredModel[]>}
  */
@@ -1032,7 +1020,6 @@ export {
   findBestLocalModel,
   inferCapabilitiesFromMetadata,
   inferParamsFromName,
-  checkIfOrchestrator,
   clearCache,
   getModelSummary,
   getRouterSlotCount,

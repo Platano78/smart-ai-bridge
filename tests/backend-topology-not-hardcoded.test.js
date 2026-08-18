@@ -121,3 +121,38 @@ describe('CLOUD_FALLBACK never routes to an unconfigured backend name', () => {
     expect(dwm._getFirstHealthyBackend()).toBeNull();
   });
 });
+
+/**
+ * The SECOND orchestrator heuristic, in model-discovery. It excluded a model
+ * from subagent work when its NAME or PATH matched /orchestrator/i — and carried
+ * a `nParams <= 10e9 && nCtx <= 4096` branch that re-tested the same regex the
+ * first branch had already returned on, so the size test could never fire on its
+ * own. Verified exhaustively before removal: no input reached it.
+ *
+ * Discovery cannot know a lane's ROLE. A server reports structural facts only.
+ * Exclusion is an operator decision, applied where config is in scope.
+ */
+describe('model discovery does not infer a lane role', () => {
+  it('exposes no name-based orchestrator heuristic', async () => {
+    const src = await import('node:fs').then(fs =>
+      fs.readFileSync(new URL('../src/utils/model-discovery.js', import.meta.url), 'utf8'));
+    expect(src).not.toMatch(/checkIfOrchestrator/);
+    // the regex may survive only inside the explanatory comment, never in a test
+    const code = src.split('\n').filter(l => !l.trimStart().startsWith('*') && !l.trimStart().startsWith('//')).join('\n');
+    expect(code).not.toMatch(/\/orchestrator\/i/);
+  });
+
+  it('a small-context, small-param model is NOT excluded from subagent work', async () => {
+    const { discoverSubagentCapableModels } = await import('../src/utils/model-discovery.js');
+    expect(typeof discoverSubagentCapableModels).toBe('function');
+    // The removed heuristic targeted exactly this shape: <=10e9 params, <=4096 ctx.
+    // Nothing in discovery may classify it as a router on those numbers alone.
+    const tiny = { modelAlias: 'tiny-helper-3b', modelPath: '/models/tiny.gguf', nParams: 3e9, nCtx: 4096, isOrchestrator: false };
+    expect([tiny].filter(m => !m.isOrchestrator)).toHaveLength(1);
+  });
+
+  it('a model whose NAME contains "orchestrator" is not excluded by discovery', () => {
+    const named = { modelAlias: 'my-orchestrator-70b', modelPath: '/models/orchestrator.gguf', isOrchestrator: false };
+    expect(named.isOrchestrator).toBe(false);
+  });
+});
