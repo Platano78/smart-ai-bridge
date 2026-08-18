@@ -6,6 +6,8 @@
  * suggested tools, and behavior configuration.
  */
 
+import { CAPABILITIES, getBackendCapabilities } from '../utils/capability-matcher.js';
+
 /**
  * @typedef {Object} RoleTemplate
  * @property {string} description - Role description
@@ -18,6 +20,65 @@
  * @property {number} [maxTokens] - Maximum response tokens
  * @property {string} [preferred_backend] - Preferred AI backend
  */
+
+/** @type {Object|null} Live BackendRegistry, wired at server startup. */
+let _backendRegistry = null;
+
+/**
+ * Wire the live BackendRegistry so fallback_order / routing_rules.*.prefer
+ * getters below resolve against what is actually configured, at whatever
+ * moment they're read — never against names baked in at module-load time.
+ * Same pattern as council-config-manager.js#setBackendRegistry.
+ * @param {Object} registry - BackendRegistry instance
+ */
+function setBackendRegistry(registry) {
+  _backendRegistry = registry;
+}
+
+/**
+ * A role names what it NEEDS (its own `required_capabilities`, or an
+ * explicit capability for a routing_rules override) — never a backend name.
+ * This resolves that need against what is actually usable right now.
+ *
+ * Ordering: usable backends whose declared/known capabilities intersect
+ * `capabilities` come first, but EVERY other usable backend is still
+ * appended after them — an operator whose one configured backend matches
+ * nothing must still get a working (non-empty) roster, not an empty one,
+ * since findBestBackend's own capability scoring is what actually picks
+ * among them; fallback_order is consulted only if that scoring finds
+ * nothing.
+ * @param {string[]} capabilities - Required/preferred capability values
+ * @returns {string[]} Usable backend names, matching capability first
+ */
+function resolveFallbackOrder(capabilities) {
+  const usable = _backendRegistry?.getUsableBackends?.() || [];
+  if (usable.length === 0) return [];
+
+  const matches = (name) => {
+    const caps = _backendRegistry.getBackend?.(name)?.capabilities || getBackendCapabilities(name);
+    return capabilities.some(c => caps?.includes(c));
+  };
+  const preferred = usable.filter(matches);
+  const rest = usable.filter(name => !preferred.includes(name));
+  return [...preferred, ...rest];
+}
+
+/**
+ * First usable backend that has a specific capability, or null — the
+ * capability-based replacement for a `routing_rules.*.prefer` name literal.
+ * findBestBackend only applies a rule when `availableBackends.includes(rule.prefer)`,
+ * so returning null here is a safe no-op: the rule is simply skipped and
+ * normal capability scoring decides instead.
+ * @param {string} capability
+ * @returns {string|null}
+ */
+function resolveBackendForCapability(capability) {
+  const usable = _backendRegistry?.getUsableBackends?.() || [];
+  return usable.find(name => {
+    const caps = _backendRegistry.getBackend?.(name)?.capabilities || getBackendCapabilities(name);
+    return caps?.includes(capability);
+  }) || null;
+}
 
 /**
  * Available role templates
@@ -64,7 +125,7 @@ Provide constructive feedback with specific line numbers and improvement suggest
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_glm', 'gemini']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   'security-auditor': {
@@ -114,7 +175,7 @@ For each finding, provide:
     // Dynamic capability-based backend selection
     required_capabilities: ['deep_reasoning', 'security_focus'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_glm']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   'planner': {
@@ -168,11 +229,21 @@ Create clear, actionable plans that developers can follow immediately.`,
     // Dynamic capability-based backend selection with context awareness
     required_capabilities: ['deep_reasoning'],
     context_sensitivity: 'high',  // Triggers context-based routing
-    fallback_order: ['local', 'nvidia_deepseek', 'nvidia_glm'],
-    // Context-aware routing rules
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); },
+    // Context-aware routing rules — capability, not a backend name; see
+    // resolveBackendForCapability. findBestBackend only applies a rule when
+    // its resolved `prefer` is present in availableBackends, so a null here
+    // (nothing usable has the capability) safely falls through to normal
+    // capability scoring instead.
     routing_rules: {
-      small_task: { prefer: 'nvidia_deepseek', reason: 'Deep reasoning for architecture' },
-      large_context: { prefer: 'local', reason: '128K context for large codebases' }
+      small_task: {
+        get prefer() { return resolveBackendForCapability(CAPABILITIES.DEEP_REASONING); },
+        reason: 'Deep reasoning for architecture'
+      },
+      large_context: {
+        get prefer() { return resolveBackendForCapability(CAPABILITIES.LARGE_CONTEXT); },
+        reason: '128K context for large codebases'
+      }
     }
   },
 
@@ -220,7 +291,7 @@ Provide refactored code with clear before/after comparisons and explanations.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_glm', 'gemini']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   'test-generator': {
@@ -267,7 +338,7 @@ Use appropriate testing frameworks and follow testing best practices.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_glm', 'gemini']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   'documentation-writer': {
@@ -312,7 +383,7 @@ Write for developers with varying experience levels.`,
     // Dynamic capability-based backend selection
     required_capabilities: ['fast_generation', 'documentation'],
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_glm', 'gemini']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   // ===========================================
@@ -355,7 +426,7 @@ Output ONLY JSON. No markdown. No explanation.`,
     maxTokens: 4096,  // Increased from 2048 to handle complex decompositions (8+ tasks)
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_glm']  // Worker-class models only
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); } // Worker-class models only
   },
 
   'tdd-test-writer': {
@@ -396,7 +467,7 @@ OUTPUT: Complete, runnable test code with imports, fixtures, and comprehensive d
     maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   'tdd-implementer': {
@@ -435,7 +506,7 @@ OUTPUT: Complete, working, production-quality implementation code with docstring
     maxTokens: 16384,
     required_capabilities: ['code_specialized'],
     context_sensitivity: 'medium',
-    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   },
 
   // Special meta-role: auto-selects best role using orchestrator
@@ -487,7 +558,7 @@ If it works and is readable, score 80+. Only iterate for real issues.`,
     maxTokens: 2048,  // Reduced - only needs JSON output
     required_capabilities: ['code_specialized'],  // Changed from deep_reasoning
     context_sensitivity: 'low',
-    fallback_order: ['local', 'nvidia_glm', 'nvidia_deepseek']
+    get fallback_order() { return resolveFallbackOrder(this.required_capabilities); }
   }
 };
 
@@ -523,5 +594,6 @@ export {
   roleTemplates,
   getAvailableRoles,
   getRoleTemplate,
-  getRolesByCategory
+  getRolesByCategory,
+  setBackendRegistry
 };

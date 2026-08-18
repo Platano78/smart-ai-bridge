@@ -39,6 +39,7 @@ import { PatternRAGStore } from './intelligence/pattern-rag-store.js';
 import ConversationThreading from './threading/conversation-threading.js';
 import { UsageAnalytics } from './monitoring/usage-analytics.js';
 import { setBackendRegistry } from './config/council-config-manager.js';
+import { setBackendRegistry as setRoleTemplateRegistry } from './config/role-templates.js';
 import { crushToolResult, DEFAULT_CRUSHER_CONFIG } from './compression/smartCrush.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -100,6 +101,10 @@ try {
 
 // ── 2. Link council config to backend registry ──────────────────
 setBackendRegistry(backendRegistry);
+// Role templates resolve their fallback_order / routing_rules from CAPABILITY against
+// whatever the operator actually configured. Without this wiring they resolve to empty
+// — safe, but inert: every role would silently lose its backend preferences.
+setRoleTemplateRegistry(backendRegistry);
 
 // ── 3. Initialize compound learning engine (routing intelligence) ─
 const compoundLearning = new CompoundLearningEngine({
