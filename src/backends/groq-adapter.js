@@ -9,6 +9,7 @@
  * Smart AI Bridge v2.0.0
  */
 
+import { PROVIDER_ENDPOINTS } from './provider-endpoints.js';
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 
 class GroqAdapter extends BackendAdapter {
@@ -16,7 +17,7 @@ class GroqAdapter extends BackendAdapter {
     super({
       name: 'groq_llama',
       type: 'groq',
-      url: config.url || 'https://api.groq.com/openai/v1/chat/completions',
+      url: config.url || PROVIDER_ENDPOINTS.groq.endpoint,
       apiKey: config.apiKey || process.env.GROQ_API_KEY,
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 30000, // Groq is fast

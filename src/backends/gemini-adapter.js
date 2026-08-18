@@ -10,9 +10,12 @@
 
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { isModelRetired, buildRetiredModelError } from './model-retirement.js';
+import { PROVIDER_CATALOGS } from './provider-endpoints.js';
 import { GeminiRateLimiter } from '../utils/gemini-rate-limiter.js';
 
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Gemini's per-model request URL is this same base plus `/<model>:generateContent`,
+// so the catalog descriptor already owns the only copy of it.
+const GEMINI_API_BASE = PROVIDER_CATALOGS.gemini.catalogUrl();
 // No default model id: the literal that used to sit here (gemini-3-pro-preview)
 // now 404s. A model comes from config.model or from catalog auto-selection.
 

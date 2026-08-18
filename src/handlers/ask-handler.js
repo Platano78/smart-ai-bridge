@@ -15,7 +15,6 @@ import { BaseHandler } from './base-handler.js';
 const MODEL_ALIASES = {
   'auto': null,           // Auto-route to best backend
   'deepseek': 'nvidia_deepseek',
-  'qwen3': 'nvidia_glm',
   'chatgpt': 'openai_chatgpt',
   'openai': 'openai_chatgpt',
   'groq': 'groq_llama',

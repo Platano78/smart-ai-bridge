@@ -262,17 +262,17 @@ The presets map as follows:
 | `gemini` | `gemini` | `gemini` |
 | `groq` | `groq_llama` | `groq` |
 
-**Legacy aliases.** The code-specialist lane was Qwen3 Coder 480B until NVIDIA retired it
-on 2026-06-11; it now serves GLM-5.2 under the name `nvidia_glm`. The old names still
-work and will continue to:
+**Removed: `nvidia_qwen` / `qwen3`.** The NVIDIA code-specialist lane once served a Qwen
+model. NVIDIA has since retired it, and its catalog now lists **no Qwen model of any
+kind** — so the names were removed outright rather than kept as aliases pointing at a
+differently-named lane. `nvidia_qwen` and `qwen3` no longer resolve to anything.
 
-| Legacy name | Resolves to |
-|-------------|-------------|
-| `qwen3` | `nvidia_glm` |
-| `nvidia_qwen` | `nvidia_glm` |
+Use `nvidia_glm` (friendly alias: `glm`). If you have a saved `force_backend:
+"nvidia_qwen"` or a config carrying `"type": "nvidia_qwen"`, change it to `nvidia_glm`.
 
-A saved `force_backend: "nvidia_qwen"` keeps working; update it at your convenience. A
-config still carrying `"type": "nvidia_qwen"` also still constructs the right adapter.
+This does not affect Qwen models you run **locally**. The bridge still detects them on
+your own router and applies Qwen-specific handling (capability inference, FIM tokens,
+reasoning-suppression) — that has nothing to do with the retired NVIDIA lane.
 
 The OpenAI-compatible backend ships under the internal name `openai_chatgpt` (adapter
 type `openai`) and is reached through smart routing rather than a friendly alias. For the

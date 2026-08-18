@@ -127,8 +127,8 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         model: {
           type: 'string',
-          enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'glm', 'qwen3', 'nvidia_deepseek', 'nvidia_glm', 'nvidia_qwen', 'openai'],
-          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_glm (NVIDIA GLM-5.2 code specialist, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s). The friendly aliases `deepseek` and `glm` are also accepted (mapped to nvidia_deepseek / nvidia_glm), matching the other tools. `nvidia_qwen` and `qwen3` are legacy aliases still accepted for back-compat (the lane served Qwen3 Coder 480B until NVIDIA retired it on 2026-06-11) — they resolve to nvidia_glm.'
+          enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'glm', 'nvidia_deepseek', 'nvidia_glm', 'openai'],
+          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_glm (NVIDIA GLM-5.2 code specialist, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s). The friendly aliases `deepseek` and `glm` are also accepted (mapped to nvidia_deepseek / nvidia_glm), matching the other tools.'
         },
         prompt: {
           type: 'string',
@@ -150,7 +150,7 @@ const CORE_TOOL_DEFINITIONS = [
         },
         force_backend: {
           type: 'string',
-          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai", "groq" (legacy "nvidia_qwen"/"qwen3" also accepted)'
+          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai", "groq"'
         },
         model_profile: {
           type: 'string',
@@ -170,7 +170,7 @@ const CORE_TOOL_DEFINITIONS = [
         report_type: {
           type: 'string',
           enum: ['current', 'historical', 'cost', 'recommendations', 'full_report'],
-          description: '`current` = stats since this server started (invocation counts, success rate, p50/p95 latency per backend). `historical` = time-bucketed series over `time_range`. `cost` = estimated token spend per backend, with cost-per-1K-tokens projections. `recommendations` = SAB heuristics on backend selection (e.g. "switch coding tasks to qwen3 — 18% faster on your traces"). `full_report` = all of the above.'
+          description: '`current` = stats since this server started (invocation counts, success rate, p50/p95 latency per backend). `historical` = time-bucketed series over `time_range`. `cost` = estimated token spend per backend, with cost-per-1K-tokens projections. `recommendations` = SAB heuristics on backend selection (e.g. "switch coding tasks to nvidia_glm — 18% faster on your traces"). `full_report` = all of the above.'
         },
         time_range: {
           type: 'string',
@@ -294,7 +294,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'council',
-    description: "Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to qwen + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`. Read-only: makes N parallel HTTP calls; never writes to disk. Returns: `{success, topic, strategy, confidence_needed, backends_queried:[names], backends_responded:[names of those that succeeded], responses:[{backend, success, content, response_time, error?}], processing_time_ms, metrics, synthesis_hint (suggestion to Claude on how to synthesize)}`.",
+    description: "Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to glm + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`. Read-only: makes N parallel HTTP calls; never writes to disk. Returns: `{success, topic, strategy, confidence_needed, backends_queried:[names], backends_responded:[names of those that succeeded], responses:[{backend, success, content, response_time, error?}], processing_time_ms, metrics, synthesis_hint (suggestion to Claude on how to synthesize)}`.",
     handler: 'handleCouncil',
     schema: {
       type: 'object',
@@ -356,7 +356,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for analysis'
             },
@@ -414,7 +414,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'groq', 'glm', 'qwen3', 'deepseek'],
+              enum: ['auto', 'groq', 'glm', 'deepseek'],
               default: 'auto',
               description: 'Backend for summarization (auto selects based on depth)'
             }
@@ -444,7 +444,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for generation'
             },
@@ -493,7 +493,7 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
               description: 'AI backend to use for modification'
             },
@@ -559,7 +559,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto'
             },
             analysisType: {
@@ -627,7 +627,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto'
             }
           }
@@ -676,7 +676,7 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'qwen3', 'gemini', 'groq'],
+              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto'
             },
             findReferences: {

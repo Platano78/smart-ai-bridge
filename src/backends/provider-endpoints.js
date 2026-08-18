@@ -11,7 +11,6 @@
 export const PROVIDER_ENDPOINTS = Object.freeze({
   nvidia_deepseek: { endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', envVar: 'NVIDIA_API_KEY' },
   nvidia_glm:      { endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', envVar: 'NVIDIA_API_KEY' },
-  nvidia_qwen:     { endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', envVar: 'NVIDIA_API_KEY' },
   groq:            { endpoint: 'https://api.groq.com/openai/v1/chat/completions',        envVar: 'GROQ_API_KEY' },
   openai:          { endpoint: 'https://api.openai.com/v1/chat/completions',             envVar: 'OPENAI_API_KEY' },
   // Gemini's model id is part of the URL path, not a fixed endpoint — callers build
@@ -100,7 +99,6 @@ export const PROVIDER_CATALOGS = Object.freeze({
 export const CATALOG_KIND_FOR_TYPE = Object.freeze({
   nvidia_deepseek: 'openaiCompatible',
   nvidia_glm: 'openaiCompatible',
-  nvidia_qwen: 'openaiCompatible',
   groq: 'openaiCompatible',
   openai: 'openaiCompatible',
   gemini: 'gemini',

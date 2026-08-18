@@ -30,7 +30,7 @@ const STOP_WORDS = new Set([
   'when', 'while', 'if', 'because', 'as', 'until', 'although', 'unless', 'since', 'being', 'been', 'being'
 ]);
 
-const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', qwen3: 'nvidia_glm', groq: 'groq_llama' };
+const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', glm: 'nvidia_glm', groq: 'groq_llama' };
 
 export class ExploreHandler extends BaseHandler {
   constructor(context) {

@@ -23,7 +23,6 @@ const VALID_BACKENDS = [
   'local',
   'nvidia_deepseek',
   'nvidia_glm',
-  'nvidia_qwen', // legacy alias, still resolves to nvidia_glm
   'gemini',
   'openai_chatgpt',
   'groq_llama'

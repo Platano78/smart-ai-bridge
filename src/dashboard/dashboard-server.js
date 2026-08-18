@@ -17,7 +17,6 @@ const MODEL_ALIASES = {
   'local': { backend: 'local', description: 'Local LLM' },
   'gemini': { backend: 'gemini', description: 'Cloud API (Gemini)' },
   'deepseek': { backend: 'nvidia_deepseek', description: 'Cloud API (DeepSeek)' },
-  'qwen3': { backend: 'nvidia_glm', description: 'Cloud API (Qwen)' },
   'chatgpt': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI)' },
   'openai': { backend: 'openai_chatgpt', description: 'Cloud API (OpenAI alias)' },
   'groq': { backend: 'groq_llama', description: 'Cloud API (Groq)' },
@@ -234,7 +233,7 @@ export class DashboardServer {
     // All three routes canonicalize `req.params.name` through getBackend()
     // ONCE at the top, then use `backend.name` (canonical) for every
     // subsequent call — setSecret/deleteSecret/rebuildAdapter/getAdapter/
-    // getKeyStatus must all agree, or a legacy alias (nvidia_qwen, qwen3)
+    // getKeyStatus must all agree, or a friendly alias (e.g. `glm`)
     // stores/reads a key that the real adapter never sees.
     this.app.get('/api/backends/:name/key', (req, res) => {
       const backend = this.backendRegistry.getBackend(req.params.name);

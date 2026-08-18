@@ -4,17 +4,19 @@
  *
  * Adapters for NVIDIA cloud backends:
  * - NVIDIA DeepSeek (reasoning)
- * - GLM-5.2 (coding) — the lane formerly served Qwen3 Coder 480B, which NVIDIA
- *   retired on 2026-06-11
+ * - GLM (coding)
  *
  * Smart AI Bridge v2.0.0
  */
 
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { isModelRetired } from './model-retirement.js';
+import { PROVIDER_ENDPOINTS, PROVIDER_CATALOGS } from './provider-endpoints.js';
 
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NIM_CATALOG_URL = 'https://integrate.api.nvidia.com/v1/models';
+// One source of truth for where this provider lives: provider-endpoints.js.
+// An operator override still wins — `...stripUndefined(config)` spreads after
+// `url:` in each constructor, so a configured `config.url` replaces this.
+const NVIDIA_BASE_URL = PROVIDER_ENDPOINTS.nvidia_glm.endpoint;
 let _catalogCache = { ids: [], at: 0 };
 
 /**
@@ -23,10 +25,16 @@ let _catalogCache = { ids: [], at: 0 };
  * @param {string} [apiKey] - NVIDIA API key
  * @returns {Promise<string[]>} Live model ids, or the last-known list on failure
  */
-async function discoverNimModels(apiKey) {
+async function discoverNimModels(apiKey, chatUrl = NVIDIA_BASE_URL) {
+  // Derive the catalog from the endpoint this lane actually TALKS to. A lane
+  // pointed at a proxy must have its catalog read from that proxy too —
+  // otherwise the "which models exist" answer describes a different host than
+  // the one serving the request.
+  const catalogUrl = PROVIDER_CATALOGS.openaiCompatible.catalogUrl(chatUrl);
+  if (!catalogUrl) return _catalogCache.ids;
   if (Date.now() - _catalogCache.at < 600000) return _catalogCache.ids;
   try {
-    const res = await fetch(NIM_CATALOG_URL, {
+    const res = await fetch(catalogUrl, {
       headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
       signal: AbortSignal.timeout(8000)
     });
@@ -173,15 +181,16 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
    * @returns {Promise<string[]>}
    */
   async getRetiredModelCatalog() {
-    return discoverNimModels(this.config.apiKey);
+    return discoverNimModels(this.config.apiKey, this.config.url);
   }
 }
 
 /**
- * NVIDIA GLM adapter (code-specialist lane). Canonical key is `nvidia_glm`;
- * `nvidia_qwen` and `qwen3` remain as back-compat aliases (see
- * FRIENDLY_NAME_MAP / ADAPTER_CLASSES in backend-registry.js) since the lane
- * served Qwen3 Coder 480B until NVIDIA retired it on 2026-06-11.
+ * NVIDIA GLM adapter (code-specialist lane). Key is `nvidia_glm`.
+ *
+ * This lane once served a Qwen model under a `nvidia_qwen` name. That model,
+ * and every other qwen model, is gone from NVIDIA's catalog, so the name was
+ * removed outright rather than kept as an alias for a differently-named lane.
  */
 class NvidiaGlmAdapter extends BackendAdapter {
   constructor(config = {}) {
@@ -222,7 +231,7 @@ class NvidiaGlmAdapter extends BackendAdapter {
     const originalTimeout = this.config.timeout;
     this.config.timeout = timeout;
     try {
-      const data = await this.makeAPICall(body, 'NVIDIA Qwen error');
+      const data = await this.makeAPICall(body, 'NVIDIA GLM error');
       return this.parseResponse(data);
     } finally {
       this.config.timeout = originalTimeout;
@@ -242,7 +251,7 @@ class NvidiaGlmAdapter extends BackendAdapter {
    * @returns {Promise<string[]>}
    */
   async getRetiredModelCatalog() {
-    return discoverNimModels(this.config.apiKey);
+    return discoverNimModels(this.config.apiKey, this.config.url);
   }
 }
 

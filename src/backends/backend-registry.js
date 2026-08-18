@@ -39,12 +39,7 @@ const FRIENDLY_NAME_MAP = {
   deepseek: 'nvidia_deepseek',
   gemini: 'gemini',
   groq: 'groq_llama',
-  glm: 'nvidia_glm',
-  // Back-compat: the code-specialist lane was Qwen3 Coder 480B until NVIDIA retired
-  // it on 2026-06-11. Both legacy names still resolve so existing callers and saved
-  // force_backend values keep working.
-  qwen3: 'nvidia_glm',
-  nvidia_qwen: 'nvidia_glm'
+  glm: 'nvidia_glm'
 };
 
 /**
@@ -54,17 +49,16 @@ const ADAPTER_CLASSES = {
   'local': LocalAdapter,
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
   'nvidia_glm': NvidiaGlmAdapter,
-  'nvidia_qwen': NvidiaGlmAdapter,  // legacy type value, same lane
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter
 };
 
-// Retired aliases kept in ADAPTER_CLASSES/FRIENDLY_NAME_MAP for back-compat resolution
-// only — they must not be offered as a creatable type (e.g. the dashboard's add-backend
-// picker). getAvailableTypes() filters these out; getAdapter()/getBackend() still resolve
-// them via FRIENDLY_NAME_MAP.
-const DEPRECATED_TYPES = new Set(['nvidia_qwen']);
+// Retired backend types must not be offered as creatable (e.g. the dashboard's
+// add-backend picker). getAvailableTypes() filters these out. Empty today: the
+// `nvidia_qwen` lane was removed outright once NVIDIA's catalog dropped every Qwen
+// model, rather than being kept as a redirect to a differently-named lane.
+const DEPRECATED_TYPES = new Set([]);
 
 /**
  * Load backends from the main config file (single source of truth)
@@ -370,9 +364,9 @@ class BackendRegistry {
    * @returns {boolean} whether the backend exists
    */
   rebuildAdapter(name) {
-    // Alias-tolerant: getBackend() resolves nvidia_qwen/qwen3 -> nvidia_glm
-    // via FRIENDLY_NAME_MAP; the raw this.backends map is keyed by the
-    // canonical name only. Resolving here means callers can't reintroduce
+    // Alias-tolerant: getBackend() resolves friendly names (e.g. `glm` ->
+    // `nvidia_glm`) via FRIENDLY_NAME_MAP; the raw this.backends map is keyed
+    // by the canonical name only. Resolving here means callers can't reintroduce
     // the alias/raw-lookup mismatch that silently rebuilt the wrong (or no)
     // adapter.
     const backend = this.getBackend(name);

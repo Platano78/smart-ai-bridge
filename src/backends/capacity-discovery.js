@@ -109,7 +109,6 @@ async function discoverGemini(backend, apiKey) {
 const DISCOVERERS = {
   nvidia_deepseek: discoverOpenAICompatible,
   nvidia_glm: discoverOpenAICompatible,
-  nvidia_qwen: discoverOpenAICompatible,
   groq: discoverOpenAICompatible,
   openai: discoverOpenAICompatible,
   gemini: discoverGemini
@@ -159,7 +158,6 @@ async function listGeminiCapacities(backend, apiKey) {
 const CATALOG_LISTERS = {
   nvidia_deepseek: listOpenAICompatibleCapacities,
   nvidia_glm: listOpenAICompatibleCapacities,
-  nvidia_qwen: listOpenAICompatibleCapacities,
   groq: listOpenAICompatibleCapacities,
   openai: listOpenAICompatibleCapacities,
   gemini: listGeminiCapacities

@@ -8,6 +8,7 @@
  * Smart AI Bridge v2.0.0
  */
 
+import { PROVIDER_ENDPOINTS } from './provider-endpoints.js';
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 
 class OpenAIAdapter extends BackendAdapter {
@@ -15,7 +16,7 @@ class OpenAIAdapter extends BackendAdapter {
     super({
       name: 'openai_chatgpt',
       type: 'openai',
-      url: config.url || 'https://api.openai.com/v1/chat/completions',
+      url: config.url || PROVIDER_ENDPOINTS.openai.endpoint,
       apiKey: config.apiKey || process.env.OPENAI_API_KEY,
       maxTokens: config.maxTokens || 128000,
       timeout: config.timeout || 120000,
