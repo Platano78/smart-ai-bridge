@@ -154,8 +154,9 @@ class AskHandler extends BaseHandler {
       const responseHeaders = response.headers || {};
       const processingTime = Date.now() - startTime;
 
-      // Truncation detection
-      const wasTruncated = this.detectTruncation(responseContent, finalMaxTokens);
+      // Truncation detection — authoritative finish_reason first, heuristic as backstop
+      const finishReason = response.metadata?.finishReason || response.finish_reason;
+      const wasTruncated = finishReason === 'length' || this.detectTruncation(responseContent, finalMaxTokens);
 
       if (wasTruncated && enable_chunking) {
         console.error(`🔄 Response truncated, attempting chunked generation...`);
@@ -172,6 +173,7 @@ class AskHandler extends BaseHandler {
           max_tokens: reportedMaxTokens,
           dynamic_tokens: dynamicTokens,
           chunked: true,
+          was_truncated: false,
           processing_time: processingTime
         });
       }
@@ -228,6 +230,9 @@ class AskHandler extends BaseHandler {
         max_tokens: reportedMaxTokens,
         dynamic_tokens: dynamicTokens,
         was_truncated: wasTruncated,
+        ...(wasTruncated ? {
+          truncation_hint: 'Response hit the token limit. Enable options.enable_chunking or raise max_tokens and retry.'
+        } : {}),
         smart_routing_applied: !force_backend && (selectedBackend !== requestedBackend),
         routing: routingIndicator,
         metadata: response.metadata || {},

@@ -179,10 +179,12 @@ export class ExploreHandler extends BaseHandler {
     const filesFound = new Set();
     let totalChars = 0;
 
-    // Build regex for all patterns
+    // Build regex for all patterns. No 'g' flag: RegExp.prototype.test with 'g'
+    // is stateful (advances lastIndex), so reusing this regex across lines below
+    // would silently skip every other match.
     const patternRegex = new RegExp(
       patterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-      'gi'
+      'i'
     );
 
     for (const file of files) {
@@ -235,9 +237,12 @@ export class ExploreHandler extends BaseHandler {
     const filesFound = new Set();
     let totalChars = 0;
 
+    // No 'g' flag: RegExp.prototype.test with 'g' is stateful (advances
+    // lastIndex), so reusing this regex across lines below would silently
+    // skip every other match — see performShallowSearch above.
     const patternRegex = new RegExp(
       patterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-      'gi'
+      'i'
     );
 
     for (const file of files) {

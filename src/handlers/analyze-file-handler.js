@@ -164,6 +164,10 @@ export class AnalyzeFileHandler extends BaseHandler {
       // 7. Parse structured response from LLM
       const analysis = this.parseAnalysisResponse(this.extractResponseText(response));
 
+      // 7b. Truncation detection — authoritative signal from the backend
+      const finishReason = response.metadata?.finishReason || response.finish_reason;
+      const wasTruncated = finishReason === 'length';
+
       // 8. Record execution for learning
       this.recordExecution(
         {
@@ -193,7 +197,11 @@ export class AnalyzeFileHandler extends BaseHandler {
         confidence: analysis.confidence,
         suggestedActions: analysis.suggestedActions,
         backend_used: selectedBackend,
-        processing_time: processingTime
+        processing_time: processingTime,
+        was_truncated: wasTruncated,
+        ...(wasTruncated ? {
+          truncation_hint: 'Response hit the token limit; findings may be incomplete. Re-run with a narrower question or a line range, or raise options.maxResponseTokens.'
+        } : {})
       }, content.length);
 
     } catch (error) {
@@ -358,7 +366,7 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
       language: this.detectLanguage(absolutePath), analysisType: 'verbatim', question,
       summary: extracted, findings,
       confidence: 1.0, suggestedActions: [], backend_used: 'direct_extraction',
-      processing_time: Date.now() - startTime
+      processing_time: Date.now() - startTime, was_truncated: false
     }, content.length);
   }
 }

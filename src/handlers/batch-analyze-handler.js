@@ -148,6 +148,14 @@ export class BatchAnalyzeHandler extends BaseHandler {
           confidence: r.confidence
         }));
 
+        // Propagate per-file truncation (set by AnalyzeFileHandler) into the
+        // aggregated response — safe access since a filtered entry can still be
+        // an error object with no was_truncated field.
+        const truncatedFiles = results
+          .filter(r => r && r.was_truncated === true)
+          .map(r => r.filePath);
+        const anyTruncated = truncatedFiles.length > 0;
+
         // Measured against the actual finished response (envelope + pretty-print
         // included), using the real characters read across all matched files —
         // not a fixed "average file = 2000 tokens" assumption.
@@ -161,6 +169,11 @@ export class BatchAnalyzeHandler extends BaseHandler {
           aggregatedActions: aggregated.suggestedActions,
           overallConfidence: aggregated.confidence,
           perFileResults,
+          was_truncated: anyTruncated,
+          ...(anyTruncated ? {
+            truncated_files: truncatedFiles,
+            truncation_hint: 'One or more files hit the token limit. Re-run the listed files individually with analyze_file, or reduce maxFiles / narrow the glob.'
+          } : {}),
           processing_time: processingTime
         }, totalFileChars);
       }
