@@ -486,8 +486,11 @@ export class RefactorHandler extends BaseHandler {
         // Stat only — the downstream modify handler reads the content itself
         const { size: fileSize } = await fs.stat(filePath);
 
-        // Check context limit before proceeding
-        const contextLimit = this.getBackendContextLimit(backend);
+        // Check context limit before proceeding. Use the probed/selected dynamic
+        // capacity (matches what modify-file's own gate will use downstream)
+        // rather than the flat static table, which under-reports local's actual
+        // window and over-reports it for backends capacityFor derates.
+        const contextLimit = await this.capacityFor(backend);
         const promptSize = refactorPrompt.length;
 
         if ((fileSize + promptSize) > contextLimit) {

@@ -173,32 +173,37 @@ export class ModifyFileHandler extends BaseHandler {
         });
       }
 
-      // 8. INPUT size limit check - DYNAMIC based on actual loaded model
+      // 8. INPUT size limit check - DYNAMIC based on actual loaded model.
+      // Gate on the assembled prompt (originalContent + instructions + context
+      // files + scaffolding), not originalContent alone — refactor in particular
+      // passes a large generated prompt in as `instructions`, which the old
+      // originalContent-only gate never counted.
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       const modifyFileCap = await this.capacityFor(selectedBackend);
-      if (originalContent.length > modifyFileCap) {
-        console.error(`[ModifyFile] ⚠️ Payload (${originalContent.length} chars) exceeds ${selectedBackend} limit (${modifyFileCap} chars)`);
-        const roomier = await this.findBackendWithCapacity(originalContent.length, [selectedBackend]);
+      if (prompt.length > modifyFileCap) {
+        console.error(`[ModifyFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${modifyFileCap} chars)`);
+        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
         if (roomier) {
           console.error(`[ModifyFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
           selectedBackend = roomier.name;
         } else {
           const largest = await this.largestBackendCapacity();
           throw new Error(
-            `Payload is ${originalContent.length} chars; no configured backend can hold it in one context ` +
-            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
-            `Next step: narrow the call — split the file, or target a smaller region.`
+            `Assembled prompt (file content plus instructions/context/scaffolding) is ${prompt.length} chars; ` +
+            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — split the file, shorten instructions, or target a smaller region.`
           );
         }
       }
 
       // 9. Context limit check for cloud backends
       const contextLimit = this.getBackendContextLimit(selectedBackend);
-      if (originalContent.length > contextLimit && !selectedBackend.startsWith('local')) {
-        console.error(`[ModifyFile] ⚠️ File size (${originalContent.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
-        console.error(`[ModifyFile] 🔄 File too large for any backend - consider splitting`);
-        throw new Error(`File size ${originalContent.length} chars exceeds maximum supported size ${contextLimit} chars`);
+      if (prompt.length > contextLimit && !selectedBackend.startsWith('local')) {
+        console.error(`[ModifyFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
+        console.error(`[ModifyFile] 🔄 Prompt too large for any backend - consider splitting`);
+        throw new Error(`Assembled prompt (file content plus instructions/context/scaffolding) is ${prompt.length} chars, exceeding maximum supported size ${contextLimit} chars`);
       }
 
       // 9. Calculate dynamic token allocation based on backend speed and file size

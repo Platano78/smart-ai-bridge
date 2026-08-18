@@ -111,10 +111,13 @@ export class AnalyzeFileHandler extends BaseHandler {
         contextLimit = this.getBackendContextLimit(selectedBackend);
       }
 
-      // Smart fallback logic when file exceeds context limit
-      if (content.length > contextLimit) {
-        console.error(`[AnalyzeFile] ⚠️ Payload (${content.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
-        const roomier = await this.findBackendWithCapacity(content.length, [selectedBackend]);
+      // Smart fallback logic when the assembled prompt (file content + question +
+      // includeContext files + scaffolding) exceeds the backend's context limit.
+      // Gating on content.length alone missed up to 50000 chars of context files
+      // that buildAnalysisPrompt folds in above.
+      if (prompt.length > contextLimit) {
+        console.error(`[AnalyzeFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
+        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
         if (roomier) {
           console.error(`[AnalyzeFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
           selectedBackend = roomier.name;
@@ -122,8 +125,9 @@ export class AnalyzeFileHandler extends BaseHandler {
         } else {
           const largest = await this.largestBackendCapacity();
           throw new Error(
-            `Payload is ${content.length} chars; no configured backend can hold it in one context ` +
-            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Assembled prompt (file content plus question/context/scaffolding) is ${prompt.length} chars; ` +
+            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `This tool makes a single LLM call and cannot chunk. ` +
             `Next step: narrow the call — pass a line range in the question, drop options.includeContext, ` +
             `or split the file. For several files, batch_analyze works.`
           );

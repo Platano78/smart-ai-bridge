@@ -415,12 +415,14 @@ export class BatchAnalyzeHandler extends BaseHandler {
    * context) or the head of the file, capped to a per-file share of the
    * input budget so the whole prompt fits under the local context limit.
    */
-  async executeSinglePass(files, question, ctx) {
-    const { backend, analysisType, grepTerms, contentCache, patterns, startTime, grepActive, scannedCount, matchedCount } = ctx;
-
-    const { charLimit, model: loadedModel } = await this.getContextLimit();
-    console.error(`[BatchAnalyze] 📊 singlePass dynamic limit: ${charLimit} chars (model: ${loadedModel})`);
-
+  /**
+   * Build per-file evidence entries for the singlePass prompt, given a total
+   * char budget to divide across `files`. Factored out so executeSinglePass
+   * can call it twice: once against the local dynamic limit (before a backend
+   * is chosen), and once more — only if needed — against the selected
+   * backend's real capacity.
+   */
+  async buildSinglePassEvidence(files, question, charLimit, { grepTerms, contentCache }) {
     // Reserve room for the question and prompt scaffolding rather than
     // spending the entire budget on evidence.
     const scaffoldReserve = Math.min(2000, Math.max(500, Math.floor(charLimit * 0.1)));
@@ -466,15 +468,56 @@ export class BatchAnalyzeHandler extends BaseHandler {
       evidenceEntries.push({ filePath, evidence });
     }
 
-    const evidenceTruncated = anyTrimmed || droppedFiles.length > 0;
-    const totalEvidenceChars = evidenceEntries.reduce((sum, e) => sum + e.evidence.length, 0);
+    return { evidenceEntries, droppedFiles, anyTrimmed };
+  }
 
-    const prompt = this.buildSinglePassPrompt(evidenceEntries, question, { analysisType, grepTerms });
+  async executeSinglePass(files, question, ctx) {
+    const { backend, analysisType, grepTerms, contentCache, patterns, startTime, grepActive, scannedCount, matchedCount } = ctx;
+
+    const { charLimit, model: loadedModel } = await this.getContextLimit();
+    console.error(`[BatchAnalyze] 📊 singlePass dynamic limit: ${charLimit} chars (model: ${loadedModel})`);
+
+    let { evidenceEntries, droppedFiles, anyTrimmed } = await this.buildSinglePassEvidence(files, question, charLimit, { grepTerms, contentCache });
+
+    let evidenceTruncated = anyTrimmed || droppedFiles.length > 0;
+    let totalEvidenceChars = evidenceEntries.reduce((sum, e) => sum + e.evidence.length, 0);
+
+    let prompt = this.buildSinglePassPrompt(evidenceEntries, question, { analysisType, grepTerms });
 
     const routingResult = this.selectBackend(backend, { contentLength: prompt.length });
-    const effectiveBackend = routingResult.backend;
+    let effectiveBackend = routingResult.backend;
     if (routingResult.recommendation) {
       console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
+    }
+
+    // The evidence budget above was sized off the LOCAL dynamic limit, before a
+    // backend was chosen. If routing landed on a smaller-context backend, the
+    // assembled prompt can still be oversized for it — re-size the evidence
+    // budget against that backend's real capacity and rebuild ONCE.
+    let cap = await this.capacityFor(effectiveBackend);
+    if (prompt.length > cap) {
+      console.error(`[BatchAnalyze] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${effectiveBackend} limit (${cap} chars); re-sizing evidence budget`);
+      ({ evidenceEntries, droppedFiles, anyTrimmed } = await this.buildSinglePassEvidence(files, question, cap, { grepTerms, contentCache }));
+      evidenceTruncated = anyTrimmed || droppedFiles.length > 0;
+      totalEvidenceChars = evidenceEntries.reduce((sum, e) => sum + e.evidence.length, 0);
+      prompt = this.buildSinglePassPrompt(evidenceEntries, question, { analysisType, grepTerms });
+
+      if (prompt.length > cap) {
+        const roomier = await this.findBackendWithCapacity(prompt.length, [effectiveBackend]);
+        if (roomier) {
+          console.error(`[BatchAnalyze] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          effectiveBackend = roomier.name;
+          cap = roomier.cap;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Assembled prompt (evidence plus question/scaffolding) is ${prompt.length} chars; ` +
+            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `This tool makes a single aggregated LLM call and cannot chunk further. ` +
+            `Next step: narrow the glob, use grepFilter to shrink evidence, or set singlePass:false for full per-file coverage.`
+          );
+        }
+      }
     }
 
     const response = await this.makeRequest(prompt, effectiveBackend, {
