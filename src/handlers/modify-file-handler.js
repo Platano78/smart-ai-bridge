@@ -21,49 +21,6 @@ import path from 'path';
 import { createTwoFilesPatch } from 'diff';
 
 
-// FIM (Fill-in-the-Middle) sentinel tokens, keyed by model family.
-//
-// FALLBACK ONLY. The preferred FIM path is the server's native /infill endpoint:
-// llama.cpp applies the loaded model's OWN FIM tokens straight from GGUF metadata,
-// so a model nobody has ever heard of still gets correct fill-in-the-middle. This
-// table only knows the six families below, and sending one family's sentinels to a
-// different model produces garbage — so it is used only when /infill is unavailable,
-// and only on a model whose name it actually recognises. When neither path is
-// available the handler does a normal (non-FIM) modify rather than failing.
-const FIM_MODEL_TOKENS = {
-  'qwen3-coder': {
-    prefix: '<|fim_prefix|>',
-    suffix: '<|fim_suffix|>',
-    middle: '<|fim_middle|>'
-  },
-  'qwen2.5-coder': {
-    prefix: '<|fim_prefix|>',
-    suffix: '<|fim_suffix|>',
-    middle: '<|fim_middle|>'
-  },
-  // REAP-pruned Qwen3-Coder variants keep Qwen's FIM tokens
-  'reap': {
-    prefix: '<|fim_prefix|>',
-    suffix: '<|fim_suffix|>',
-    middle: '<|fim_middle|>'
-  },
-  'deepseek-coder': {
-    prefix: '<｜fim▁begin｜>',
-    suffix: '<｜fim▁hole｜>',
-    middle: '<｜fim▁end｜>'
-  },
-  'starcoder': {
-    prefix: '<fim_prefix>',
-    suffix: '<fim_suffix>',
-    middle: '<fim_middle>'
-  },
-  'codellama': {
-    prefix: '<PRE>',
-    suffix: '<SUF>',
-    middle: '<MID>'
-  }
-};
-
 // Smart routing thresholds (in characters)
 const ROUTING_THRESHOLDS = {
   LOCAL_MAX_CHARS: 20000,      // ~500 lines - local handles well
@@ -151,27 +108,22 @@ export class ModifyFileHandler extends BaseHandler {
       let selectedBackend = routingResult.backend;
       const routingRecommendation = routingResult.recommendation;
 
-      // 6. Resolve the FIM strategy, preferring what the SERVER supports over what
-      //    this file happens to know about the model's name.
-      let fimTokens = null;
+      // 6. Resolve the FIM strategy purely from what the SERVER supports.
       let usingFIM = false;
-      let fimMode = 'none';   // 'infill' | 'tokens' | 'none'
+      let fimMode = 'none';   // 'infill' | 'none'
 
       if (useFIM && selectedBackend === 'local') {
         if (!insertionLine) {
           console.error('[ModifyFile] ⚠️ FIM requested but insertionLine not provided, falling back to SEARCH/REPLACE');
         } else {
-          const strategy = await this.resolveFIMStrategy(modelProfile);
+          const strategy = await this.resolveFIMStrategy();
           fimMode = strategy.mode;
-          fimTokens = strategy.tokens || null;
           usingFIM = fimMode !== 'none';
 
           if (fimMode === 'infill') {
             console.error('[ModifyFile] 🔧 Using FIM mode via native /infill (server supplies the model\'s own tokens)');
-          } else if (fimMode === 'tokens') {
-            console.error(`[ModifyFile] 🔧 Using FIM mode via the sentinel-token fallback for ${strategy.matchedFamily}`);
           } else {
-            console.error('[ModifyFile] ⚠️ FIM requested but neither /infill nor a recognised token set is available — doing a normal modify instead');
+            console.error('[ModifyFile] ⚠️ FIM requested but the server has no /infill — doing a normal modify instead');
           }
         }
       }
@@ -179,7 +131,7 @@ export class ModifyFileHandler extends BaseHandler {
       // 7. Build the appropriate prompt
       let prompt;
       if (usingFIM) {
-        prompt = this.buildFIMPrompt(originalContent, instructions, insertionLine, fimTokens);
+        prompt = this.buildFIMPrompt(originalContent, instructions, insertionLine);
       } else {
         prompt = this.buildModifyPrompt(originalContent, instructions, {
           filePath,
@@ -357,7 +309,7 @@ export class ModifyFileHandler extends BaseHandler {
 
       if (usingFIM) {
         // Parse FIM response
-        const fimResult = this.parseFIMResponse(responseText, originalContent, insertionLine, fimTokens);
+        const fimResult = this.parseFIMResponse(responseText, originalContent, insertionLine);
         modifiedCode = fimResult.code;
         summary = fimResult.summary;
         console.error(`[ModifyFile] ✅ FIM insertion completed`);
@@ -651,19 +603,19 @@ SUMMARY: [1-2 sentence description after all blocks]
   }
 
   /**
-   * Decide how (or whether) to do fill-in-the-middle, in strict preference order:
+   * Decide how (or whether) to do fill-in-the-middle:
    *
    *   1. NATIVE /infill — the server answers it, so it applies the loaded model's
    *      OWN FIM tokens from GGUF metadata. Works for a model nobody has heard of.
-   *   2. SENTINEL TOKEN TABLE — only for a model whose family name FIM_MODEL_TOKENS
-   *      actually recognises. Never guessed: sending one family's sentinels to
-   *      another model produces garbage.
-   *   3. NONE — the caller does an ordinary SEARCH/REPLACE modify. Not a failure.
+   *   2. NONE — the caller does an ordinary SEARCH/REPLACE modify. Not a failure:
+   *      FIM is an optimisation, and losing it on a server that cannot do it is
+   *      correct. There is deliberately no name-keyed sentinel-token table to fall
+   *      back to — one model family's sentinels sent to another model are treated
+   *      as literal text and produce garbage.
    *
-   * @param {string|null} modelProfile - Model id the caller asked the router for
-   * @returns {Promise<{mode: 'infill'|'tokens'|'none', tokens?: Object, matchedFamily?: string}>}
+   * @returns {Promise<{mode: 'infill'|'none'}>}
    */
-  async resolveFIMStrategy(modelProfile) {
+  async resolveFIMStrategy() {
     const baseUrl = this.getLocalBaseUrl();
 
     if (baseUrl) {
@@ -672,15 +624,9 @@ SUMMARY: [1-2 sentence description after all blocks]
           return { mode: 'infill' };
         }
       } catch (error) {
-        // A failed probe is not a failed modify — fall through to the table.
+        // A failed probe is not a failed modify — degrade to a normal modify.
         console.error(`[ModifyFile] /infill probe failed: ${error.message}`);
       }
-    }
-
-    const modelToCheck = modelProfile || this.backendRegistry?.getAdapter?.('local')?.modelId || '';
-    const tokens = this.detectFIMSupport(modelToCheck);
-    if (tokens) {
-      return { mode: 'tokens', tokens, matchedFamily: modelToCheck };
     }
 
     return { mode: 'none' };
@@ -705,42 +651,18 @@ SUMMARY: [1-2 sentence description after all blocks]
   }
 
   /**
-   * FALLBACK path only — see resolveFIMStrategy. Looks the model's NAME up in
-   * FIM_MODEL_TOKENS, which knows six families and nothing else. Returns null for
-   * anything it does not recognise, so an unknown model degrades to a normal
-   * modify rather than being sent another model's sentinel tokens.
-   * @param {string} modelName - The model name/id to check
-   * @returns {Object|null} FIM tokens if the name is recognised, null otherwise
-   */
-  detectFIMSupport(modelName) {
-    if (!modelName) return null;
-
-    const lowerModel = modelName.toLowerCase();
-
-    for (const [pattern, tokens] of Object.entries(FIM_MODEL_TOKENS)) {
-      if (lowerModel.includes(pattern)) {
-        return tokens;
-      }
-    }
-
-    return null;
-  }
-
-  /**
    * Build a FIM (Fill-in-the-Middle) prompt for code insertion
    * Best for single-location insertions where we know prefix and suffix
    *
    * @param {string} originalContent - Full file content
    * @param {string} instructions - What to insert/modify
    * @param {number} insertionLine - Line number where to insert (1-based)
-   * @param {Object} fimTokens - The FIM tokens for this model
    * @returns {string} FIM-formatted prompt
    */
-  buildFIMPrompt(originalContent, instructions, insertionLine, fimTokens) {
-    // No sentinels when the native /infill path is in play: the server injects the
-    // model's own FIM tokens, so the prompt here is just prefix + instruction + suffix
-    // (which is also the honest size proxy for the capacity gate).
-    const tokens = fimTokens || { prefix: '', suffix: '', middle: '' };
+  buildFIMPrompt(originalContent, instructions, insertionLine) {
+    // No sentinels: the native /infill path is the only FIM path, and the server
+    // injects the model's own FIM tokens. The prompt here is just
+    // prefix + instruction + suffix (also the honest size proxy for the capacity gate).
     const lines = originalContent.split('\n');
 
     // Split content at insertion point
@@ -753,7 +675,7 @@ SUMMARY: [1-2 sentence description after all blocks]
     // Build FIM prompt with instruction as comment
     const instructionComment = `// TODO: ${instructions}\n`;
 
-    return `${tokens.prefix}${prefix}\n${instructionComment}${tokens.suffix}${suffix}${tokens.middle}`;
+    return `${prefix}\n${instructionComment}${suffix}`;
   }
 
   /**
@@ -761,20 +683,13 @@ SUMMARY: [1-2 sentence description after all blocks]
    * @param {string} response - Raw model response
    * @param {string} originalContent - Original file content
    * @param {number} insertionLine - Where the insertion was made
-   * @param {Object} fimTokens - FIM tokens used
    * @returns {Object} { code: string, summary: string }
    */
-  parseFIMResponse(response, originalContent, insertionLine, fimTokens) {
+  parseFIMResponse(response, originalContent, insertionLine) {
     const lines = originalContent.split('\n');
 
-    // Clean the response - remove any FIM tokens that might be in output.
-    // fimTokens is null on the native /infill path, which never echoes sentinels.
-    const tokens = fimTokens || { prefix: '', suffix: '', middle: '' };
-    let cleanResponse = response;
-    for (const sentinel of [tokens.prefix, tokens.suffix, tokens.middle]) {
-      if (sentinel) cleanResponse = cleanResponse.replace(sentinel, '');
-    }
-    cleanResponse = cleanResponse.trim();
+    // The native /infill path never echoes sentinels, so there is nothing to strip.
+    let cleanResponse = response.trim();
 
     // Remove the instruction comment if present
     cleanResponse = cleanResponse.replace(/^\/\/ TODO:.*\n?/m, '');

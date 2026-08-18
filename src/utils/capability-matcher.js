@@ -4,11 +4,20 @@
  *
  * Provides capability-based matching for subagent backend selection.
  *
- * Model NAMES are the weakest evidence available and are used only as a
- * last resort. Prefer what a server actually reports about the model it loaded
- * (see model-discovery.js: chat_template_caps, modalities, n_ctx, n_params).
- * A model that matches no pattern anywhere still gets a routable default set —
- * an unrecognised model must never be silently excluded from routing.
+ * NOTHING here is derived from a model's NAME. A server reports structural facts
+ * about the model it loaded (chat_template_caps, modalities, n_ctx) and nothing
+ * semantic: there is no server-side source for "this model is code-specialized"
+ * or "this model is a deep reasoner". A regex on the name is not a last-resort
+ * signal for those, it is a fabrication that will confidently mislabel any
+ * fine-tune, merge, or new release whose name happens to contain a familiar word.
+ *
+ * Resolution order, strongest first:
+ *   1. OPERATOR-DECLARED — a `capabilities` array on the backend's config. The
+ *      operator knows what they loaded; this is the only trustworthy source of
+ *      SEMANTIC capability. See src/config/backends.example.json.
+ *   2. SERVER-REPORTED STRUCTURAL — what genuinely follows from real data.
+ *   3. GENERAL — honest default, and routable: an unrecognised model must never
+ *      be silently excluded from routing.
  */
 
 /**
@@ -24,6 +33,7 @@ const CAPABILITIES = {
   DOCUMENTATION: 'documentation',        // Technical writing
   FAST_ROUTING: 'fast_routing',          // Orchestrator routing (NOT for subagent work)
   VISION: 'vision',                      // Multimodal image input (server-reported)
+  TOOL_USE: 'tool_use',                  // Chat template carries tool calls (server-reported)
   GENERAL: 'general'                     // General purpose
 };
 
@@ -46,70 +56,6 @@ const DEFAULT_UNKNOWN_CAPABILITIES = [CAPABILITIES.GENERAL];
  * @type {number}
  */
 const UNKNOWN_MODEL_FLOOR_SCORE = 20;
-
-/**
- * Model name patterns -> capabilities inference.
- *
- * LAST-RESORT HINTS ONLY. A name is a guess about a model's behaviour; whenever
- * server-reported metadata is available it wins (inferCapabilitiesFromMetadata in
- * model-discovery.js). This list exists so a recognised name adds signal, never
- * so an unrecognised one loses any.
- *
- * Order matters: more specific patterns should come first.
- * @type {Array<{pattern: RegExp, capabilities: string[]}>}
- */
-const MODEL_CAPABILITY_PATTERNS = [
-  // Orchestrator - EXCLUDE from subagent work
-  { pattern: /orchestrator/i, capabilities: [CAPABILITIES.FAST_ROUTING] },
-
-  // DeepSeek models - reasoning specialists
-  { pattern: /deepseek.*r1/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.SECURITY_FOCUS] },
-  { pattern: /deepseek.*v3/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.SECURITY_FOCUS] },
-  { pattern: /deepseek.*coder/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING] },
-  { pattern: /deepseek/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.SECURITY_FOCUS] },
-
-  // Seed Coder
-  { pattern: /seed.*coder/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION, CAPABILITIES.LARGE_CONTEXT] },
-
-  // REAP/Cerebras models
-  { pattern: /reap/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING, CAPABILITIES.LARGE_CONTEXT] },
-  { pattern: /cerebras/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING] },
-
-  // Qwen models
-  { pattern: /qwen.*coder/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-  { pattern: /qwen3/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING] },
-  { pattern: /qwen/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.GENERAL] },
-
-  // Gemini - fast and documentation focused
-  { pattern: /gemini/i, capabilities: [CAPABILITIES.FAST_GENERATION, CAPABILITIES.DOCUMENTATION] },
-
-  // Llama variants
-  { pattern: /codellama/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-  { pattern: /llama/i, capabilities: [CAPABILITIES.GENERAL, CAPABILITIES.FAST_GENERATION] },
-
-  // Claude models (if ever used locally)
-  { pattern: /claude/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.DOCUMENTATION] },
-
-  // Mistral models
-  { pattern: /mistral.*code/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-  { pattern: /mistral/i, capabilities: [CAPABILITIES.GENERAL, CAPABILITIES.FAST_GENERATION] },
-
-  // StarCoder
-  { pattern: /starcoder/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-
-  // Phi models
-  { pattern: /phi/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-
-  // Nemotron
-  { pattern: /nemotron/i, capabilities: [CAPABILITIES.DEEP_REASONING, CAPABILITIES.LARGE_CONTEXT] },
-
-  // Last-resort patterns for locally-named models. Local routers are commonly
-  // configured with role-prefixed ids (`coding-*`, `reasoning-*`); without these
-  // such a model infers no capability at all and falls through to GENERAL. These
-  // sit last on purpose — every vendor pattern above still wins.
-  { pattern: /coder|coding/i, capabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.FAST_GENERATION] },
-  { pattern: /reasoning|thinking/i, capabilities: [CAPABILITIES.DEEP_REASONING] }
-];
 
 /**
  * Backend capability definitions (static backends)
@@ -137,7 +83,7 @@ const BACKEND_CAPABILITIES = {
     context_limit: 32768
   },
   'local': {
-    capabilities: 'dynamic', // Inferred at runtime from model ID
+    capabilities: 'dynamic', // Resolved at runtime from operator config + server report
     context_limit: 65536
   },
   'orchestrator': {
@@ -153,26 +99,104 @@ const BACKEND_CAPABILITIES = {
 const ORCHESTRATOR_PORTS = [8085, 8083];
 
 /**
- * Infer capabilities from a model ID string
- * @param {string} modelId - Model identifier (e.g., "Seed-Coder-8B-Instruct")
- * @returns {string[]} Array of capability strings
+ * Context sizes above which a model counts as LARGE_CONTEXT.
+ * Both are server-reported numbers, not guesses about the model.
+ * @type {number}
  */
-function inferCapabilitiesFromModelId(modelId) {
-  if (!modelId) {
-    return [...DEFAULT_UNKNOWN_CAPABILITIES];
+const LARGE_CONTEXT_TRAIN_TOKENS = 65536;
+const LARGE_CONTEXT_RUNTIME_TOKENS = 32768;
+
+/**
+ * Keep only values that are real members of the capability taxonomy, so a typo
+ * in an operator's config cannot invent a capability nothing will ever match.
+ * @param {*} declared - Whatever the config carried
+ * @returns {string[]}
+ */
+function normalizeDeclaredCapabilities(declared) {
+  if (!Array.isArray(declared)) {
+    return [];
   }
+  const known = new Set(Object.values(CAPABILITIES));
+  return [...new Set(declared.filter(c => typeof c === 'string' && known.has(c)))];
+}
 
-  const normalizedId = modelId.toLowerCase();
+/**
+ * Capabilities that genuinely FOLLOW from what a server reported about the model
+ * it loaded. Structural only — no semantic label is invented here, because no
+ * server reports one.
+ *
+ * @param {Object} [report] - Server-reported facts about the loaded model
+ * @param {Object} [report.chatTemplateCaps] - llama.cpp /props chat_template_caps
+ * @param {Object} [report.modalities] - llama.cpp /props modalities
+ * @param {number} [report.nCtx] - Context this server is serving
+ * @param {number} [report.nCtxTrain] - Context the model was trained at
+ * @param {boolean} [report.supportsInfill] - Server answered /infill for this model
+ * @returns {string[]} Possibly empty: a server may report nothing at all
+ */
+function capabilitiesFromServerReport(report = {}) {
+  const capabilities = [];
 
-  // Check each pattern in order (more specific first)
-  for (const { pattern, capabilities } of MODEL_CAPABILITY_PATTERNS) {
-    if (pattern.test(normalizedId)) {
-      return capabilities;
+  const templateCaps = report.chatTemplateCaps || null;
+  if (templateCaps) {
+    // The loaded model's own chat template can carry tool calls. That is a fact
+    // about the template, not a guess about the weights.
+    if (templateCaps.supports_tools || templateCaps.supports_tool_calls) {
+      capabilities.push(CAPABILITIES.TOOL_USE);
+      capabilities.push(CAPABILITIES.GENERAL);
+    }
+    // The template preserves reasoning content across turns, so the model emits it.
+    if (templateCaps.supports_preserve_reasoning) {
+      capabilities.push(CAPABILITIES.DEEP_REASONING);
     }
   }
 
-  // No pattern matched. That is a fact about this list, not about the model —
-  // return the routable default rather than nothing.
+  if (report.modalities?.vision) {
+    capabilities.push(CAPABILITIES.VISION);
+  }
+
+  if ((report.nCtxTrain || 0) >= LARGE_CONTEXT_TRAIN_TOKENS ||
+      (report.nCtx || 0) >= LARGE_CONTEXT_RUNTIME_TOKENS) {
+    capabilities.push(CAPABILITIES.LARGE_CONTEXT);
+  }
+
+  // Native FIM is direct evidence of code training — the server only answers
+  // /infill when the loaded GGUF actually carries FIM tokens. Only present when
+  // a caller already probed it; discovery never probes /infill on its own.
+  if (report.supportsInfill === true) {
+    capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
+  }
+
+  return [...new Set(capabilities)];
+}
+
+/**
+ * Resolve a model's capabilities: operator-declared, else server-reported
+ * structural, else the routable GENERAL default. Never returns an empty set and
+ * never looks at the model's name.
+ *
+ * @param {Object} [model] - Model facts
+ * @param {string[]} [model.declaredCapabilities] - Operator-declared (config.capabilities)
+ * @param {Object} [model.chatTemplateCaps] - Server-reported, see capabilitiesFromServerReport
+ * @param {Object} [model.modalities] - Server-reported
+ * @param {number} [model.nCtx] - Server-reported
+ * @param {number} [model.nCtxTrain] - Server-reported
+ * @param {boolean} [model.supportsInfill] - Server-reported
+ * @returns {string[]} Non-empty
+ */
+function resolveModelCapabilities(model = {}) {
+  // Only `declaredCapabilities` counts as an operator declaration. A plain
+  // `capabilities` field is what this function WRITES onto discovered models, so
+  // reading it here would let a resolved result feed back in as evidence.
+  const declared = normalizeDeclaredCapabilities(model.declaredCapabilities);
+  if (declared.length > 0) {
+    return declared;
+  }
+
+  const reported = capabilitiesFromServerReport(model);
+  if (reported.length > 0) {
+    return reported;
+  }
+
   return [...DEFAULT_UNKNOWN_CAPABILITIES];
 }
 
@@ -215,7 +239,7 @@ function getBackendCapabilities(backend) {
 
   // Dynamic backends need runtime inference
   if (config.capabilities === 'dynamic') {
-    return [...DEFAULT_UNKNOWN_CAPABILITIES]; // Caller should use inferCapabilitiesFromModelId
+    return [...DEFAULT_UNKNOWN_CAPABILITIES]; // Caller should use resolveModelCapabilities
   }
 
   return config.capabilities;
@@ -471,10 +495,11 @@ export {
   CAPABILITIES,
   DEFAULT_UNKNOWN_CAPABILITIES,
   UNKNOWN_MODEL_FLOOR_SCORE,
-  MODEL_CAPABILITY_PATTERNS,
   BACKEND_CAPABILITIES,
   ORCHESTRATOR_PORTS,
-  inferCapabilitiesFromModelId,
+  normalizeDeclaredCapabilities,
+  capabilitiesFromServerReport,
+  resolveModelCapabilities,
   isOrchestratorModel,
   getBackendCapabilities,
   getBackendContextLimit,

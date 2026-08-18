@@ -5,10 +5,11 @@
  * Discovers running llama-server instances and infers capabilities from actual
  * model metadata (n_params, n_ctx_train, etc.) instead of hardcoded patterns.
  *
- * This replaces hardcoded MODEL_CAPABILITY_PATTERNS with true dynamic discovery.
+ * Capabilities come from operator config and server-reported structure, never
+ * from the model's name.
  */
 
-import { CAPABILITIES, DEFAULT_UNKNOWN_CAPABILITIES } from './capability-matcher.js';
+import { CAPABILITIES, resolveModelCapabilities } from './capability-matcher.js';
 
 /**
  * Default ports to scan for local LLM instances
@@ -393,100 +394,21 @@ async function discoverModelOnPort(port, timeout = 2000) {
 }
 
 /**
- * Infer capabilities from what the SERVER reported about the model it loaded.
+ * Capabilities for a discovered model: operator-declared first, then whatever
+ * the SERVER structurally reported, then the routable GENERAL default.
  *
- * Precedence, strongest evidence first:
- *   1. `chat_template_caps` / `modalities` — the server describing this exact model
- *   2. `n_params` / `n_ctx` / `n_ctx_train` — measured numbers, not guesses
- *   3. name patterns — LAST RESORT, only ever ADD to what the reported data gave
+ * NOT derived from the model's name. A server reports no semantic capability at
+ * all (no n_params, no "this is a coder"), so a name regex here would be a
+ * fabrication that mislabels every fine-tune and every new release. Delegates to
+ * capability-matcher so discovery and routing resolve capability identically.
  *
- * A model that matches nothing anywhere still leaves here with a non-empty,
- * routable capability set. Never returns [].
+ * Never returns [].
  *
  * @param {Object} model - Model info from discoverModelOnPort
  * @returns {string[]}
  */
 function inferCapabilitiesFromMetadata(model) {
-  const capabilities = [];
-
-  // === (1) REPORTED CAPABILITIES ===
-  // llama.cpp publishes what the loaded model's own chat template can actually do.
-  const templateCaps = model.chatTemplateCaps || null;
-  if (templateCaps) {
-    // Tool-calling models are instruction-following general workhorses.
-    if (templateCaps.supports_tools || templateCaps.supports_tool_calls) {
-      capabilities.push(CAPABILITIES.GENERAL);
-    }
-    // A model whose template carries reasoning through is a reasoning model.
-    if (templateCaps.supports_preserve_reasoning) {
-      capabilities.push(CAPABILITIES.DEEP_REASONING);
-    }
-  }
-
-  const modalities = model.modalities || null;
-  if (modalities?.vision) {
-    capabilities.push(CAPABILITIES.VISION);
-  }
-
-  // === (2) MEASURED NUMBERS ===
-  const params = model.nParams;
-  if (params > 0) {
-    if (params >= 30e9) {
-      // 30B+ = Deep reasoning model
-      capabilities.push(CAPABILITIES.DEEP_REASONING);
-    } else if (params >= 14e9) {
-      // 14-30B = Good reasoning, general capable
-      capabilities.push(CAPABILITIES.DEEP_REASONING);
-      capabilities.push(CAPABILITIES.GENERAL);
-    } else if (params <= 8e9) {
-      // 8B or less = Fast generation (smaller = faster)
-      capabilities.push(CAPABILITIES.FAST_GENERATION);
-    }
-  }
-
-  const ctxTrain = model.nCtxTrain;
-  const ctxCurrent = model.nCtx;
-
-  if (ctxTrain >= 65536 || ctxCurrent >= 32768) {
-    capabilities.push(CAPABILITIES.LARGE_CONTEXT);
-  }
-
-  // Native FIM is direct evidence of code training — the server only answers
-  // /infill when the GGUF actually carries FIM tokens. Only present when a
-  // caller already probed it; discovery never probes /infill on its own.
-  if (model.supportsInfill === true) {
-    capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
-  }
-
-  // === (3) NAME PATTERNS — LAST RESORT ===
-  // These only ADD. They can never remove or override anything reported above,
-  // and a model whose name matches none of them is not penalised for it.
-  const name = (model.modelAlias || '').toLowerCase();
-  const path = (model.modelPath || '').toLowerCase();
-  const combined = `${name} ${path}`;
-
-  if (/coder|code|reap|starcoder|codellama/i.test(combined)) {
-    capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
-  }
-
-  if (/deepseek/i.test(combined)) {
-    capabilities.push(CAPABILITIES.SECURITY_FOCUS);
-    capabilities.push(CAPABILITIES.DEEP_REASONING);
-  }
-
-  if (/gemini|doc|write/i.test(combined)) {
-    capabilities.push(CAPABILITIES.DOCUMENTATION);
-  }
-
-  // === DEFAULT ===
-  // Nothing reported, nothing measured, nothing matched: the model is still a
-  // model. Give it the general set so routing can reach it rather than an empty
-  // set that silently excludes it forever.
-  if (capabilities.length === 0) {
-    capabilities.push(...DEFAULT_UNKNOWN_CAPABILITIES);
-  }
-
-  return [...new Set(capabilities)]; // Remove duplicates
+  return resolveModelCapabilities(model || {});
 }
 
 /**

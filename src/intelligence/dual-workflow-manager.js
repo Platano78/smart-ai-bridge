@@ -10,7 +10,7 @@
  * Integrates with health monitoring and learning engine for optimal routing.
  */
 
-import { CAPABILITIES, inferCapabilitiesFromModelId } from '../utils/capability-matcher.js';
+import { CAPABILITIES } from '../utils/capability-matcher.js';
 
 /**
  * Workflow modes
@@ -20,15 +20,6 @@ const WorkflowMode = {
   SINGLE_REFLECTION: 'single_reflection', // Good: single model self-review
   PASS_THROUGH: 'pass_through',           // Basic: no review loop
   CLOUD_FALLBACK: 'cloud_fallback'        // Emergency: use cloud backends
-};
-
-/**
- * Model capability tiers (for deciding if self-reflection is viable)
- */
-const ModelTier = {
-  LARGE: 'large',     // 14B+ params - can self-reflect
-  MEDIUM: 'medium',   // 7-13B params - limited self-reflection
-  SMALL: 'small'      // <7B params - no self-reflection (hallucination risk)
 };
 
 /**
@@ -117,20 +108,16 @@ class DualWorkflowManager {
       reasoning = `Router multi-model mode: ${loadedModels} - router-aware dual iterate enabled`;
       console.error(`[DualWorkflow] 🚀 Router-aware dual mode activated with models: ${loadedModels}`);
     } else if (localAlive) {
-      // Check model size for self-reflection viability
-      const singleBackend = 'local';
-      const modelTier = await this._detectModelTier(singleBackend);
-
-      if (modelTier === ModelTier.LARGE) {
-        mode = WorkflowMode.SINGLE_REFLECTION;
-        reasoning = `Single ${modelTier} model (${singleBackend}) - self-reflection enabled`;
-      } else if (modelTier === ModelTier.MEDIUM) {
-        mode = WorkflowMode.SINGLE_REFLECTION;
-        reasoning = `Single ${modelTier} model (${singleBackend}) - limited self-reflection`;
-      } else {
-        mode = WorkflowMode.PASS_THROUGH;
-        reasoning = `Single ${modelTier} model (${singleBackend}) - pass-through only (too small for reflection)`;
-      }
+      // One local model: self-reflection, uniformly.
+      //
+      // This used to be gated on a "tier" guessed from the model's NAME (a `70b`
+      // or `qwen3` substring meant large enough to self-review). No server
+      // reports a model's size, so that guess had no basis and it silently
+      // demoted every model whose name it did not recognise to pass-through.
+      // Lanes are treated uniformly instead: the reflection loop is offered, and
+      // its own quality threshold decides whether the review was worth anything.
+      mode = WorkflowMode.SINGLE_REFLECTION;
+      reasoning = 'Single local model - self-reflection enabled';
     } else {
       // No local backends - fallback to cloud
       mode = WorkflowMode.CLOUD_FALLBACK;
@@ -160,50 +147,25 @@ class DualWorkflowManager {
   }
 
   /**
-   * Detect model tier based on model ID
-   * @private
-   */
-  async _detectModelTier(backendName) {
-    try {
-      const adapter = this.backendRegistry?.getAdapter?.(backendName);
-      const modelId = adapter?.modelId || adapter?.detectedModel || '';
-      const modelLower = modelId.toLowerCase();
-
-      // Check for known large models (14B+)
-      if (modelLower.includes('14b') || modelLower.includes('32b') ||
-          modelLower.includes('70b') || modelLower.includes('deepseek-r1') ||
-          modelLower.includes('qwen3') || modelLower.includes('codestral')) {
-        return ModelTier.LARGE;
-      }
-
-      // Check for medium models (7-13B)
-      if (modelLower.includes('7b') || modelLower.includes('8b') ||
-          modelLower.includes('13b') || modelLower.includes('seed-coder')) {
-        return ModelTier.MEDIUM;
-      }
-
-      // Default to small for unknown or small models
-      return ModelTier.SMALL;
-    } catch (error) {
-      console.error(`[DualWorkflow] Model tier detection failed: ${error.message}`);
-      return ModelTier.MEDIUM; // Safe default
-    }
-  }
-
-  /**
-   * Pick a loaded router model that has the requested capability.
+   * Pick a loaded router model for a role.
+   *
+   * Capabilities come from the adapter (operator-declared config, else what the
+   * server reported) — never from the model id. When no loaded model claims the
+   * capability, which is the normal case for an operator who declared nothing,
+   * any loaded model other than `excludeId` will do: the point of the dual loop
+   * is that the two roles run on DIFFERENT models, and that is achievable
+   * without knowing anything semantic about either.
+   *
    * @param {string} capability - A CAPABILITIES value
+   * @param {string|null} [excludeId] - Model the other role already took
    * @returns {string|null} Model id, or null to use whatever is already loaded
    */
   _pickLoadedModel(capability, excludeId = null) {
     const loaded = this.backendRegistry?.getAdapter?.('local')?.getModelInfo?.()?.loadedModels || [];
-    const capable = loaded.filter(m => inferCapabilitiesFromModelId(m.id).includes(capability));
-    // Prefer a model the other role isn't already using — capability patterns
-    // overlap (a Qwen reasoning model also reads as code-specialized), so without
-    // this both roles can collapse onto one model and the dual loop degenerates
-    // into self-review.
-    const distinct = capable.find(m => m.id !== excludeId);
-    return (distinct || capable[0])?.id || null;
+    const capable = loaded.filter(m => (m.capabilities || []).includes(capability));
+    const pool = capable.length > 0 ? capable : loaded;
+    const distinct = pool.find(m => m.id !== excludeId);
+    return (distinct || pool[0])?.id || null;
   }
 
   /**
@@ -328,4 +290,4 @@ class DualWorkflowManager {
   }
 }
 
-export { DualWorkflowManager, WorkflowMode, ModelTier };
+export { DualWorkflowManager, WorkflowMode };

@@ -1,5 +1,5 @@
 {
-  "_comment": "EXAMPLE ONLY — nothing in Smart AI Bridge loads this file. It documents how to fill in the fields that src/config/backends.json ships without: a pinned model, an API key, a custom endpoint, and a disabled lane. Copy the fragment you need into backends.json.",
+  "_comment": "EXAMPLE ONLY — nothing in Smart AI Bridge loads this file. It documents how to fill in the fields that src/config/backends.json ships without: a pinned model, an API key, a custom endpoint, a disabled lane, and operator-declared model capabilities. Copy the fragment you need into backends.json.",
   "version": "2.0.0",
   "description": "Worked examples for backends.json fields — not a live config",
   "backends": {
@@ -51,6 +51,32 @@
         "timeout": 120000,
         "model": "REPLACE_WITH_A_MODEL_ID_FROM_YOUR_PROVIDER_CATALOG",
         "apiKey": "REPLACE_WITH_YOUR_OPENAI_API_KEY"
+      }
+    },
+    "local_declared_capabilities_example": {
+      "_comment": "Declare what the model on this lane can actually do. SAB derives NOTHING from a model's name: a server reports structural facts only (chat template caps, modalities, context size) and never a semantic capability, so the operator is the only trustworthy source for 'this one is code-specialized' or 'this one is a deep reasoner'. Declared capabilities WIN over anything the server reports; declare nothing and the lane still routes, on server-reported structure plus a general default.",
+      "type": "local",
+      "enabled": true,
+      "priority": 1,
+      "description": "Local inference with operator-declared capabilities",
+      "config": {
+        "_comment_capabilities": "Valid values: deep_reasoning, fast_generation, large_context, code_specialized, security_focus, documentation, fast_routing, vision, tool_use, general. Unknown strings are ignored.",
+        "capabilities": [
+          "code_specialized",
+          "large_context"
+        ],
+        "_comment_modelCapabilities": "Optional, for a router serving several models at once: declare capabilities per EXACT model id as your server reports it in /v1/models. Matched exactly, never by pattern, so a model you do not list here simply falls back to config.capabilities.",
+        "modelCapabilities": {
+          "REPLACE_WITH_A_MODEL_ID_YOUR_SERVER_REPORTS": [
+            "code_specialized"
+          ],
+          "REPLACE_WITH_ANOTHER_MODEL_ID_YOUR_SERVER_REPORTS": [
+            "deep_reasoning"
+          ]
+        },
+        "url": "http://127.0.0.1:8081/v1/chat/completions",
+        "maxTokens": 65536,
+        "timeout": 120000
       }
     }
   }

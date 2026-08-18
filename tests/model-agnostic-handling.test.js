@@ -13,7 +13,7 @@ import path from 'path';
 
 import {
   CAPABILITIES,
-  inferCapabilitiesFromModelId,
+  resolveModelCapabilities,
   scoreCapabilityMatch,
   findBestBackend,
   getBackendCapabilities
@@ -141,14 +141,14 @@ afterEach(() => {
 });
 
 describe('an unknown model stays routable', () => {
-  it('gets a non-empty capability set from its name alone', () => {
-    const caps = inferCapabilitiesFromModelId(UNKNOWN_MODEL);
+  it('gets a non-empty capability set when nothing at all is known about it', () => {
+    const caps = resolveModelCapabilities({});
     expect(caps.length).toBeGreaterThan(0);
     expect(caps).toContain(CAPABILITIES.GENERAL);
   });
 
   it('is not scored to zero against a requirement it cannot prove', () => {
-    const caps = inferCapabilitiesFromModelId(UNKNOWN_MODEL);
+    const caps = resolveModelCapabilities({});
     expect(scoreCapabilityMatch(caps, [CAPABILITIES.CODE_SPECIALIZED])).toBeGreaterThan(0);
   });
 
@@ -156,7 +156,7 @@ describe('an unknown model stays routable', () => {
     const result = findBestBackend({
       requiredCapabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.DEEP_REASONING],
       availableBackends: ['local'],
-      getLocalCapabilities: () => inferCapabilitiesFromModelId(UNKNOWN_MODEL)
+      getLocalCapabilities: () => resolveModelCapabilities({})
     });
     expect(result.backend).toBe('local');
     expect(result.score).toBeGreaterThan(0);
@@ -164,10 +164,32 @@ describe('an unknown model stays routable', () => {
 
   it('never outranks a model that actually has the required capability', () => {
     const unknown = scoreCapabilityMatch(
-      inferCapabilitiesFromModelId(UNKNOWN_MODEL), [CAPABILITIES.CODE_SPECIALIZED]);
+      resolveModelCapabilities({}), [CAPABILITIES.CODE_SPECIALIZED]);
     const known = scoreCapabilityMatch(
       [CAPABILITIES.CODE_SPECIALIZED], [CAPABILITIES.CODE_SPECIALIZED]);
     expect(known).toBeGreaterThan(unknown);
+  });
+
+  it('gets the SAME capabilities whatever it is called', () => {
+    const server = { nCtx: 262144, chatTemplateCaps: { supports_tools: true } };
+    const asUnknown = resolveModelCapabilities({ ...server });
+    const asFamousName = resolveModelCapabilities({ ...server });
+    expect(asUnknown).toEqual(asFamousName);
+  });
+
+  it('honours an operator-declared capabilities array over everything else', () => {
+    const caps = resolveModelCapabilities({
+      declaredCapabilities: [CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.SECURITY_FOCUS],
+      nCtx: 4096
+    });
+    expect(caps).toEqual([CAPABILITIES.CODE_SPECIALIZED, CAPABILITIES.SECURITY_FOCUS]);
+    expect(scoreCapabilityMatch(caps, [CAPABILITIES.CODE_SPECIALIZED])).toBeGreaterThan(
+      scoreCapabilityMatch(resolveModelCapabilities({}), [CAPABILITIES.CODE_SPECIALIZED]));
+  });
+
+  it('ignores a capability the operator invented, without losing routability', () => {
+    const caps = resolveModelCapabilities({ declaredCapabilities: ['telepathy'] });
+    expect(caps).toEqual([CAPABILITIES.GENERAL]);
   });
 
   it('derives capabilities from server-reported metadata, not the name', () => {
@@ -204,7 +226,7 @@ describe('an unknown model stays routable', () => {
   });
 });
 
-describe('FIM: /infill first, token table second, normal modify last', () => {
+describe('FIM: native /infill, or a normal modify — never a borrowed token table', () => {
   it('prefers native /infill when the server answers it', async () => {
     const { calls } = stubServer({
       props: unknownModelProps(),
@@ -212,47 +234,39 @@ describe('FIM: /infill first, token table second, normal modify last', () => {
       infill: '\n    return a + b'
     });
 
-    const strategy = await makeModifyHandler().resolveFIMStrategy(UNKNOWN_MODEL);
+    const strategy = await makeModifyHandler().resolveFIMStrategy();
     expect(strategy.mode).toBe('infill');
     expect(calls.some(c => c.url.endsWith('/infill') && c.method === 'POST')).toBe(true);
   });
 
-  it('prefers /infill even for a model the token table DOES recognise', async () => {
+  it('does a normal modify when /infill is absent, whatever the model is called', async () => {
     stubServer({
-      props: unknownModelProps({ model_alias: 'qwen3-coder-30b' }),
-      models: { data: [{ id: 'qwen3-coder-30b' }] },
-      infill: 'x'
+      props: unknownModelProps({ model_alias: 'a-name-that-once-had-a-token-table-entry' }),
+      models: { data: [{ id: 'a-name-that-once-had-a-token-table-entry' }] },
+      infill: null
     });
-    const strategy = await makeModifyHandler().resolveFIMStrategy('qwen3-coder-30b');
-    expect(strategy.mode).toBe('infill');
+    const strategy = await makeModifyHandler().resolveFIMStrategy();
+    expect(strategy.mode).toBe('none');
     expect(strategy.tokens).toBeUndefined();
   });
 
-  it('falls back to the sentinel token table only when /infill is absent', async () => {
-    stubServer({
-      props: unknownModelProps({ model_alias: 'qwen3-coder-30b' }),
-      models: { data: [{ id: 'qwen3-coder-30b' }] },
-      infill: null
-    });
-    const strategy = await makeModifyHandler().resolveFIMStrategy('qwen3-coder-30b');
-    expect(strategy.mode).toBe('tokens');
-    expect(strategy.tokens.prefix).toBe('<|fim_prefix|>');
-  });
-
-  it('does NOT send another model\'s sentinels to an unrecognised model', async () => {
+  it('never sends sentinel tokens of its own to any model', async () => {
     stubServer({
       props: unknownModelProps(),
       models: { data: [{ id: UNKNOWN_MODEL }] },
       infill: null
     });
-    const strategy = await makeModifyHandler().resolveFIMStrategy(UNKNOWN_MODEL);
+    const strategy = await makeModifyHandler().resolveFIMStrategy();
     expect(strategy.mode).toBe('none');
     expect(strategy.tokens).toBeUndefined();
+
+    const prompt = makeModifyHandler().buildFIMPrompt('a\nb\n', 'do it', 2);
+    expect(prompt).not.toMatch(/fim[_\u2581]|<PRE>|<SUF>|<MID>/i);
   });
 
   it('degrades to normal modify when there is no server at all', async () => {
     stubServer({});
-    expect((await makeModifyHandler().resolveFIMStrategy(UNKNOWN_MODEL)).mode).toBe('none');
+    expect((await makeModifyHandler().resolveFIMStrategy()).mode).toBe('none');
   });
 
   it('runs a native infill and returns the generated middle', async () => {
@@ -484,6 +498,23 @@ describe('ACCEPTANCE: a model nobody has ever heard of', () => {
     expect(inferred.length).toBeGreaterThan(0);
     console.log('[ACCEPTANCE] capabilities:', JSON.stringify(inferred));
 
+    const routing = findBestBackend({
+      requiredCapabilities: [CAPABILITIES.CODE_SPECIALIZED],
+      availableBackends: ['local'],
+      getLocalCapabilities: () => inferred
+    });
+    expect(routing.backend).toBe('local');
+    expect(routing.score).toBeGreaterThan(0);
+    console.log(`[ACCEPTANCE] routable: backend=${routing.backend} score=${routing.score}`);
+
+    // Operator-declared capabilities win over everything the server said.
+    const declaring = makeLocalAdapter();
+    declaring.config.capabilities = [CAPABILITIES.CODE_SPECIALIZED];
+    declaring.config.modelCapabilities = { [UNKNOWN_MODEL]: [CAPABILITIES.DEEP_REASONING] };
+    declaring.availableModels = [{ id: UNKNOWN_MODEL, nCtx: 262144, slots: 1, status: 'loaded' }];
+    expect(declaring.getModelCapabilities()).toEqual([CAPABILITIES.DEEP_REASONING]);
+    console.log('[ACCEPTANCE] operator-declared:', JSON.stringify(declaring.getModelCapabilities()));
+
     const adapter = makeLocalAdapter();
     const seed = adapter.getTokensPerSecond();
     expect(seed).toBeGreaterThan(0);
@@ -526,6 +557,64 @@ describe('ACCEPTANCE: a model nobody has ever heard of', () => {
     console.log('[ACCEPTANCE] modify_file success:', result.success, '| summary:', result.summary);
     expect(result.success).toBe(true);
     expect(result.diff).toContain('return a + b');
+  });
+});
+
+describe('ACCEPTANCE: a server that reports nothing at all', () => {
+  let bareDir;
+
+  beforeEach(async () => {
+    bareDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sab-bare-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(bareDir, { recursive: true, force: true });
+  });
+
+  it('still yields capabilities, a speed estimate and a working modify_file', async () => {
+    // No /props, no /infill, no timings — a bare OpenAI-compatible proxy.
+    stubServer({ models: { data: [{ id: 'mystery-model', status: { value: 'loaded' } }] } });
+
+    const caps = resolveModelCapabilities({});
+    expect(caps.length).toBeGreaterThan(0);
+    console.log('[ACCEPTANCE-BARE] capabilities:', JSON.stringify(caps));
+
+    const adapter = makeLocalAdapter('http://localhost:8000/v1/chat/completions');
+    adapter.modelId = 'mystery-model';
+    const speed = adapter.getTokensPerSecond();
+    expect(speed).toBeGreaterThan(0);
+    console.log(`[ACCEPTANCE-BARE] cold-start speed: ${speed} t/s`);
+
+    const handler = makeModifyHandler({
+      localUrl: 'http://localhost:8000/v1/chat/completions',
+      routerResponse: {
+        content: [
+          'SUMMARY: fix add',
+          '',
+          '<<<<<<< SEARCH',
+          '    return 0',
+          '=======',
+          '    return a + b',
+          '>>>>>>> REPLACE'
+        ].join('\n'),
+        metadata: { finishReason: 'stop' }
+      }
+    });
+
+    const strategy = await handler.resolveFIMStrategy();
+    expect(strategy.mode).toBe('none');
+    console.log('[ACCEPTANCE-BARE] FIM strategy:', strategy.mode);
+
+    const filePath = path.join(bareDir, 'add.py');
+    await fs.writeFile(filePath, 'def add(a, b):\n    return 0\n');
+
+    const result = await handler.execute({
+      filePath,
+      instructions: 'make add actually add',
+      options: { backend: 'local', useFIM: true, insertionLine: 2, dryRun: true }
+    });
+    expect(result.success).toBe(true);
+    console.log('[ACCEPTANCE-BARE] modify_file success:', result.success, '| summary:', result.summary);
   });
 });
 

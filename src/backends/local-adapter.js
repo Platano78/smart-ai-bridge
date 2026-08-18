@@ -10,7 +10,7 @@
 
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { LocalServiceDetector } from '../utils/local-service-detector.js';
-import { inferCapabilitiesFromModelId, isOrchestratorModel } from '../utils/capability-matcher.js';
+import { resolveModelCapabilities, isOrchestratorModel } from '../utils/capability-matcher.js';
 import {
   getServerCapabilities,
   discoverModelOnPort,
@@ -24,6 +24,14 @@ import {
   recordTimings,
   getLearnedTokensPerSecond
 } from '../utils/model-throughput.js';
+
+/**
+ * Throughput assumed before any real measurement exists for a model. Conservative
+ * on purpose: it only has to keep the first request's timeout sane until
+ * parseResponse() files the server's own `timings`.
+ * @type {number}
+ */
+const DEFAULT_COLD_START_TOKENS_PER_SECOND = 20;
 
 class LocalAdapter extends BackendAdapter {
   /**
@@ -311,15 +319,48 @@ class LocalAdapter extends BackendAdapter {
       loadedModels: loadedModels.map(m => ({
         id: m.id,
         nCtx: m.nCtx,
-        slots: m.slots
+        slots: m.slots,
+        capabilities: this.capabilitiesForModel(m)
       })),
       multiModelCapable: loadedModels.length >= 2
     };
   }
 
   /**
+   * Capabilities the OPERATOR declared for a model, if any.
+   *
+   * `config.capabilities` declares them for the whole local lane;
+   * `config.modelCapabilities` declares them per exact model id, for a router
+   * serving several models at once. Both are exact operator statements — no id
+   * is pattern-matched, so a model the operator did not mention gets nothing
+   * from here rather than a guess.
+   * @param {string|null} [modelId]
+   * @returns {string[]|undefined}
+   */
+  getDeclaredCapabilities(modelId = null) {
+    const perModel = this.config?.modelCapabilities;
+    if (modelId && perModel && Array.isArray(perModel[modelId])) {
+      return perModel[modelId];
+    }
+    return this.config?.capabilities;
+  }
+
+  /**
+   * Capabilities for one entry of availableModels: operator-declared first, then
+   * what the server reported about it, then the routable default. Never keyed on
+   * the model's NAME.
+   * @param {Object} model - An availableModels entry
+   * @returns {string[]}
+   */
+  capabilitiesForModel(model) {
+    return resolveModelCapabilities({
+      declaredCapabilities: this.getDeclaredCapabilities(model?.id),
+      nCtx: model?.nCtx
+    });
+  }
+
+  /**
    * Get capabilities based on ALL loaded models (union)
-   * Uses capability-matcher to infer from model IDs
    * @returns {string[]} List of capability strings
    */
   getModelCapabilities() {
@@ -328,13 +369,13 @@ class LocalAdapter extends BackendAdapter {
     if (loadedModels.length > 1) {
       const allCaps = new Set();
       loadedModels.forEach(m => {
-        const caps = inferCapabilitiesFromModelId(m.id);
-        caps.forEach(c => allCaps.add(c));
+        this.capabilitiesForModel(m).forEach(c => allCaps.add(c));
       });
       return Array.from(allCaps);
     }
 
-    return inferCapabilitiesFromModelId(this.modelId);
+    const current = this.availableModels?.find(m => m.id === this.modelId) || { id: this.modelId };
+    return this.capabilitiesForModel(current);
   }
 
   /**
@@ -361,51 +402,19 @@ class LocalAdapter extends BackendAdapter {
   getTokensPerSecond() {
     // MEASURED FIRST. Every llama.cpp completion carries a `timings` block with
     // predicted_per_second; parseResponse() files those under the model identity
-    // that produced them. A real measurement of this model on this hardware beats
-    // any table, and because the store is keyed on model identity a model swap
-    // cannot inherit the previous occupant's number.
+    // that produced them. Because the store is keyed on model identity, a model
+    // swap cannot inherit the previous occupant's number.
     const learned = getLearnedTokensPerSecond(this.modelId);
     if (learned !== null) {
       return learned;
     }
 
-    // COLD START ONLY, until the first completion comes back with timings.
-    // Keyed on model-family substrings, not router profile names — unmatched ids
-    // fall through to the parameter-count heuristic below, and an id matching
-    // nothing gets the generic default rather than being treated as unusable.
-    const modelSpeedTable = {
-      'qwen-14b': 35,
-      'qwen-32b': 15,
-      'deepseek-lite': 40,
-      'llama-7b': 45,
-      'llama-13b': 30,
-      'llama-70b': 8
-    };
-
-    if (this.modelId && modelSpeedTable[this.modelId]) {
-      return modelSpeedTable[this.modelId];
-    }
-
-    if (this.modelId) {
-      const modelLower = this.modelId.toLowerCase();
-      for (const [pattern, speed] of Object.entries(modelSpeedTable)) {
-        if (modelLower.includes(pattern.toLowerCase())) {
-          return speed;
-        }
-      }
-
-      const paramMatch = modelLower.match(/(\d+)b/);
-      if (paramMatch) {
-        const paramSize = parseInt(paramMatch[1], 10);
-        if (paramSize <= 10) return 45;
-        if (paramSize <= 15) return 35;
-        if (paramSize <= 25) return 10;
-        if (paramSize <= 35) return 8;
-        return 5;
-      }
-    }
-
-    return 20;
+    // COLD START: one conservative constant, until the first completion comes
+    // back with timings. There is deliberately no name-keyed table and no
+    // parameter-count-from-the-name regex here: no server reports a model's
+    // size, so a number derived from its name is a wrong number wearing a
+    // confident face — and it silently mis-sizes every timeout computed from it.
+    return DEFAULT_COLD_START_TOKENS_PER_SECOND;
   }
 
   /**
