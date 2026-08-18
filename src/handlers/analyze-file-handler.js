@@ -103,10 +103,10 @@ export class AnalyzeFileHandler extends BaseHandler {
       let contextLimit;
       let localSlotInfo = null; // Store for output token calculation
       if (selectedBackend === 'local') {
-        const { charLimit, model: loadedModel, context, slots } = await this.getContextLimit();
+        const { charLimit, model: loadedModel, context, contextPerRequest, slots } = await this.getContextLimit();
         contextLimit = charLimit;
-        localSlotInfo = { context, slots }; // Save for calculateDynamicTokens
-        console.error(`[AnalyzeFile] 📊 Local model: ${loadedModel} (${context} ctx / ${slots} slots = ${charLimit} char limit)`);
+        localSlotInfo = { context, contextPerRequest, slots }; // Save for calculateDynamicTokens
+        console.error(`[AnalyzeFile] 📊 Local model: ${loadedModel} (${contextPerRequest} tokens per request, ${slots} slots -> ${charLimit} char limit)`);
       } else {
         contextLimit = this.getBackendContextLimit(selectedBackend);
       }
@@ -311,18 +311,21 @@ CRITICAL: Be BRIEF. Max 3-5 findings. No verbose explanations.
    * @returns {number} Allocated tokens for response
    */
   calculateDynamicTokens(backendName, fileSize, analysisType, localSlotInfo = null) {
-    // For local backend: Calculate max output based on actual slot context
-    // Each slot gets (total_context / num_slots) tokens for BOTH input AND output
-    // We reserve ~35% for output after the input prompt
+    // For local backend: size the output budget from the model's PER-REQUEST window.
+    // That window covers BOTH input and output, and getLocalContextLimit already used
+    // 65% of it for input, so 35% is what's left. contextPerRequest is normalized at
+    // discovery time - dividing it by `slots` here would divide a second time.
     if (backendName === 'local' && localSlotInfo) {
-      const { context, slots } = localSlotInfo;
-      const tokensPerSlot = Math.floor(context / slots);
-      // Reserve 35% of slot for output (65% was used for input calculation)
-      const maxOutputTokens = Math.floor(tokensPerSlot * 0.35);
-      // Apply floor (1000) and ceiling (8000) for safety
-      const limit = Math.max(1000, Math.min(maxOutputTokens, 8000));
-      console.error(`[AnalyzeFile] 🎟️ Local output limit: ${limit} tokens (${context}ctx / ${slots}slots = ${tokensPerSlot}/slot, 35% for output)`);
-      return limit;
+      const { contextPerRequest, slots } = localSlotInfo;
+      // Guard a missing/zero field (older or partial object) so it can't yield NaN -
+      // fall through to the conservative fixed limit below instead.
+      if (Number.isFinite(contextPerRequest) && contextPerRequest > 0) {
+        const maxOutputTokens = Math.floor(contextPerRequest * 0.35);
+        // Apply floor (1000) and ceiling (8000) for safety
+        const limit = Math.max(1000, Math.min(maxOutputTokens, 8000));
+        console.error(`[AnalyzeFile] 🎟️ Local output limit: ${limit} tokens (35% of ${contextPerRequest} tokens per request, ${slots} slots)`);
+        return limit;
+      }
     }
 
     // Cloud backends: Fixed limits based on TPM/cost constraints

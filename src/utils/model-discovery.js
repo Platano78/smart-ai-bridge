@@ -41,7 +41,11 @@ const SERVER_TYPES = {
     getMetadata: (props, models) => ({
       nParams: models?.data?.[0]?.meta?.n_params || 0,
       nCtxTrain: models?.data?.[0]?.meta?.n_ctx_train || 0,
+      // /props reports the SLOT's window, which is already per-request: llama.cpp
+      // either gives every slot the whole pool (--kv-unified) or has already divided
+      // by n_parallel before reporting. Never divide this by `slots` again.
       nCtx: props?.default_generation_settings?.n_ctx || 4096,
+      nCtxPerRequest: props?.default_generation_settings?.n_ctx || 4096,
       slots: props?.total_slots || 1
     })
   },
@@ -53,6 +57,8 @@ const SERVER_TYPES = {
       nParams: inferParamsFromName(models?.data?.[0]?.id || ''),
       nCtxTrain: models?.data?.[0]?.max_model_len || 0,
       nCtx: models?.data?.[0]?.max_model_len || 32768,
+      // max_model_len is already a per-request limit
+      nCtxPerRequest: models?.data?.[0]?.max_model_len || 32768,
       slots: 1 // vLLM handles this differently (continuous batching)
     })
   },
@@ -63,6 +69,7 @@ const SERVER_TYPES = {
       nParams: inferParamsFromName(models?.data?.[0]?.id || ''),
       nCtxTrain: 0, // LM Studio doesn't expose this
       nCtx: 4096, // Default, can be overridden in LM Studio
+      nCtxPerRequest: 4096,
       slots: 1
     })
   },
@@ -75,6 +82,7 @@ const SERVER_TYPES = {
         nParams: parseOllamaParams(model?.details?.parameter_size || ''),
         nCtxTrain: 0,
         nCtx: 4096,
+        nCtxPerRequest: 4096,
         slots: 1
       };
     }
@@ -123,7 +131,9 @@ const CACHE_TTL = 60000; // 1 minute - short TTL for experimentation flexibility
  * @property {string} modelPath - Full path to model file
  * @property {number} nParams - Number of parameters
  * @property {number} nCtxTrain - Training context window
- * @property {number} nCtx - Current context window
+ * @property {number} nCtx - Current context window (as reported by the source)
+ * @property {number} nCtxPerRequest - Context a single request may actually use.
+ *   Normalized at discovery time so consumers never have to divide by `slots`.
  * @property {number} slots - Parallel slots available
  * @property {string[]} capabilities - Inferred capabilities
  * @property {boolean} isOrchestrator - Whether this is an orchestrator model
@@ -257,6 +267,18 @@ async function discoverModelOnPort(port, timeout = 2000) {
             if (!isNaN(parsedSlots)) slots = parsedSlots;
           }
 
+          // Extract --kv-unified (short form -kvu): with a unified KV cache every slot
+          // can address the full --ctx-size, so the per-request window is NOT divided by
+          // --parallel. Deliberately flag-only: llama.cpp also enables this via the
+          // LLAMA_ARG_KV_UNIFIED env var and when the slot count is auto, and neither
+          // shows up in these args. Missing those cases divides when we shouldn't, which
+          // under-sizes - the safe direction. We never skip the division on a guess.
+          const kvUnified = args.includes('--kv-unified') || args.includes('-kvu');
+
+          // --ctx-size here is the TOTAL context (unlike /props, which is per-slot),
+          // so it must be divided by the slot count unless the KV cache is unified.
+          const nCtxPerRequest = kvUnified ? nCtx : Math.floor(nCtx / slots);
+
           // Extract --n-gpu-layers (for nParams inference)
           let nGpuLayers = 0;
           const gpuLayersIdx = args.indexOf('--n-gpu-layers');
@@ -273,6 +295,7 @@ async function discoverModelOnPort(port, timeout = 2000) {
             nParams: models?.data?.find(m => m.id === loadedModel.id)?.meta?.n_params || 0,
             nCtxTrain: models?.data?.find(m => m.id === loadedModel.id)?.meta?.n_ctx_train || 0,
             nCtx: nCtx,
+            nCtxPerRequest: nCtxPerRequest,
             slots: slots,
             modalities: props?.modalities || { vision: false, audio: false },
             endpoint: `http://localhost:${port}/v1/chat/completions`,
@@ -321,6 +344,7 @@ async function discoverModelOnPort(port, timeout = 2000) {
       nParams: metadata.nParams,
       nCtxTrain: metadata.nCtxTrain,
       nCtx: metadata.nCtx,
+      nCtxPerRequest: metadata.nCtxPerRequest,
       slots: metadata.slots,
       modalities: props?.modalities || { vision: false, audio: false },
       endpoint: type === 'ollama'
@@ -542,6 +566,11 @@ async function findBestLocalModel(requiredCapabilities, options = {}) {
  */
 function clearCache() {
   modelCache.clear();
+  // The context-limit memo below otherwise only self-invalidates on a modelAlias change,
+  // so a model reloaded at a different context under the same alias would keep the stale
+  // window. Callers asking to force rediscovery must get a fresh sizing too.
+  cachedLocalLimit = null;
+  cachedModel = null;
 }
 
 /**
@@ -638,7 +667,7 @@ const LOCAL_DISCOVERY_PORTS = [8081, 8087, 8088, 8001, 8000, 1234, 5000];
  * Uses existing autodiscovery to find models across all ports, then calculates safe input limit
  * @param {number[]} [ports=LOCAL_DISCOVERY_PORTS] - Ports to scan
  * @param {number} [timeout=1000] - Discovery timeout per port
- * @returns {Promise<{charLimit: number, model: string, context: number, slots: number, port: number}>}
+ * @returns {Promise<{charLimit: number, model: string, context: number, contextPerRequest: number, slots: number, port: number}>}
  */
 async function getLocalContextLimit(ports = LOCAL_DISCOVERY_PORTS, timeout = 1000) {
   // Try to discover any available model using existing infrastructure
@@ -653,9 +682,12 @@ async function getLocalContextLimit(ports = LOCAL_DISCOVERY_PORTS, timeout = 100
     return [m];
   });
 
-  // Find model with largest context (best for file analysis)
+  // Find model with the largest PER-REQUEST window (best for file analysis).
+  // nCtx is not comparable across sources - one reports a total pool, the others a
+  // per-request limit - so the selection has to run on the normalized field.
   const availableModel = flatModels.length > 0
-    ? flatModels.reduce((best, curr) => (curr.nCtx > best.nCtx ? curr : best))
+    ? flatModels.reduce((best, curr) =>
+        (curr.nCtxPerRequest > best.nCtxPerRequest ? curr : best))
     : null;
 
   // Invalidate cache if model changed
@@ -667,24 +699,24 @@ async function getLocalContextLimit(ports = LOCAL_DISCOVERY_PORTS, timeout = 100
 
   if (cachedLocalLimit) return cachedLocalLimit;
 
-  if (!availableModel || !availableModel.nCtx) {
+  if (!availableModel || !availableModel.nCtxPerRequest) {
     // No model found - return conservative default
     cachedLocalLimit = {
       charLimit: 20000,
       model: 'unknown',
       context: 0,
+      contextPerRequest: 0,
       slots: 2,
       port: null
     };
     return cachedLocalLimit;
   }
 
-  // Calculate safe input limit using discovered model's actual context and slots:
-  // - context / slots = tokens per request slot
+  // Calculate safe input limit from the model's per-request window:
+  // - nCtxPerRequest is already normalized per source (no division here)
   // - Reserve 35% for output/overhead (65% for input)
   // - Convert tokens to chars (~4 chars per token)
-  const tokensPerSlot = Math.floor(availableModel.nCtx / availableModel.slots);
-  const safeInputTokens = Math.floor(tokensPerSlot * 0.65);
+  const safeInputTokens = Math.floor(availableModel.nCtxPerRequest * 0.65);
   const charLimit = safeInputTokens * 4;
 
   // Enforce floor (20K minimum) and ceiling (512K max)
@@ -694,6 +726,9 @@ async function getLocalContextLimit(ports = LOCAL_DISCOVERY_PORTS, timeout = 100
     charLimit: finalLimit,
     model: availableModel.modelAlias,
     context: availableModel.nCtx,
+    // The window a single request may actually use. Differs from `context` whenever
+    // the source reports a total pool (router --ctx-size without --kv-unified).
+    contextPerRequest: availableModel.nCtxPerRequest,
     slots: availableModel.slots,
     port: availableModel.port
   };
