@@ -130,11 +130,14 @@ export class GenerateFileHandler extends BaseHandler {
       const maxTokens = this.calculateDynamicTokens(selectedBackend, promptLength, complexity);
       const timeoutMs = this.calculateDynamicTimeout(selectedBackend, maxTokens);
 
-      // Check if context limit exceeded
-      const contextLimit = this.getBackendContextLimit(selectedBackend);
-      if (promptLength > contextLimit * 0.9) { // 90% threshold
+      // Backstop: capacityFor() already reserved response headroom above,
+      // so this should be unreachable via the normal escalation path. Kept
+      // as a guard for any caller that skips that check.
+      const usableInputCapacity = await this.capacityFor(selectedBackend);
+      if (promptLength > usableInputCapacity) {
         throw new Error(
-          `Generation prompt (${promptLength} chars) exceeds ${selectedBackend} context limit (${contextLimit} chars). ` +
+          `Generation prompt (${promptLength} chars) exceeds ${selectedBackend}'s usable input capacity ` +
+          `(${usableInputCapacity} chars, after reserving room for the response). ` +
           `Consider reducing spec, context files, or using a backend with larger context.`
         );
       }

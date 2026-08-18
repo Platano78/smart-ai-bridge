@@ -64,10 +64,10 @@ describe('capacityFor', () => {
     expect(await handler.capacityFor('auto')).toBe(85196);
   });
 
-  it('resolves cloud backends to their static caps', async () => {
+  it('resolves cloud backends to 90% of their static caps, reserving response headroom', async () => {
     const handler = stubbedAnalyzeHandler();
-    expect(await handler.capacityFor('nvidia_glm')).toBe(128000);
-    expect(await handler.capacityFor('openai_chatgpt')).toBe(512000);
+    expect(await handler.capacityFor('nvidia_glm')).toBe(115200); // 128000 * 0.9
+    expect(await handler.capacityFor('openai_chatgpt')).toBe(460800); // 512000 * 0.9
   });
 });
 
@@ -155,6 +155,34 @@ describe('generate_file forced-cloud oversize handling', () => {
     });
 
     expect(result.success).toBe(false);
+    expect(result.error).toMatch(/no configured backend can hold it/);
+  });
+
+  it('never produces the false "exceeds context limit" refusal for a payload actually below the raw cap', async () => {
+    // Regression for the false-refusal bug: capacityFor() used to mix a
+    // reserved input capacity (local) with a raw total capacity (cloud).
+    // A 500,593-char payload sits below openai_chatgpt's raw 512000 cap but
+    // above 90% of it — escalation used to hand it to openai_chatgpt, which
+    // then falsely claimed the payload "exceeds openai_chatgpt context
+    // limit (512000 chars)" even though 500593 < 512000. Now capacityFor
+    // already reserves the 10% response headroom, so escalation itself
+    // recognizes no cloud backend fits and refuses honestly up front.
+    const handler = new GenerateFileHandler({});
+    handler.getContextLimit = async () => ({ charLimit: 50000, model: 'test-model' });
+
+    const spec = 'x'.repeat(500593 - 300); // buildGenerationPrompt adds a fixed wrapper
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-generate-false-refusal-'));
+    const outputPath = path.join(tmpDir, 'out.js');
+
+    const result = await handler.execute({
+      spec,
+      outputPath,
+      options: { backend: 'gemini' }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).not.toMatch(/exceeds gemini context limit/);
+    expect(result.error).not.toMatch(/exceeds openai_chatgpt context limit/);
     expect(result.error).toMatch(/no configured backend can hold it/);
   });
 });

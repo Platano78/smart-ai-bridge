@@ -112,11 +112,20 @@ class BaseHandler {
   }
 
   /**
-   * Capacity (in characters) a given backend can hold. Single source of
-   * truth for "what can this backend take" — local (and the unresolved
-   * 'auto' routing token, which lands on local by default and is the
-   * conservative choice) use the dynamic probed limit; everything else
-   * uses the static table.
+   * INPUT capacity (in characters) a given backend can accept. Single source
+   * of truth for "what can this backend take" — the two lanes return
+   * different raw numbers but the same semantics (usable input, response
+   * room already carved out), so they can be compared directly:
+   * - local (and the unresolved 'auto' routing token, which lands on local
+   *   by default and is the conservative choice): the dynamic probed limit
+   *   from getContextLimit(), which already reserves output headroom
+   *   (getLocalContextLimit computes safeInputTokens as 65% of the
+   *   per-request window).
+   * - everything else: the static table value with a 10% response
+   *   headroom carved out (matching the reserve this repo already used in
+   *   generate-file-handler's cloud guard). Not local's 35% reserve —
+   *   cloud output is separately capped by each backend's maxTokens, so
+   *   35% would over-reserve.
    * @param {string} backendName - Backend identifier (or 'auto')
    * @returns {Promise<number>}
    */
@@ -128,7 +137,7 @@ class BaseHandler {
         return this.getBackendContextLimit('local');
       }
     }
-    return this.getBackendContextLimit(backendName);
+    return Math.floor(this.getBackendContextLimit(backendName) * 0.9);
   }
 
   /**
