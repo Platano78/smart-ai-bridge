@@ -19,6 +19,12 @@ class LocalServiceDetector {
     this.ports = options.ports || [8081, 8001, 8000, 1234, 5000];
     this.timeout = options.timeout || 3000;
 
+    // Negative-result cache: when a full scan finds nothing, remember it for this
+    // long so a rediscovery storm (forceRediscovery on every failed request during
+    // an outage) doesn't re-pay the full parallel scan each time.
+    this.negativeCacheTTL = options.negativeCacheTTL || 30000; // 30 seconds
+    this.negativeCacheTimestamp = null;
+
     // IP discovery strategies in priority order
     this.ipStrategies = [
       () => this.getLocalhostIPs(),
@@ -44,27 +50,62 @@ class LocalServiceDetector {
       }
     }
 
+    // A full scan that found nothing recently short-circuits here, so a
+    // forceRediscovery storm during an outage doesn't re-pay the scan cost
+    // on every failed request.
+    if (!forceRefresh && this.negativeCacheTimestamp) {
+      if (Date.now() - this.negativeCacheTimestamp < this.negativeCacheTTL) {
+        console.error('🎯 Negative cache active — skipping rescan');
+        return null;
+      }
+    }
+
     console.error('🔍 Starting local LLM endpoint discovery...');
 
+    // Collect all (ip, port) candidate pairs in strategy-then-port priority
+    // order first, then probe them all concurrently. Winner selection is by
+    // priority order, not by which probe resolves first: the earliest pair
+    // in this list that succeeded wins, even if a lower-priority probe came
+    // back faster.
+    const candidates = [];
+    // Today every fallible strategy swallows its own errors and returns [],
+    // so this catch is unreachable — but the negative cache below must only
+    // remember a "nothing found" verdict from a COMPLETE candidate sweep. A
+    // future strategy that throws would otherwise poison 30s of discovery
+    // with a partial scan's verdict.
+    let scanComplete = true;
     for (const strategy of this.ipStrategies) {
       try {
         const ips = await strategy();
         for (const ip of ips) {
           for (const port of this.ports) {
-            const endpoint = await this.testEndpoint(ip, port);
-            if (endpoint) {
-              this.cachedEndpoint = endpoint;
-              this.cacheTimestamp = Date.now();
-              console.error(`✅ Discovered endpoint: ${endpoint}`);
-              return endpoint;
-            }
+            candidates.push({ ip, port });
           }
         }
       } catch (error) {
+        scanComplete = false;
         console.error(`❌ Strategy failed: ${error.message}`);
       }
     }
 
+    const results = await Promise.all(
+      candidates.map(({ ip, port }) => this.testEndpoint(ip, port))
+    );
+
+    const winnerIndex = results.findIndex(endpoint => endpoint !== null);
+
+    if (winnerIndex !== -1) {
+      const endpoint = results[winnerIndex];
+      this.cachedEndpoint = endpoint;
+      this.cacheTimestamp = Date.now();
+      this.negativeCacheTimestamp = null;
+      console.error(`✅ Discovered endpoint: ${endpoint}`);
+      return endpoint;
+    }
+
+    if (scanComplete) {
+      this.negativeCacheTimestamp = Date.now();
+    }
     console.error('❌ No local LLM endpoint found');
     return null;
   }
@@ -208,6 +249,7 @@ class LocalServiceDetector {
   clearCache() {
     this.cachedEndpoint = null;
     this.cacheTimestamp = null;
+    this.negativeCacheTimestamp = null;
     console.error('🔄 Endpoint cache cleared');
   }
 }

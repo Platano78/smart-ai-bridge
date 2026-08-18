@@ -143,9 +143,18 @@ class LocalAdapter extends BackendAdapter {
                 ? parseInt(args[parallelIdx + 1], 10)
                 : 1;
 
+              // Extract --kv-unified: with a unified KV cache every slot can address
+              // the full --ctx-size, so the per-request window is NOT divided by
+              // --parallel. See model-discovery.js's identical nCtxPerRequest
+              // derivation for the flag-only caveat (env var / auto slots not visible
+              // here — under-sizing, never over-sizing, is the safe direction).
+              const kvUnified = args.includes('--kv-unified') || args.includes('-kvu');
+              const nCtxPerRequest = kvUnified ? nCtx : Math.floor(nCtx / slots);
+
               return {
                 id: m.id,
                 nCtx,
+                nCtxPerRequest,
                 slots,
                 status: m.status?.value || 'unknown'
               };
@@ -165,7 +174,7 @@ class LocalAdapter extends BackendAdapter {
             });
           } else {
             // Fallback if no models loaded
-            this.availableModels = [{ id: data.data[0].id, nCtx: 4096, slots: 1, status: 'unknown' }];
+            this.availableModels = [{ id: data.data[0].id, nCtx: 4096, nCtxPerRequest: 4096, slots: 1, status: 'unknown' }];
             this.model = data.data[0].id;
             this.modelId = data.data[0].id;
             console.error(`[SAB] LocalAdapter: Model detected: ${this.modelId} (fallback)`);
@@ -227,7 +236,9 @@ class LocalAdapter extends BackendAdapter {
           const nCtx = ctxIdx !== -1 && args[ctxIdx + 1] ? parseInt(args[ctxIdx + 1], 10) : 4096;
           const parallelIdx = args.indexOf('--parallel');
           const slots = parallelIdx !== -1 && args[parallelIdx + 1] ? parseInt(args[parallelIdx + 1], 10) : 1;
-          return { id: m.id, nCtx, slots, status: m.status?.value || 'unknown' };
+          const kvUnified = args.includes('--kv-unified') || args.includes('-kvu');
+          const nCtxPerRequest = kvUnified ? nCtx : Math.floor(nCtx / slots);
+          return { id: m.id, nCtx, nCtxPerRequest, slots, status: m.status?.value || 'unknown' };
         });
 
         return alternative;
@@ -262,7 +273,10 @@ class LocalAdapter extends BackendAdapter {
     const { contentSize = 0, preferSpeed = false, preferContext = false } = options;
 
     if (preferContext || contentSize > 20000) {
-      const sorted = [...this.availableModels].sort((a, b) => b.nCtx - a.nCtx);
+      // Rank by per-request context, not raw --ctx-size: a 65536-ctx/4-slot model
+      // without a unified KV cache only offers 16K per request, and would wrongly
+      // beat a 32768/1-slot model's 32K if sorted on the raw pool size.
+      const sorted = [...this.availableModels].sort((a, b) => b.nCtxPerRequest - a.nCtxPerRequest);
       return sorted[0].id;
     }
 
