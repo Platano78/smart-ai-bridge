@@ -91,3 +91,6 @@ __pycache__/
 *.db-shm
 *.sqlite-wal
 *.sqlite-shm
+
+# Serena LSP tooling state (local only; was published by mistake through v2.13.0)
+.serena/

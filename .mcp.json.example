@@ -3,16 +3,13 @@
     "smart-ai-bridge": {
       "command": "node",
       "args": [
-        "/absolute/path/to/smart-ai-bridge/smart-ai-bridge.js"
+        "/absolute/path/to/smart-ai-bridge/src/server.js"
       ],
-      "cwd": "/absolute/path/to/smart-ai-bridge",
       "env": {
-        "MCP_SERVER_NAME": "smart-ai-bridge",
-        "NODE_ENV": "production",
         "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
         "GEMINI_API_KEY": "${GEMINI_API_KEY}",
-        "MCP_SERVER_MODE": "true",
-        "VALIDATION_ENABLED": "true"
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "GROQ_API_KEY": "${GROQ_API_KEY}"
       }
     }
   }

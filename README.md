@@ -17,54 +17,98 @@ Smart AI Bridge is an MCP server that sits between Claude Code and your AI backe
 
 ## Quick Start
 
-### 1. Install
+There is no npm package -- install by cloning. Requires **Node.js >= 18**.
+
+### 1. Clone and install
 
 ```bash
-cd /path/to/smart-ai-bridge
+git clone https://github.com/Platano78/smart-ai-bridge.git
+cd smart-ai-bridge
 npm install
 ```
 
-### 2. Configure Backends
-
-Backend configuration lives in `src/config/backends.json`. Set API keys for the providers you want to use:
+Confirm the install is sound before wiring it into anything:
 
 ```bash
-# Examples -- set whichever keys apply to your backends
+npm test          # expect: all tests pass, 0 failures
+```
+
+### 2. Configure at least one backend
+
+The server **starts and lists all 17 tools with no API keys at all** -- you only need a
+backend when you actually call one. You need one of:
+
+- **a local OpenAI-compatible server** (llama.cpp, vLLM, LM Studio, Ollama) -- auto-discovered on
+  common ports, no key required; or
+- **one cloud API key** from any supported provider.
+
+```bash
+# Set whichever apply -- one is enough
 export NVIDIA_API_KEY="your-key"
 export OPENAI_API_KEY="your-key"
 export GEMINI_API_KEY="your-key"
 export GROQ_API_KEY="your-key"
 ```
 
-You only need at least one working backend (a local model or one cloud API key). See [CONFIGURATION.md](CONFIGURATION.md) for the full config reference.
+Backend definitions live in `src/config/backends.json`; see [CONFIGURATION.md](CONFIGURATION.md)
+for the full reference. A missing key is never an error -- the startup readiness audit reports
+such backends as `cannot verify`, not as broken.
 
-### 3. Add to Claude Code
+### 3. Register with your MCP client
+
+Use an **absolute path** to `src/server.js`. Relative paths depend on the client honoring `cwd`,
+which not every client does.
+
+**Claude Code** -- copy [`.mcp.json.example`](.mcp.json.example) to `.mcp.json` in your project,
+or add to your MCP settings:
 
 ```json
 {
   "mcpServers": {
     "smart-ai-bridge": {
       "command": "node",
-      "args": ["src/server.js"],
-      "cwd": "/path/to/smart-ai-bridge",
+      "args": ["/absolute/path/to/smart-ai-bridge/src/server.js"],
       "env": {
-        "NVIDIA_API_KEY": "your-key",
-        "OPENAI_API_KEY": "your-key",
-        "GEMINI_API_KEY": "your-key",
-        "GROQ_API_KEY": "your-key"
+        "NVIDIA_API_KEY": "your-key"
       }
     }
   }
 }
 ```
 
-### 4. Restart Claude Code
+**Claude Desktop** -- same block, merged into `claude_desktop_config.json`:
 
-After restarting, all 17 tools will be available. Verify with:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+**Any other MCP client** -- it speaks MCP over stdio. Run `node /absolute/path/src/server.js` and
+talk JSON-RPC to it. Diagnostics go to stderr; stdout carries protocol traffic only.
+
+### 4. Restart the client and verify
+
+All 17 tools appear after a restart. Verify with a call that needs **no** backend:
 
 ```
-@check_backend_health({ "backend": "local" })
+@get_analytics({})
 ```
+
+To check a backend you have actually configured, name it explicitly -- `check_backend_health`
+reports `local` as critical when no local model is running, which is expected on a cloud-only
+setup and does not mean the install failed:
+
+```
+@check_backend_health({ "backend": "auto" })
+```
+
+### Updating an existing install
+
+```bash
+cd /path/to/smart-ai-bridge
+git pull origin main
+npm install        # only needed when dependencies changed
+```
+
+Then restart your MCP client (in Claude Code, `/mcp` reconnects without a full restart).
 
 ## Tools (17)
 
@@ -291,6 +335,7 @@ See [EXTENDING.md](EXTENDING.md) for details on adding custom adapter types.
 
 | Document | Description |
 |----------|-------------|
+| [AGENTS.md](AGENTS.md) | Install/run contract for AI agents and agentic harnesses, plus repo rules |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [CONFIGURATION.md](CONFIGURATION.md) | Full configuration reference |
 | [EXTENDING.md](EXTENDING.md) | Adding backends, handlers, and tools |
