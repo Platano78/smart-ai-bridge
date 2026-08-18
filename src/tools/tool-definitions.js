@@ -525,7 +525,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'batch_analyze',
-    description: "Run the SAME question against a glob of files, then aggregate the findings into one cross-file summary. Use for codebase-wide audits ('any SQL injection under src/**/handlers/*.js?'), per-feature reviews, or pre-merge sweeps. For ONE file, use `analyze_file` (cheaper). For NL search without a known file set, use `explore`. Set `aggregateResults:false` to get raw per-file results instead of the aggregated summary. Read-only: reads every matched file (capped by `maxFiles`) and makes one LLM call per file (parallel by default). Returns: shape depends on aggregateResults. aggregateResults:true (default): `{success, status:'completed', filesAnalyzed, patterns, question, aggregatedSummary, aggregatedFindings:[strings], aggregatedActions:[strings], overallConfidence, perFileResults:[{filePath, summary, findingCount, confidence}], processing_time, tokens_saved}`. aggregateResults:false: `{success, status:'completed', filesAnalyzed, patterns, question, results:[full per-file analysis objects], processing_time}`. Empty pattern match: `{success, status:'no_files', message, patterns}`.",
+    description: "Run the SAME question against a glob of files, then aggregate the findings into one cross-file summary. Use for codebase-wide audits ('any SQL injection under src/**/handlers/*.js?'), per-feature reviews, or pre-merge sweeps. For ONE file, use `analyze_file` (cheaper). For NL search without a known file set, use `explore`. Set `aggregateResults:false` to get raw per-file results instead of the aggregated summary. Read-only: by default reads every matched file (capped by `maxFiles`) and makes one LLM call per file (parallel by default). `options.grepFilter` (string or string[], plain substrings — never regex, case-insensitive) narrows the file set to files whose content contains ANY term; it widens the scan before applying `maxFiles`, so filtering never just re-filters an already-truncated glob. `options.singlePass` (default false) makes exactly ONE LLM call across all matched files instead of one call per file — much cheaper, but `perFileResults` only reports which files contributed evidence, not a real per-file summary/confidence; evidence per file is grep-matched lines (with context) when `grepFilter` is set, otherwise the file's head, capped to fit the model's context window (reported via `evidence_truncated`). Returns: shape depends on aggregateResults/singlePass. aggregateResults:true, singlePass:false (default): `{success, status:'completed', filesAnalyzed, patterns, question, aggregatedSummary, aggregatedFindings:[strings], aggregatedActions:[strings], overallConfidence, perFileResults:[{filePath, summary, findingCount, confidence}], processing_time, tokens_saved}`. singlePass:true: same shape but `perFileResults:[{filePath, contributedEvidence}]`, plus `singlePass:true`, `evidence_truncated` (input side — evidence was trimmed before the call, with `evidence_dropped_files`/`evidence_truncation_hint` when true), and `was_truncated` (output side — the aggregated answer itself hit the token limit, with `truncation_hint` when true). aggregateResults:false: `{success, status:'completed', filesAnalyzed, patterns, question, results:[full per-file analysis objects], processing_time}`. When `grepFilter` is set, responses also include `grepFilter:{terms, filesScanned, filesMatched}`. Empty pattern match: `{success, status:'no_files', message, patterns}`.",
     handler: 'handleBatchAnalyze',
     schema: {
       type: 'object',
@@ -566,6 +566,18 @@ const CORE_TOOL_DEFINITIONS = [
               type: 'string',
               enum: ['general', 'bug', 'security', 'performance'],
               default: 'general'
+            },
+            grepFilter: {
+              oneOf: [
+                { type: 'string' },
+                { type: 'array', items: { type: 'string' } }
+              ],
+              description: 'Plain substring(s) to content-filter matched files by before maxFiles is applied (case-insensitive, never regex)'
+            },
+            singlePass: {
+              type: 'boolean',
+              default: false,
+              description: 'Make exactly ONE LLM call across all matched files instead of one call per file (cheaper; perFileResults reports evidence contribution, not real per-file analysis)'
             }
           }
         }

@@ -13,12 +13,22 @@
 
 import { BaseHandler } from './base-handler.js';
 import { AnalyzeFileHandler } from './analyze-file-handler.js';
+import { parseLLMJSON } from '../utils/llm-json-parser.js';
 
 import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 
 const REPO_ROOT = path.resolve(new URL('.', import.meta.url).pathname, '..', '..');
+
+// Same shape AnalyzeFileHandler asks the LLM for — batch_analyze's singlePass
+// mode asks for one aggregated version of the identical JSON contract.
+const SINGLE_PASS_FIELD_SPECS = {
+  summary: 'string',
+  findings: 'array',
+  confidence: 'number',
+  suggestedActions: 'array'
+};
 
 export class BatchAnalyzeHandler extends BaseHandler {
 
@@ -61,25 +71,62 @@ export class BatchAnalyzeHandler extends BaseHandler {
       aggregateResults = true,
       parallel = true,
       backend = 'auto',
-      analysisType = 'general'
+      analysisType = 'general',
+      grepFilter = null,
+      singlePass = false
     } = options;
+
+    // Plain-substring terms, never regex — a term like "a.b" or "x(y" must match
+    // those literal characters. Accept string or string[]; empty/blank terms are dropped.
+    const grepTerms = grepFilter == null
+      ? null
+      : (Array.isArray(grepFilter) ? grepFilter : [grepFilter])
+          .map(t => String(t))
+          .filter(t => t.length > 0);
+    const grepActive = !!(grepTerms && grepTerms.length > 0);
 
     const startTime = Date.now();
 
     try {
-      // 1. Expand glob patterns to actual files
-      const files = await this.expandPatterns(normalizedPatterns, maxFiles);
+      // 1. Expand glob patterns to actual files.
+      // grepFilter must WIDEN before it narrows: expandPatterns caps at maxFiles
+      // before returning, so filtering its output would filter an
+      // already-truncated set. When grepFilter is set, scan a wider candidate
+      // pool first, content-filter, and only then slice to maxFiles.
+      const { files, contentCache, scannedCount, matchedCount } =
+        await this.expandAndFilterPatterns(normalizedPatterns, maxFiles, grepTerms);
 
       if (files.length === 0) {
         return this.buildSuccessResponse({
           status: 'no_files',
           message: 'No files matched the provided patterns',
-          patterns: normalizedPatterns
+          patterns: normalizedPatterns,
+          ...(grepActive ? { grepFilter: { terms: grepTerms, filesScanned: scannedCount, filesMatched: matchedCount } } : {})
         });
       }
 
       console.error(`[BatchAnalyze] 📂 Found ${files.length} files matching patterns`);
+      if (grepActive) {
+        console.error(`[BatchAnalyze] 🔎 grepFilter scanned ${scannedCount} candidates, matched ${matchedCount}`);
+      }
       console.error(`[BatchAnalyze] 🎯 Backend: ${backend}, Parallel: ${parallel}`);
+
+      // singlePass makes exactly ONE backend call for all N files instead of
+      // fanning out per-file — bypasses the per-file analyzeParallel/Sequential
+      // path entirely.
+      if (singlePass) {
+        return await this.executeSinglePass(files, question, {
+          backend,
+          analysisType,
+          grepTerms,
+          contentCache,
+          patterns: normalizedPatterns,
+          startTime,
+          grepActive,
+          scannedCount,
+          matchedCount
+        });
+      }
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
@@ -174,6 +221,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
             truncated_files: truncatedFiles,
             truncation_hint: 'One or more files hit the token limit. Re-run the listed files individually with analyze_file, or reduce maxFiles / narrow the glob.'
           } : {}),
+          ...(grepActive ? { grepFilter: { terms: grepTerms, filesScanned: scannedCount, filesMatched: matchedCount } } : {}),
           processing_time: processingTime
         }, totalFileChars);
       }
@@ -185,6 +233,7 @@ export class BatchAnalyzeHandler extends BaseHandler {
         patterns: normalizedPatterns,
         question,
         results,
+        ...(grepActive ? { grepFilter: { terms: grepTerms, filesScanned: scannedCount, filesMatched: matchedCount } } : {}),
         processing_time: processingTime
       });
 
@@ -264,6 +313,273 @@ export class BatchAnalyzeHandler extends BaseHandler {
 
     // Convert to array and limit
     return Array.from(files).slice(0, maxFiles);
+  }
+
+  /**
+   * Expand patterns, optionally content-filtering with grepFilter before the
+   * maxFiles cap is applied. expandPatterns() caps BEFORE returning, so a
+   * plain call would filter an already-truncated set — grepFilter widens the
+   * scan first (bounded), filters, then slices to maxFiles.
+   * @param {string[]} patterns
+   * @param {number} maxFiles
+   * @param {string[]|null} grepTerms - plain-substring terms, or null/empty to skip filtering
+   * @returns {Promise<{files: string[], contentCache: Map<string,string>|null, scannedCount: number, matchedCount: number}>}
+   */
+  async expandAndFilterPatterns(patterns, maxFiles, grepTerms) {
+    if (!grepTerms || grepTerms.length === 0) {
+      const files = await this.expandPatterns(patterns, maxFiles);
+      return { files, contentCache: null, scannedCount: files.length, matchedCount: files.length };
+    }
+
+    // Wider scan cap, hard-bounded so a broad glob can't read unbounded files.
+    const scanCap = Math.min(Math.max(maxFiles * 10, 200), 500);
+    const candidates = await this.expandPatterns(patterns, scanCap);
+
+    const matched = [];
+    const contentCache = new Map();
+    for (const filePath of candidates) {
+      let content;
+      try {
+        content = await fs.readFile(filePath, 'utf8');
+      } catch {
+        // Unreadable (binary, permissions, race) — skip rather than crash the scan
+        continue;
+      }
+      if (this.contentMatchesGrepTerms(content, grepTerms)) {
+        matched.push(filePath);
+        contentCache.set(filePath, content);
+      }
+    }
+
+    const files = matched.slice(0, maxFiles);
+    return { files, contentCache, scannedCount: candidates.length, matchedCount: matched.length };
+  }
+
+  /**
+   * Plain-substring, case-insensitive match against ANY term. Terms are never
+   * treated as regex — a term like "a.b" or "x(y" must match those literal
+   * characters and must never throw.
+   */
+  contentMatchesGrepTerms(content, terms) {
+    const lower = content.toLowerCase();
+    return terms.some(term => lower.includes(term.toLowerCase()));
+  }
+
+  /**
+   * Extract matching lines with ±contextLines of surrounding context, for use
+   * as singlePass evidence. Matches are literal substrings (see
+   * contentMatchesGrepTerms) — never regex.
+   */
+  extractGrepEvidence(content, terms, contextLines = 2) {
+    const lines = content.split('\n');
+    const lowerTerms = terms.map(t => t.toLowerCase());
+    const matchedLineNums = new Set();
+
+    lines.forEach((line, i) => {
+      const lowerLine = line.toLowerCase();
+      if (lowerTerms.some(term => lowerLine.includes(term))) {
+        for (let j = Math.max(0, i - contextLines); j <= Math.min(lines.length - 1, i + contextLines); j++) {
+          matchedLineNums.add(j);
+        }
+      }
+    });
+
+    if (matchedLineNums.size === 0) return '';
+
+    const sortedNums = Array.from(matchedLineNums).sort((a, b) => a - b);
+    const out = [];
+    let prev = null;
+    for (const n of sortedNums) {
+      if (prev !== null && n !== prev + 1) out.push('...');
+      out.push(`${n + 1}: ${lines[n]}`);
+      prev = n;
+    }
+    return out.join('\n');
+  }
+
+  /**
+   * Run ONE aggregated LLM call across all N files instead of the per-file
+   * fan-out. Evidence per file is either the matching grep lines (with
+   * context) or the head of the file, capped to a per-file share of the
+   * input budget so the whole prompt fits under the local context limit.
+   */
+  async executeSinglePass(files, question, ctx) {
+    const { backend, analysisType, grepTerms, contentCache, patterns, startTime, grepActive, scannedCount, matchedCount } = ctx;
+
+    const { charLimit, model: loadedModel } = await this.getContextLimit();
+    console.error(`[BatchAnalyze] 📊 singlePass dynamic limit: ${charLimit} chars (model: ${loadedModel})`);
+
+    // Reserve room for the question and prompt scaffolding rather than
+    // spending the entire budget on evidence.
+    const scaffoldReserve = Math.min(2000, Math.max(500, Math.floor(charLimit * 0.1)));
+    const evidenceBudget = Math.max(0, charLimit - scaffoldReserve - question.length);
+    const perFileBudget = files.length > 0 ? Math.floor(evidenceBudget / files.length) : 0;
+    const MIN_USEFUL_CHARS = 100; // below this, a file's evidence isn't worth including
+
+    const evidenceEntries = [];
+    const droppedFiles = [];
+    let anyTrimmed = false;
+
+    for (const filePath of files) {
+      if (perFileBudget < MIN_USEFUL_CHARS) {
+        droppedFiles.push(filePath);
+        continue;
+      }
+
+      let content = contentCache?.get(filePath);
+      if (content === undefined) {
+        try {
+          content = await fs.readFile(filePath, 'utf8');
+        } catch {
+          droppedFiles.push(filePath);
+          continue;
+        }
+      }
+
+      const rawEvidence = grepTerms && grepTerms.length > 0
+        ? this.extractGrepEvidence(content, grepTerms, 2)
+        : content.slice(0, perFileBudget);
+
+      if (!rawEvidence) {
+        droppedFiles.push(filePath);
+        continue;
+      }
+
+      let evidence = rawEvidence;
+      if (evidence.length > perFileBudget) {
+        evidence = evidence.slice(0, perFileBudget);
+        anyTrimmed = true;
+      }
+
+      evidenceEntries.push({ filePath, evidence });
+    }
+
+    const evidenceTruncated = anyTrimmed || droppedFiles.length > 0;
+    const totalEvidenceChars = evidenceEntries.reduce((sum, e) => sum + e.evidence.length, 0);
+
+    const prompt = this.buildSinglePassPrompt(evidenceEntries, question, { analysisType, grepTerms });
+
+    const routingResult = this.selectBackend(backend, { contentLength: prompt.length });
+    const effectiveBackend = routingResult.backend;
+    if (routingResult.recommendation) {
+      console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
+    }
+
+    const response = await this.makeRequest(prompt, effectiveBackend, {
+      maxTokens: 2000,
+      disableThinking: true
+    });
+
+    const processingTime = Date.now() - startTime;
+    const parsed = this.parseSinglePassResponse(this.extractResponseText(response));
+
+    // Output-side truncation — the single aggregated call itself got cut off.
+    // Distinct axis from evidence_truncated (input side): same authoritative
+    // finish_reason idiom used by AnalyzeFileHandler and the sibling aggregated
+    // path in this file (:219).
+    const finishReason = response.metadata?.finishReason || response.finish_reason;
+    const wasTruncated = finishReason === 'length';
+
+    this.recordExecution(
+      {
+        success: true,
+        backend: effectiveBackend,
+        processingTime,
+        fileCount: files.length
+      },
+      {
+        tool: 'batch_analyze',
+        taskType: analysisType,
+        patterns: patterns.join(', ')
+      }
+    );
+
+    // One aggregated call cannot produce a real per-file summary/confidence —
+    // report only what is genuinely known per file: the path and whether it
+    // contributed evidence to the single call.
+    const perFileResults = files.map(filePath => ({
+      filePath,
+      contributedEvidence: evidenceEntries.some(e => e.filePath === filePath)
+    }));
+
+    return this.buildSuccessResponseWithSavings({
+      status: 'completed',
+      singlePass: true,
+      filesAnalyzed: files.length,
+      patterns,
+      question,
+      aggregatedSummary: parsed.summary,
+      aggregatedFindings: parsed.findings,
+      aggregatedActions: parsed.suggestedActions,
+      overallConfidence: parsed.confidence,
+      perFileResults,
+      evidence_truncated: evidenceTruncated,
+      ...(evidenceTruncated ? {
+        evidence_dropped_files: droppedFiles,
+        evidence_truncation_hint: 'Evidence budget was exceeded; some files were trimmed or dropped from the single aggregated call. Narrow the glob, use grepFilter, or set singlePass:false for full per-file coverage.'
+      } : {}),
+      was_truncated: wasTruncated,
+      ...(wasTruncated ? {
+        truncation_hint: 'The aggregated answer itself hit the token limit. Re-run with a narrower glob or a grepFilter to shrink the evidence set, or set singlePass:false for full per-file coverage.'
+      } : {}),
+      ...(grepActive ? { grepFilter: { terms: grepTerms, filesScanned: scannedCount, filesMatched: matchedCount } } : {}),
+      processing_time: processingTime
+    }, totalEvidenceChars);
+  }
+
+  /**
+   * Build the single aggregated prompt covering evidence from every file.
+   */
+  buildSinglePassPrompt(evidenceEntries, question, options) {
+    const { analysisType, grepTerms } = options;
+
+    let prompt = `You are a senior software engineer analyzing MULTIPLE files at once. Provide ONE aggregated analysis across all of them.
+
+ANALYSIS TYPE: ${analysisType}
+QUESTION: ${question}
+${grepTerms && grepTerms.length > 0 ? `\nEvidence below is limited to lines matching: ${grepTerms.join(', ')} (with surrounding context).\n` : ''}
+`;
+
+    for (const { filePath, evidence } of evidenceEntries) {
+      prompt += `\n--- FILE: ${filePath} ---\n${evidence}\n--- END FILE ---\n`;
+    }
+
+    prompt += `
+Respond ONLY with this JSON (no explanation, no code blocks), aggregated across ALL files above:
+{"summary":"1-2 sentences max","findings":["finding1 (mention which file when relevant)","finding2"],"confidence":0.8,"suggestedActions":["action1"]}
+
+CRITICAL: Be BRIEF. Max 5-8 findings across all files. No verbose explanations.
+`;
+
+    return prompt;
+  }
+
+  /**
+   * Parse the single-pass aggregated LLM response into structured format.
+   */
+  parseSinglePassResponse(responseText) {
+    if (typeof responseText !== 'string') {
+      responseText = responseText == null ? '' : String(responseText);
+    }
+
+    const parsed = parseLLMJSON(responseText, SINGLE_PASS_FIELD_SPECS);
+    if (parsed) {
+      return {
+        summary: parsed.summary || 'Analysis complete',
+        findings: Array.isArray(parsed.findings) ? parsed.findings.slice(0, 20) : [],
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.75,
+        suggestedActions: Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions.slice(0, 10) : []
+      };
+    }
+
+    console.error('[BatchAnalyze] Could not parse singlePass JSON response, using prose fallback');
+    const proseText = responseText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || responseText;
+    return {
+      summary: proseText.substring(0, 500),
+      findings: [],
+      confidence: 0.5,
+      suggestedActions: []
+    };
   }
 
   /**
