@@ -56,6 +56,13 @@ routable. Tests 252 → 475.
   (`--kv-unified`-aware), not the raw `--ctx-size` pool — a 65536-ctx
   4-slot model no longer beats a 32768-ctx single-slot model that actually
   offers twice the usable window.
+- An operator-declared local endpoint URL is now authoritative:
+  autodiscovery no longer clobbers it with a scan result or the hardcoded
+  fallback, and it survives rediscovery. A server on a port outside the
+  scan list is exactly what a declaration exists for. `backends.json`
+  accordingly ships no local url (a shipped endpoint literal rots like a
+  shipped model id); declaring one remains documented in
+  `backends.example.json`.
 - Boot readiness audit catches dead lanes and no longer counts unchecked
   lanes as checked.
 - Every provider endpoint has exactly one home; operator `config.url` is
