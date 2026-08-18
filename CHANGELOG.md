@@ -5,6 +5,76 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.13.0] - 2026-08-17
+
+Selective capability port from the private upstream bridge. Three silent-failure
+defects and one feature. No tool was added or removed — still 17 — and no existing
+response field changed meaning.
+
+The theme is **silent under-reporting**: in every case here the tool returned a
+result that looked complete and wasn't, with nothing in the response saying so.
+
+### Fixed
+
+- **`explore` returned only every other match.** Both `performShallowSearch` and
+  `performDeepSearch` built their pattern regex with the `g` flag and reused it
+  across lines via `RegExp.prototype.test`, which is stateful — it advances
+  `lastIndex` on a match and resumes from there. Five matching lines reported
+  three. In the deep path it was worse: a file is only recorded when it has at
+  least one match, so a file whose single matching line landed on a suppressed
+  test was dropped from the results entirely rather than undercounted. This was
+  true for as long as the tool has existed.
+
+- **Local input sizing divided a per-request context window by the slot count.**
+  `nCtx` reaches `getLocalContextLimit` from five discovery sources and only one
+  of them (a llama.cpp router's `--ctx-size`) reports a total pool. llama.cpp's
+  `/props` already reports the slot's own window. Dividing again cost a
+  `--parallel 4` user 4x their usable context; the 20000-char floor is why small
+  setups never noticed. Each discovery path now normalizes to an explicit
+  per-request window, and only the router-args path divides — and not when
+  `--kv-unified` / `-kvu` is present in those same args.
+
+- **Local *output* sizing had the same division**, in `calculateDynamicTokens`.
+  A `--parallel 4` user got 2867 output tokens instead of 8000.
+
+- **`clearCache()` did not clear the context-limit memo**, which otherwise only
+  self-invalidates when the model alias changes. Since `clearDiscoveryCache()`
+  exists precisely to force rediscovery, a model reloaded at a different context
+  under the same alias kept sizing against the stale window indefinitely.
+
+### Added
+
+- **Truncation is now visible on the analysis paths.** `analyze_file` reports
+  `was_truncated` (always present) and a `truncation_hint` when a response hit
+  the token budget; previously a cut-off response was parsed for whatever fields
+  happened to close and returned as a normal result. `batch_analyze` propagates
+  this from its per-file results and names the affected files in
+  `truncated_files`. `ask` already reported `was_truncated` from a heuristic and
+  now ORs in the authoritative `finish_reason` ahead of it.
+
+- **`batch_analyze` options `grepFilter` and `singlePass`.** `grepFilter`
+  (string or string[]) keeps only files whose content contains any term — plain
+  case-insensitive substrings, never compiled as patterns, so `a.b` matches
+  those literal characters. It widens the candidate scan before applying
+  `maxFiles`, so it never just re-filters an already-truncated glob, and reports
+  `filesScanned` vs `filesMatched`. `singlePass` collects evidence across all
+  matched files and makes exactly ONE backend call instead of one per file.
+  Its `perFileResults` reports only which files contributed evidence rather than
+  fabricating per-file summaries a single aggregated call never computed, and it
+  reports truncation on both axes: `evidence_truncated` for input evidence
+  trimmed before the call, `was_truncated` for the aggregated answer itself
+  hitting the token limit.
+
+  Both default off. With neither set, behaviour and response shape are unchanged.
+
+### Notes
+
+- `getLocalContextLimit` gains a `contextPerRequest` field. Existing keys are
+  unchanged; `context` still reports what the discovery source reported.
+- Known and deliberately not changed: `local-adapter.js` sorts candidate models
+  by raw `nCtx` across sources, the same cross-source comparison as the sizing
+  fix above but in a different decision.
+
 ## [2.12.0] - 2026-08-07
 
 Selective capability port from the private upstream bridge, plus two defects found

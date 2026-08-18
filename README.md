@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.12.0
+# Smart AI Bridge v2.13.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -74,7 +74,7 @@ After restarting, all 17 tools will be available. Verify with:
 |------|-------------|
 | `analyze_file` | Backend reads and analyzes files, returns structured findings |
 | `modify_file` | Backend applies natural-language edits, returns diff |
-| `batch_analyze` | Analyze multiple files via glob patterns |
+| `batch_analyze` | Analyze multiple files via glob patterns; `grepFilter` narrows by content first, `singlePass` answers in one call |
 | `batch_modify` | Apply same instructions across multiple files |
 | `generate_file` | Generate code from a natural-language spec |
 | `explore` | Answer codebase questions using intelligent search |

@@ -1,8 +1,8 @@
-# Smart AI Bridge v2.11.0 - Troubleshooting Guide
+# Smart AI Bridge v2.13.0 - Troubleshooting Guide
 
 ## Overview
 
-This guide covers common issues when running Smart AI Bridge v2.11.0, the modular MCP server with 17 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
+This guide covers common issues when running Smart AI Bridge v2.13.0, the modular MCP server with 17 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
@@ -18,7 +18,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 
 **Diagnosis and Solutions:**
 
-1. **Check Node.js version** -- v2.11.0 requires Node.js 18.0.0 or later (ESM support).
+1. **Check Node.js version** -- v2.13.0 requires Node.js 18.0.0 or later (ESM support).
    ```bash
    node --version
    # Must be >= 18.0.0
@@ -32,7 +32,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
    npm install
    ```
 
-4. **Check the entry point path** -- The v2.11.0 entry point is `src/server.js`, not the legacy monolithic file.
+4. **Check the entry point path** -- The v2.13.0 entry point is `src/server.js`, not the legacy monolithic file.
    ```bash
    # Correct
    node src/server.js
@@ -245,7 +245,7 @@ McpError: Unknown tool: my_tool. Available: ask, review, analyze_file, ...
 
 **Solutions:**
 
-1. **Check tool name** -- v2.11.0 has 17 tools. The complete list:
+1. **Check tool name** -- v2.13.0 has 17 tools. The complete list:
    - `ask`, `review`, `analyze_file`, `modify_file`, `batch_modify`
    - `explore`, `generate_file`, `refactor`, `write_files_atomic`
    - `backup_restore`, `batch_analyze`, `check_backend_health`
@@ -543,4 +543,4 @@ When something is not working, run through this checklist:
 ---
 
 *Last Updated: February 2026*
-*System Version: v2.11.0*
+*System Version: v2.13.0*

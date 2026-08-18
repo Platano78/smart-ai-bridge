@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.11.1 - Usage Examples
+# Smart AI Bridge v2.13.0 - Usage Examples
 
 ## Token-Saving File Operations
 
@@ -124,6 +124,51 @@ Analyze multiple files at once with aggregated findings.
   }
 })
 ```
+
+**Narrowing by content before the model sees anything** — `grepFilter` keeps only
+files containing one of the given terms. Terms are plain, case-insensitive
+substrings, never regular expressions, so `a.b` matches those literal characters.
+The scan widens before `maxFiles` is applied, so you get "20 files that mention
+the term" rather than "the first 20 files, some of which mention it". The response
+echoes `grepFilter: {terms, filesScanned, filesMatched}` so the narrowing is visible.
+
+```javascript
+// Only look at files that actually touch locking
+@batch_analyze({
+  filePatterns: ["src/**/*.js"],
+  question: "Can any of these lock acquisitions deadlock?",
+  options: {
+    grepFilter: ["mutex", "acquire", "lock("],
+    maxFiles: 20
+  }
+})
+```
+
+**One call instead of N** — `singlePass` gathers evidence from every matched file
+and makes a single aggregated backend call. Evidence is the grep-matched lines with
+surrounding context when `grepFilter` is set, otherwise each file's head, budgeted
+against the model's context window. Much cheaper on a wide sweep, and it cannot be
+lost to a client idle timeout part-way through a per-file fan-out.
+
+```javascript
+@batch_analyze({
+  filePatterns: ["src/**/*.js"],
+  question: "Where does this codebase talk to the filesystem without error handling?",
+  options: {
+    grepFilter: ["readFile", "writeFile"],
+    singlePass: true
+  }
+})
+```
+
+Two things to know about `singlePass`. Its `perFileResults` entries carry only
+`{filePath, contributedEvidence}` — one aggregated call cannot produce a real
+per-file summary or confidence, so it does not invent one. And it reports
+truncation on two separate axes: `evidence_truncated` means input evidence was
+trimmed or files were dropped before the call (with `evidence_dropped_files`),
+while `was_truncated` means the aggregated answer itself hit the token limit.
+Both default off; with neither option set, `batch_analyze` behaves exactly as it
+always has.
 
 ### batch_modify -- Multi-File Edits
 

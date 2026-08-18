@@ -1,10 +1,10 @@
-# Smart AI Bridge v2.12.0 - Extension Guide
+# Smart AI Bridge v2.13.0 - Extension Guide
 
 ## Adding New Backends
 
 ### Overview
 
-Smart AI Bridge v2.12.0 uses a config-driven backend system. Adding a new backend requires:
+Smart AI Bridge v2.13.0 uses a config-driven backend system. Adding a new backend requires:
 
 1. Creating an adapter class (or reusing an existing one like `openai`)
 2. Registering it in `src/config/backends.json`
@@ -493,7 +493,7 @@ _extractContext(prompt, options) {
 }
 ```
 
-## Current Tool Categories (v2.12.0)
+## Current Tool Categories (v2.13.0)
 
 | Category | Tools | Count |
 |----------|-------|-------|

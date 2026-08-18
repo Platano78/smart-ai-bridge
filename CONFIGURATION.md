@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.12.0 - Configuration Guide
+# Smart AI Bridge v2.13.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -455,10 +455,10 @@ After modifying `backends.json`, verify the server starts correctly:
 ```bash
 node src/server.js 2>&1 | head -5
 # Expected output:
-# Smart AI Bridge v2.12.0 starting...
+# Smart AI Bridge v2.13.0 starting...
 # [BackendRegistry] Initialized 6 backends from backends.json
 # [Router] MultiAIRouter initialized
-# Smart AI Bridge v2.12.0 connected via stdio
+# Smart AI Bridge v2.13.0 connected via stdio
 # Tools: 17 | Backends: 6
 ```
 
