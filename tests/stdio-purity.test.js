@@ -22,7 +22,16 @@ function walkJsFiles(dir) {
 
 describe('stdio purity', () => {
   it('contains no console.log calls under src/ (stdout is the JSON-RPC channel)', () => {
-    const callRegex = /\bconsole\s*\.\s*log\s*\(/;
+    // Every console method that writes to STDOUT, not just log(). Node sends
+    // log/debug/info/dir/table to stdout and only warn/error/trace to stderr —
+    // `console.debug` in particular reads like a suppressed debug channel and is
+    // not one. Five `console.debug?.()` calls in model-discovery.js shipped live
+    // MCP-stream corruption past the previous log-only version of this guard.
+    //
+    // The optional-chaining forms are matched too: `console.debug?.(` and
+    // `console?.debug(` both call through, and both slipped by a regex that
+    // expected a bare `.` followed by `(`.
+    const callRegex = /\bconsole\s*\??\.\s*(?:log|debug|info|dir|table)\s*(?:\?\.)?\s*\(/;
     const offenders = walkJsFiles(srcRoot).flatMap((file) =>
       readFileSync(file, 'utf8')
         .split('\n')

@@ -166,12 +166,12 @@ async function detectServerType(port, timeout) {
         });
         if (modelsRes.ok) models = await modelsRes.json();
       } catch (err) {
-        console.debug?.('[ModelDiscovery] Failed to fetch /v1/models on port', port, err.message);
+        console.error('[ModelDiscovery] Failed to fetch /v1/models on port', port, err.message);
       }
       return { type: 'llama.cpp', props, models };
     }
   } catch (err) {
-    console.debug?.('[ModelDiscovery] Probe failed for llama.cpp on port', port, err.message);
+    console.error('[ModelDiscovery] Probe failed for llama.cpp on port', port, err.message);
   }
 
   // Try Ollama (/api/tags is unique to it)
@@ -185,7 +185,7 @@ async function detectServerType(port, timeout) {
       return { type: 'ollama', props: null, models };
     }
   } catch (err) {
-    console.debug?.('[ModelDiscovery] Probe failed for ollama on port', port, err.message);
+    console.error('[ModelDiscovery] Probe failed for ollama on port', port, err.message);
   }
 
   // Try vLLM/LM Studio (OpenAI-compatible /v1/models)
@@ -206,13 +206,13 @@ async function detectServerType(port, timeout) {
           const healthRes = await fetch(`${base}/health`, { signal: AbortSignal.timeout(500) });
           isVllm = healthRes.ok;
         } catch (err) {
-          console.debug?.('[ModelDiscovery] Health probe failed on port', port, err.message);
+          console.error('[ModelDiscovery] Health probe failed on port', port, err.message);
         }
       }
       return { type: isVllm ? 'vllm' : 'lmstudio', props: null, models };
     }
   } catch (err) {
-    console.debug?.('[ModelDiscovery] Probe failed for vllm/lmstudio on port', port, err.message);
+    console.error('[ModelDiscovery] Probe failed for vllm/lmstudio on port', port, err.message);
   }
 
   return null;
