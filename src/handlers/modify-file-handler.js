@@ -14,6 +14,7 @@
 import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
 import { detectOutputTruncation } from '../utils/truncation-detector.js';
 import { writeFileVerified } from '../utils/verified-write.js';
+import { countTokens } from '../utils/token-count.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createTwoFilesPatch } from 'diff';
@@ -177,33 +178,37 @@ export class ModifyFileHandler extends BaseHandler {
       // Gate on the assembled prompt (originalContent + instructions + context
       // files + scaffolding), not originalContent alone — refactor in particular
       // passes a large generated prompt in as `instructions`, which the old
-      // originalContent-only gate never counted.
+      // originalContent-only gate never counted. Measured in TOKENS: a flat
+      // 4 chars/token estimate is wrong by ~4x for CJK text (see
+      // src/utils/token-count.js), so the real token count of the assembled
+      // prompt is what gets compared, not its length.
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      const modifyFileCap = await this.capacityFor(selectedBackend);
-      if (prompt.length > modifyFileCap) {
-        console.error(`[ModifyFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${modifyFileCap} chars)`);
-        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
+      const promptTokens = countTokens(prompt);
+      const modifyFileCapTokens = await this.capacityTokensFor(selectedBackend);
+      if (promptTokens > modifyFileCapTokens) {
+        console.error(`[ModifyFile] ⚠️ Assembled prompt (${promptTokens} tokens, ${prompt.length} chars) exceeds ${selectedBackend} limit (${modifyFileCapTokens} tokens)`);
+        const roomier = await this.findBackendWithCapacityTokens(promptTokens, [selectedBackend]);
         if (roomier) {
-          console.error(`[ModifyFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          console.error(`[ModifyFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
           selectedBackend = roomier.name;
         } else {
-          const largest = await this.largestBackendCapacity();
+          const largest = await this.largestBackendCapacityTokens();
           throw new Error(
-            `Assembled prompt (file content plus instructions/context/scaffolding) is ${prompt.length} chars; ` +
-            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `Assembled prompt (file content plus instructions/context/scaffolding) is ${promptTokens} tokens ` +
+            `(${prompt.length} chars); no configured backend can hold it in one context (largest limit found: ${largest} tokens). ` +
             `This tool makes a single LLM call and cannot chunk. ` +
             `Next step: narrow the call — split the file, shorten instructions, or target a smaller region.`
           );
         }
       }
 
-      // 9. Context limit check for cloud backends
-      const contextLimit = this.getBackendContextLimit(selectedBackend);
-      if (prompt.length > contextLimit && !selectedBackend.startsWith('local')) {
-        console.error(`[ModifyFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
+      // 9. Context limit check for cloud backends (backstop after any escalation above)
+      const contextLimitTokens = await this.capacityTokensFor(selectedBackend);
+      if (promptTokens > contextLimitTokens && !selectedBackend.startsWith('local')) {
+        console.error(`[ModifyFile] ⚠️ Assembled prompt (${promptTokens} tokens, ${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimitTokens} tokens)`);
         console.error(`[ModifyFile] 🔄 Prompt too large for any backend - consider splitting`);
-        throw new Error(`Assembled prompt (file content plus instructions/context/scaffolding) is ${prompt.length} chars, exceeding maximum supported size ${contextLimit} chars`);
+        throw new Error(`Assembled prompt (file content plus instructions/context/scaffolding) is ${promptTokens} tokens (${prompt.length} chars), exceeding maximum supported size ${contextLimitTokens} tokens`);
       }
 
       // 9. Calculate dynamic token allocation based on backend speed and file size

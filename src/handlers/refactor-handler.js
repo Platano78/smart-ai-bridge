@@ -15,6 +15,7 @@
 import { BaseHandler } from './base-handler.js';
 import { ModifyFileHandler } from './modify-file-handler.js';
 import { BatchAnalyzeHandler } from './batch-analyze-handler.js';
+import { countTokens } from '../utils/token-count.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
@@ -490,14 +491,24 @@ export class RefactorHandler extends BaseHandler {
         // capacity (matches what modify-file's own gate will use downstream)
         // rather than the flat static table, which under-reports local's actual
         // window and over-reports it for backends capacityFor derates.
-        const contextLimit = await this.capacityFor(backend);
-        const promptSize = refactorPrompt.length;
+        //
+        // fileSize is bytes (fs.stat, content not read here) — not chars, not
+        // tokens. We don't have the file's text to run a real tokenizer on, so
+        // the file's contribution is bounded using fileSize itself as an
+        // upper bound on its token count: a BPE token is always composed of
+        // >=1 UTF-8 byte, so byte count can never be LESS than token count.
+        // This is provably conservative (over-refuses, never under-counts) —
+        // the same direction as countTokens()'s own fallback. promptSize IS
+        // real content, so it gets a real count via countTokens().
+        const contextLimitTokens = await this.capacityTokensFor(backend);
+        const promptTokens = countTokens(refactorPrompt);
+        const estimatedTokens = fileSize + promptTokens;
 
-        if ((fileSize + promptSize) > contextLimit) {
-          console.error(`[Refactor] ⚠️  File ${path.basename(filePath)} exceeds context limit (${fileSize + promptSize} > ${contextLimit}), skipping`);
+        if (estimatedTokens > contextLimitTokens) {
+          console.error(`[Refactor] ⚠️  File ${path.basename(filePath)} exceeds context limit (${estimatedTokens} tokens > ${contextLimitTokens} tokens), skipping`);
           results.push({
             filePath,
-            error: `File too large for backend context (${Math.ceil((fileSize + promptSize) / 4)} tokens > ${Math.ceil(contextLimit / 4)} token limit)`,
+            error: `File too large for backend context (${estimatedTokens} tokens > ${contextLimitTokens} token limit)`,
             status: 'skipped'
           });
           continue;

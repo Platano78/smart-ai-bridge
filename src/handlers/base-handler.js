@@ -114,20 +114,27 @@ class BaseHandler {
   }
 
   /**
-   * INPUT capacity (in characters) a given backend can accept. Single source
-   * of truth for "what can this backend take" — the two lanes return
-   * different raw numbers but the same semantics (usable input, response
-   * room already carved out), so they can be compared directly:
+   * INPUT capacity a given backend can accept, resolved once and exposed in
+   * both units — see capacityFor (chars) and capacityTokensFor (tokens).
+   * Single source of truth for "what can this backend take" — the two lanes
+   * return different raw numbers but the same semantics (usable input,
+   * response room already carved out), so they can be compared directly:
    * - local (and the unresolved 'auto' routing token, which lands on local
    *   by default and is the conservative choice): the dynamic probed limit
    *   from getContextLimit(), which already reserves output headroom
    *   (getLocalContextLimit computes safeInputTokens as 65% of the
-   *   per-request window).
+   *   per-request window). getContextLimit() only exposes the chars form
+   *   (charLimit), so the tokens form here is recovered by dividing back
+   *   out the repo's 4 chars/token convention — an approximation for local
+   *   only; every other backend's tokens figure is a real measured/
+   *   configured number, never derived from chars.
    * - everything else: a three-step resolution chain, each step falling
    *   through silently to the next:
    *     1. DISCOVERED — the provider's own catalog (see capacity-discovery.js).
    *        Never blocks: no key, no discoverer, or a failed/timed-out probe
-   *        all fall through here rather than erroring.
+   *        all fall through here rather than erroring. Tokens here are the
+   *        real number the provider reported; chars is *derived* from it
+   *        (tokens * 4) purely for capacityFor's char-denominated callers.
    *     2. CONFIGURED — the backend's `context_limit` from the registry
    *        config (tokens), if one is set.
    *     3. CONSERVATIVE DEFAULT — the static per-backend table in
@@ -138,19 +145,21 @@ class BaseHandler {
    *   guard). Not local's 35% reserve — cloud output is separately capped
    *   by each backend's maxTokens, so 35% would over-reserve.
    * @param {string} backendName - Backend identifier (or 'auto')
-   * @returns {Promise<number>}
+   * @returns {Promise<{tokens: number, chars: number}>}
    */
-  async capacityFor(backendName) {
+  async _resolveCapacity(backendName) {
     if (backendName === 'local' || backendName === 'auto') {
+      let chars;
       try {
-        return (await this.getContextLimit()).charLimit;
+        chars = (await this.getContextLimit()).charLimit;
       } catch {
-        return this.getBackendContextLimit('local');
+        chars = this.getBackendContextLimit('local');
       }
+      return { chars, tokens: Math.floor(chars / 4) };
     }
 
     try {
-      const discovered = await this._discoveredCapacityChars(backendName);
+      const discovered = await this._discoveredCapacity(backendName);
       if (discovered != null) return discovered;
     } catch {
       // Discovery must never block capacity resolution — fall through.
@@ -158,23 +167,49 @@ class BaseHandler {
 
     const configuredLimit = this.backendRegistry?.getBackend?.(backendName)?.context_limit;
     if (typeof configuredLimit === 'number' && configuredLimit > 0) {
-      return Math.floor(configuredLimit * 4 * 0.9);
+      const tokens = Math.floor(configuredLimit * 0.9);
+      return { tokens, chars: tokens * 4 };
     }
 
-    return Math.floor(this.getBackendContextLimit(backendName) * 0.9);
+    const chars = Math.floor(this.getBackendContextLimit(backendName) * 0.9);
+    return { chars, tokens: Math.floor(chars / 4) };
   }
 
   /**
-   * Step 1 of capacityFor's resolution chain: ask the provider's own
-   * catalog for this backend's real limits, converting tokens to the
-   * repo's chars-per-token=4 convention. Returns null (never throws) when
-   * there's no registry, no resolvable key, or discovery finds nothing —
-   * every one of those is a normal "fall through to CONFIGURED" case, not
-   * an error condition.
-   * @param {string} backendName
-   * @returns {Promise<number|null>}
+   * INPUT capacity (in characters) a given backend can accept. See
+   * _resolveCapacity for the full resolution chain. Char-denominated for
+   * existing call sites and error messages; use capacityTokensFor for
+   * comparisons against a real token count.
+   * @param {string} backendName - Backend identifier (or 'auto')
+   * @returns {Promise<number>}
    */
-  async _discoveredCapacityChars(backendName) {
+  async capacityFor(backendName) {
+    return (await this._resolveCapacity(backendName)).chars;
+  }
+
+  /**
+   * INPUT capacity (in tokens) a given backend can accept — the
+   * token-denominated sibling of capacityFor, sharing the same resolution
+   * chain (see _resolveCapacity). Use this to compare against a real token
+   * count (e.g. countTokens()) instead of inferring tokens from string
+   * length.
+   * @param {string} backendName - Backend identifier (or 'auto')
+   * @returns {Promise<number>}
+   */
+  async capacityTokensFor(backendName) {
+    return (await this._resolveCapacity(backendName)).tokens;
+  }
+
+  /**
+   * Step 1 of _resolveCapacity's resolution chain: ask the provider's own
+   * catalog for this backend's real limits. Returns null (never throws)
+   * when there's no registry, no resolvable key, or discovery finds
+   * nothing — every one of those is a normal "fall through to CONFIGURED"
+   * case, not an error condition.
+   * @param {string} backendName
+   * @returns {Promise<{tokens: number, chars: number}|null>}
+   */
+  async _discoveredCapacity(backendName) {
     if (!this.backendRegistry) return null;
 
     const backend = this.backendRegistry.getBackend?.(backendName);
@@ -195,12 +230,13 @@ class BaseHandler {
     const discovered = await discoverCapacity(backend, apiKey);
     if (!discovered || typeof discovered.inputTokens !== 'number') return null;
 
-    const CHARS_PER_TOKEN = 4;
+    let tokens;
     if (typeof discovered.outputTokens === 'number') {
-      const usableInputTokens = Math.max(discovered.inputTokens - discovered.outputTokens, 0);
-      return Math.floor(usableInputTokens * CHARS_PER_TOKEN);
+      tokens = Math.max(discovered.inputTokens - discovered.outputTokens, 0);
+    } else {
+      tokens = Math.floor(discovered.inputTokens * 0.9);
     }
-    return Math.floor(discovered.inputTokens * CHARS_PER_TOKEN * 0.9);
+    return { tokens, chars: tokens * 4 };
   }
 
   /**
@@ -226,13 +262,29 @@ class BaseHandler {
    * @returns {Promise<{name: string, cap: number}|null>} Best fit, or null if none fit
    */
   async findBackendWithCapacity(payloadChars, exclude = []) {
+    return this._findBackendWithCapacityBy(this.capacityFor.bind(this), payloadChars, exclude);
+  }
+
+  /**
+   * Token-denominated sibling of findBackendWithCapacity, for callers
+   * comparing a real token count (e.g. countTokens()) rather than a char
+   * length.
+   * @param {number} payloadTokens - Size of the payload in tokens
+   * @param {string[]} [exclude] - Backend names to skip (already tried)
+   * @returns {Promise<{name: string, cap: number}|null>} Best fit, or null if none fit
+   */
+  async findBackendWithCapacityTokens(payloadTokens, exclude = []) {
+    return this._findBackendWithCapacityBy(this.capacityTokensFor.bind(this), payloadTokens, exclude);
+  }
+
+  async _findBackendWithCapacityBy(capacityFn, payload, exclude) {
     const candidates = this._candidateBackendNames();
 
     const scored = [];
     for (const name of candidates) {
       if (exclude.includes(name)) continue;
-      const cap = await this.capacityFor(name);
-      if (cap >= payloadChars) {
+      const cap = await capacityFn(name);
+      if (cap >= payload) {
         const priority = this.backendRegistry?.getBackend?.(name)?.priority ?? 99;
         scored.push({ name, cap, priority });
       }
@@ -258,11 +310,23 @@ class BaseHandler {
    * @returns {Promise<number>}
    */
   async largestBackendCapacity() {
+    return this._largestBackendCapacityBy(this.capacityFor.bind(this));
+  }
+
+  /**
+   * Token-denominated sibling of largestBackendCapacity.
+   * @returns {Promise<number>}
+   */
+  async largestBackendCapacityTokens() {
+    return this._largestBackendCapacityBy(this.capacityTokensFor.bind(this));
+  }
+
+  async _largestBackendCapacityBy(capacityFn) {
     const candidates = this._candidateBackendNames();
 
     let largest = 0;
     for (const name of candidates) {
-      const cap = await this.capacityFor(name);
+      const cap = await capacityFn(name);
       if (cap > largest) largest = cap;
     }
     return largest;

@@ -15,6 +15,7 @@ import { BaseHandler } from './base-handler.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { parseLLMJSON } from '../utils/llm-json-parser.js';
+import { countTokens } from '../utils/token-count.js';
 
 const ANALYZE_FIELD_SPECS = {
   summary: 'string',
@@ -100,33 +101,35 @@ export class AnalyzeFileHandler extends BaseHandler {
       // 6. Smart override: Dynamic context limit detection
       // For local backend, use actual model context limit from router
       // For cloud backends, use hardcoded limits
-      let contextLimit;
       let localSlotInfo = null; // Store for output token calculation
       if (selectedBackend === 'local') {
         const { charLimit, model: loadedModel, context, contextPerRequest, slots } = await this.getContextLimit();
-        contextLimit = charLimit;
         localSlotInfo = { context, contextPerRequest, slots }; // Save for calculateDynamicTokens
         console.error(`[AnalyzeFile] 📊 Local model: ${loadedModel} (${contextPerRequest} tokens per request, ${slots} slots -> ${charLimit} char limit)`);
-      } else {
-        contextLimit = this.getBackendContextLimit(selectedBackend);
       }
 
       // Smart fallback logic when the assembled prompt (file content + question +
       // includeContext files + scaffolding) exceeds the backend's context limit.
       // Gating on content.length alone missed up to 50000 chars of context files
-      // that buildAnalysisPrompt folds in above.
-      if (prompt.length > contextLimit) {
-        console.error(`[AnalyzeFile] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
-        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
+      // that buildAnalysisPrompt folds in above. Measured in TOKENS, not chars:
+      // a flat 4 chars/token estimate is wrong by ~4x for CJK text (see
+      // src/utils/token-count.js), so the assembled prompt's real token count
+      // is compared against the backend's real token capacity.
+      const promptTokens = countTokens(prompt);
+      let contextLimitTokens = await this.capacityTokensFor(selectedBackend);
+      if (promptTokens > contextLimitTokens) {
+        console.error(`[AnalyzeFile] ⚠️ Assembled prompt (${promptTokens} tokens, ${prompt.length} chars) exceeds ${selectedBackend} limit (${contextLimitTokens} tokens)`);
+        const roomier = await this.findBackendWithCapacityTokens(promptTokens, [selectedBackend]);
         if (roomier) {
-          console.error(`[AnalyzeFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          console.error(`[AnalyzeFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
           selectedBackend = roomier.name;
-          contextLimit = roomier.cap;
+          contextLimitTokens = roomier.cap;
         } else {
-          const largest = await this.largestBackendCapacity();
+          const largest = await this.largestBackendCapacityTokens();
           throw new Error(
-            `Assembled prompt (file content plus question/context/scaffolding) is ${prompt.length} chars; ` +
-            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `Assembled prompt (file content plus question/context/scaffolding) is ${promptTokens} tokens ` +
+            `(${prompt.length} chars); no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} tokens). ` +
             `This tool makes a single LLM call and cannot chunk. ` +
             `Next step: narrow the call — pass a line range in the question, drop options.includeContext, ` +
             `or split the file. For several files, batch_analyze works.`

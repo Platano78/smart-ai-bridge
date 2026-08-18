@@ -14,6 +14,7 @@
 import { BaseHandler } from './base-handler.js';
 import { AnalyzeFileHandler } from './analyze-file-handler.js';
 import { parseLLMJSON } from '../utils/llm-json-parser.js';
+import { countTokens } from '../utils/token-count.js';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -493,26 +494,37 @@ export class BatchAnalyzeHandler extends BaseHandler {
     // The evidence budget above was sized off the LOCAL dynamic limit, before a
     // backend was chosen. If routing landed on a smaller-context backend, the
     // assembled prompt can still be oversized for it — re-size the evidence
-    // budget against that backend's real capacity and rebuild ONCE.
-    let cap = await this.capacityFor(effectiveBackend);
-    if (prompt.length > cap) {
-      console.error(`[BatchAnalyze] ⚠️ Assembled prompt (${prompt.length} chars) exceeds ${effectiveBackend} limit (${cap} chars); re-sizing evidence budget`);
-      ({ evidenceEntries, droppedFiles, anyTrimmed } = await this.buildSinglePassEvidence(files, question, cap, { grepTerms, contentCache }));
+    // budget against that backend's real capacity and rebuild ONCE. Measured
+    // in TOKENS: a flat 4 chars/token estimate is wrong by ~4x for CJK text
+    // (see src/utils/token-count.js), so the real token count of the
+    // assembled prompt is what gets compared against the backend's real
+    // token capacity — not its length.
+    let capTokens = await this.capacityTokensFor(effectiveBackend);
+    let promptTokens = countTokens(prompt);
+    if (promptTokens > capTokens) {
+      console.error(`[BatchAnalyze] ⚠️ Assembled prompt (${promptTokens} tokens, ${prompt.length} chars) exceeds ${effectiveBackend} limit (${capTokens} tokens); re-sizing evidence budget`);
+      // buildSinglePassEvidence budgets in chars (it slices raw text). Feeding
+      // it the token cap as a char ceiling is safe: a token averages >=1 char,
+      // so this never asks for more text than the true limit allows — it can
+      // under-fill for English/code text, but the token check right below
+      // re-verifies the real count of whatever gets built.
+      ({ evidenceEntries, droppedFiles, anyTrimmed } = await this.buildSinglePassEvidence(files, question, capTokens, { grepTerms, contentCache }));
       evidenceTruncated = anyTrimmed || droppedFiles.length > 0;
       totalEvidenceChars = evidenceEntries.reduce((sum, e) => sum + e.evidence.length, 0);
       prompt = this.buildSinglePassPrompt(evidenceEntries, question, { analysisType, grepTerms });
+      promptTokens = countTokens(prompt);
 
-      if (prompt.length > cap) {
-        const roomier = await this.findBackendWithCapacity(prompt.length, [effectiveBackend]);
+      if (promptTokens > capTokens) {
+        const roomier = await this.findBackendWithCapacityTokens(promptTokens, [effectiveBackend]);
         if (roomier) {
-          console.error(`[BatchAnalyze] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          console.error(`[BatchAnalyze] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
           effectiveBackend = roomier.name;
-          cap = roomier.cap;
+          capTokens = roomier.cap;
         } else {
-          const largest = await this.largestBackendCapacity();
+          const largest = await this.largestBackendCapacityTokens();
           throw new Error(
-            `Assembled prompt (evidence plus question/scaffolding) is ${prompt.length} chars; ` +
-            `no configured backend can hold it in one context (largest limit found: ${largest} chars). ` +
+            `Assembled prompt (evidence plus question/scaffolding) is ${promptTokens} tokens ` +
+            `(${prompt.length} chars); no configured backend can hold it in one context (largest limit found: ${largest} tokens). ` +
             `This tool makes a single aggregated LLM call and cannot chunk further. ` +
             `Next step: narrow the glob, use grepFilter to shrink evidence, or set singlePass:false for full per-file coverage.`
           );

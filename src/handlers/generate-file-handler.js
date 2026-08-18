@@ -14,6 +14,7 @@
 import { BaseHandler, RETRY_CONFIG } from './base-handler.js';
 import { detectOutputTruncation } from '../utils/truncation-detector.js';
 import { writeFileVerified } from '../utils/verified-write.js';
+import { countTokens } from '../utils/token-count.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -104,18 +105,22 @@ export class GenerateFileHandler extends BaseHandler {
       // Get dynamic context limit from loaded model
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      const generateFileCap = await this.capacityFor(selectedBackend);
-      if (prompt.length > generateFileCap) {
-        console.error(`[GenerateFile] ⚠️ Payload (${prompt.length} chars) exceeds ${selectedBackend} limit (${generateFileCap} chars)`);
-        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
+      // Measured in TOKENS, not chars: a flat 4 chars/token estimate is wrong
+      // by ~4x for CJK text (see src/utils/token-count.js), so the prompt's
+      // real token count is compared against the backend's real token capacity.
+      const promptTokens = countTokens(prompt);
+      const generateFileCapTokens = await this.capacityTokensFor(selectedBackend);
+      if (promptTokens > generateFileCapTokens) {
+        console.error(`[GenerateFile] ⚠️ Payload (${promptTokens} tokens, ${prompt.length} chars) exceeds ${selectedBackend} limit (${generateFileCapTokens} tokens)`);
+        const roomier = await this.findBackendWithCapacityTokens(promptTokens, [selectedBackend]);
         if (roomier) {
-          console.error(`[GenerateFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          console.error(`[GenerateFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
           selectedBackend = roomier.name;
         } else {
-          const largest = await this.largestBackendCapacity();
+          const largest = await this.largestBackendCapacityTokens();
           throw new Error(
-            `Payload is ${prompt.length} chars; no configured backend can hold it in one context ` +
-            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Payload is ${promptTokens} tokens (${prompt.length} chars); no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} tokens). This tool makes a single LLM call and cannot chunk. ` +
             `Next step: narrow the call — shorten the spec, or split the file.`
           );
         }
@@ -130,14 +135,14 @@ export class GenerateFileHandler extends BaseHandler {
       const maxTokens = this.calculateDynamicTokens(selectedBackend, promptLength, complexity);
       const timeoutMs = this.calculateDynamicTimeout(selectedBackend, maxTokens);
 
-      // Backstop: capacityFor() already reserved response headroom above,
-      // so this should be unreachable via the normal escalation path. Kept
-      // as a guard for any caller that skips that check.
-      const usableInputCapacity = await this.capacityFor(selectedBackend);
-      if (promptLength > usableInputCapacity) {
+      // Backstop: capacityTokensFor() already reserved response headroom
+      // above, so this should be unreachable via the normal escalation path.
+      // Kept as a guard for any caller that skips that check.
+      const usableInputCapacityTokens = await this.capacityTokensFor(selectedBackend);
+      if (promptTokens > usableInputCapacityTokens) {
         throw new Error(
-          `Generation prompt (${promptLength} chars) exceeds ${selectedBackend}'s usable input capacity ` +
-          `(${usableInputCapacity} chars, after reserving room for the response). ` +
+          `Generation prompt (${promptTokens} tokens, ${promptLength} chars) exceeds ${selectedBackend}'s usable input capacity ` +
+          `(${usableInputCapacityTokens} tokens, after reserving room for the response). ` +
           `Consider reducing spec, context files, or using a backend with larger context.`
         );
       }

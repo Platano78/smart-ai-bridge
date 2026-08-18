@@ -21,6 +21,18 @@ async function writeTmpFile(content, name = 'target.js') {
   return { tmpDir, filePath };
 }
 
+// A single repeated character (the old 'a'.repeat(N) fixtures) compresses
+// under real BPE tokenization far more than normal text — cl100k_base
+// counts roughly 1 token per 8 chars of a uniform repeated character,
+// not the ~4 chars/token this repo assumes for real text. Fixtures sized
+// against a char budget need a realistic chars/token ratio to land where
+// the test intends, so use varied code-like text instead (measured ~4.05
+// chars/token, matching the repo's real/token conventions).
+const REALISTIC_PHRASE = 'function processData(item, index) { return item.value * index + 1; } ';
+function realisticText(chars) {
+  return REALISTIC_PHRASE.repeat(Math.ceil(chars / REALISTIC_PHRASE.length)).slice(0, chars);
+}
+
 describe('analyze_file: gate measures the assembled prompt, not raw content', () => {
   let tmpDir;
   afterEach(async () => {
@@ -29,20 +41,22 @@ describe('analyze_file: gate measures the assembled prompt, not raw content', ()
   });
 
   it('refuses when content alone fits but content+includeContext does not', async () => {
-    const content = 'a'.repeat(50000);
+    const content = realisticText(50000); // ~12336 tokens
     const fixture = await writeTmpFile(content, 'main.js');
     tmpDir = fixture.tmpDir;
 
-    const contextContent = 'b'.repeat(20000);
+    const contextContent = realisticText(20000); // ~4928 tokens
     const contextFixture = await writeTmpFile(contextContent, 'context.js');
 
     const handler = new AnalyzeFileHandler({});
-    // Fix the backend's limit small enough that content alone (50000) fits,
-    // but content + includeContext (~70000+ scaffolding) does not.
+    // Fix the backend's limit small enough that content alone (~12336
+    // tokens) fits under the ~13500-token default cap (60000 chars * 0.9 /
+    // 4), but content + includeContext (~17000+ tokens with scaffolding)
+    // does not.
     handler.getBackendContextLimit = () => 60000;
     // No roomier backend exists — force the refusal branch deterministically.
-    handler.findBackendWithCapacity = async () => null;
-    handler.largestBackendCapacity = async () => 60000;
+    handler.findBackendWithCapacityTokens = async () => null;
+    handler.largestBackendCapacityTokens = async () => 13500;
 
     let capturedError = null;
     try {
@@ -59,13 +73,14 @@ describe('analyze_file: gate measures the assembled prompt, not raw content', ()
 
     expect(capturedError).not.toBeNull();
     expect(capturedError.message).toMatch(/Assembled prompt/i);
-    // Must cite the assembled prompt length (content + context + scaffolding),
-    // not the raw 50000-char file content.
-    expect(capturedError.message).not.toContain('50000 chars');
-    const citedChars = Number(capturedError.message.match(/is (\d+) chars/)[1]);
-    // Must exceed the 60000-char limit that triggered the refusal (raw
-    // content alone, 50000, would not have).
-    expect(citedChars).toBeGreaterThan(60000);
+    // Must cite the assembled prompt's real token count (content + context +
+    // scaffolding), not the raw ~12336-token file content alone.
+    expect(capturedError.message).not.toContain('is 12336 tokens');
+    const citedTokens = Number(capturedError.message.match(/is (\d+) tokens/)[1]);
+    // Must exceed the ~13500-token default capacity (60000 chars * 0.9 / 4)
+    // that triggered the refusal (raw content alone, ~12336 tokens, is under
+    // that on its own).
+    expect(citedTokens).toBeGreaterThan(13500);
   });
 
   it('still succeeds when content and content+includeContext both fit', async () => {
@@ -98,16 +113,16 @@ describe('modify_file: gate measures the assembled prompt, not raw originalConte
   });
 
   it('refuses when originalContent alone fits but originalContent+instructions does not', async () => {
-    const originalContent = 'a'.repeat(50000);
+    const originalContent = realisticText(50000); // ~12336 tokens
     const fixture = await writeTmpFile(originalContent, 'main.js');
     tmpDir = fixture.tmpDir;
 
-    const bigInstructions = 'refactor this: ' + 'x'.repeat(20000);
+    const bigInstructions = 'refactor this: ' + realisticText(20000); // ~4928 tokens
 
     const handler = new ModifyFileHandler({});
     handler.getBackendContextLimit = () => 60000;
-    handler.findBackendWithCapacity = async () => null;
-    handler.largestBackendCapacity = async () => 60000;
+    handler.findBackendWithCapacityTokens = async () => null;
+    handler.largestBackendCapacityTokens = async () => 13500;
 
     let capturedError = null;
     try {
@@ -122,9 +137,9 @@ describe('modify_file: gate measures the assembled prompt, not raw originalConte
 
     expect(capturedError).not.toBeNull();
     expect(capturedError.message).toMatch(/Assembled prompt/i);
-    expect(capturedError.message).not.toContain('50000 chars');
-    const citedChars = Number(capturedError.message.match(/is (\d+) chars/)[1]);
-    expect(citedChars).toBeGreaterThan(70000);
+    expect(capturedError.message).not.toContain('is 12336 tokens');
+    const citedTokens = Number(capturedError.message.match(/is (\d+) tokens/)[1]);
+    expect(citedTokens).toBeGreaterThan(13500);
   });
 
   it('still succeeds when originalContent and originalContent+instructions both fit', async () => {
@@ -163,7 +178,7 @@ describe('refactor: per-file gate uses the dynamic/selected capacity, not the st
     const handler = new RefactorHandler({});
     // Simulate a dynamic probe (e.g. a small local context window) far below
     // the flat static 512000 char table entry for 'local'.
-    handler.capacityFor = async () => 100;
+    handler.capacityTokensFor = async () => 100;
     let modifyCalled = false;
     handler.modifyHandler.execute = async () => {
       modifyCalled = true;
@@ -193,7 +208,7 @@ describe('refactor: per-file gate uses the dynamic/selected capacity, not the st
     tmpDir = fixture.tmpDir;
 
     const handler = new RefactorHandler({});
-    handler.capacityFor = async () => 1000000;
+    handler.capacityTokensFor = async () => 1000000;
     let modifyCalled = false;
     handler.modifyHandler.execute = async () => {
       modifyCalled = true;
@@ -237,7 +252,7 @@ describe('batch_analyze singlePass: re-sizes evidence against the selected backe
     // Force every backend's real capacity to a tiny figure so even the
     // resized/rebuilt prompt (scaffolding + question alone) still overflows,
     // and no roomier backend can be found either.
-    handler.capacityFor = async () => 10;
+    handler.capacityTokensFor = async () => 10;
 
     let networkCalled = false;
     handler.makeRequest = async () => {

@@ -8,11 +8,23 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AnalyzeFileHandler } from '../src/handlers/analyze-file-handler.js';
 import { GenerateFileHandler } from '../src/handlers/generate-file-handler.js';
+import { countTokens } from '../src/utils/token-count.js';
 import { promises as fsp } from 'fs';
 import os from 'os';
 import path from 'path';
 
 afterEach(() => vi.restoreAllMocks());
+
+// A single repeated character compresses under real BPE tokenization far
+// more than normal text — cl100k_base counts roughly 1 token per 8 chars of
+// a uniform repeated character, not the ~4 chars/token this repo assumes
+// for real text. Fixtures sized against a token budget need a realistic
+// chars/token ratio, so use varied code-like text (measured ~4.05
+// chars/token) instead of e.g. 'x'.repeat(N).
+const REALISTIC_PHRASE = 'function processData(item, index) { return item.value * index + 1; } ';
+function realisticText(chars) {
+  return REALISTIC_PHRASE.repeat(Math.ceil(chars / REALISTIC_PHRASE.length)).slice(0, chars);
+}
 
 function stubbedAnalyzeHandler() {
   const handler = new AnalyzeFileHandler({});
@@ -71,6 +83,116 @@ describe('capacityFor', () => {
   });
 });
 
+describe('capacityTokensFor: shares the same resolution chain as capacityFor', () => {
+  it('agrees with capacityFor on the underlying resolution for local/auto (chars / 4)', async () => {
+    const handler = stubbedAnalyzeHandler();
+    const chars = await handler.capacityFor('local');
+    const tokens = await handler.capacityTokensFor('local');
+    expect(chars).toBe(85196);
+    expect(tokens).toBe(Math.floor(85196 / 4));
+    expect(await handler.capacityTokensFor('auto')).toBe(tokens);
+  });
+
+  it('agrees with capacityFor on the underlying resolution for the default chain (chars / 4)', async () => {
+    const handler = stubbedAnalyzeHandler();
+    const chars = await handler.capacityFor('nvidia_glm');
+    const tokens = await handler.capacityTokensFor('nvidia_glm');
+    expect(chars).toBe(115200); // 128000 * 0.9
+    expect(tokens).toBe(115200 / 4); // 28800 — the real token reserve, not a re-derived chars estimate
+  });
+});
+
+describe('BUG PROOF: a CJK payload that fit under the old char math is correctly refused under the real token gate', () => {
+  let tmpDir;
+
+  afterEach(async () => {
+    if (tmpDir) {
+      await fsp.rm(tmpDir, { recursive: true, force: true });
+      tmpDir = null;
+    }
+  });
+
+  it('refuses a CJK payload the OLD 4-chars-per-token gate would have accepted', async () => {
+    const cjkPhrase = '这是一段用于测试的中文文本内容重复段落用来验证真实分词器的行为表现';
+    const cjkContent = cjkPhrase.repeat(Math.ceil(110000 / cjkPhrase.length)).slice(0, 110000);
+
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-cjk-oversize-'));
+    const filePath = path.join(tmpDir, 'chinese.txt');
+    await fsp.writeFile(filePath, cjkContent, 'utf8');
+
+    // No registry -> nvidia_glm resolves via the default chain:
+    // capacityFor (chars)       = 128000 * 0.9 = 115200
+    // capacityTokensFor (tokens) = 115200 / 4  =  28800 (the real limit this backend
+    //                                                     was actually configured for)
+    const handler = new AnalyzeFileHandler({});
+    const capChars = await handler.capacityFor('nvidia_glm');
+    const capTokens = await handler.capacityTokensFor('nvidia_glm');
+    expect(capChars).toBe(115200);
+    expect(capTokens).toBe(28800);
+
+    // Prove the OLD bug's premise: the raw payload is under the char limit,
+    // so the old `prompt.length > contextLimit` gate would have shipped it.
+    expect(cjkContent.length).toBeLessThan(capChars);
+
+    // Prove the payload is nowhere near that cheap under a real tokenizer —
+    // CJK runs close to 1 token/char, not the assumed ~4 chars/token.
+    const realTokens = countTokens(cjkContent);
+    expect(realTokens).toBeGreaterThan(capTokens);
+    console.log(`[proof] chars=${cjkContent.length} tokens=${realTokens} tokenLimit=${capTokens} (old char limit would have been ${capChars})`);
+
+    // No roomier backend either — the real-world result (every candidate
+    // backend, under the default fallback table, caps out around the same
+    // token figure) collapses to a deterministic refusal.
+    handler.findBackendWithCapacityTokens = async () => null;
+    handler.largestBackendCapacityTokens = async () => capTokens;
+
+    let capturedError = null;
+    try {
+      await handler.execute({
+        filePath,
+        question: 'what does this say',
+        options: { backend: 'nvidia_glm' }
+      });
+    } catch (err) {
+      capturedError = err;
+    }
+
+    expect(capturedError).not.toBeNull();
+    expect(capturedError.message).toMatch(/no configured backend can hold it/);
+    const citedTokens = Number(capturedError.message.match(/is (\d+) tokens/)[1]);
+    expect(Number.isFinite(citedTokens)).toBe(true);
+    expect(citedTokens).toBeGreaterThan(capTokens);
+  });
+
+  it('regression: an ASCII payload that fit under the old gate still fits under the new one', async () => {
+    // Same shape as the CJK case above, but real code-like ASCII text at the
+    // repo's assumed ~4 chars/token, sized well under capacityTokensFor —
+    // must still succeed, proving the fix does not introduce new false
+    // refusals for the text the old math was actually calibrated for.
+    const phrase = 'function processData(item, index) { return item.value * index + 1; } ';
+    const asciiContent = phrase.repeat(Math.ceil(20000 / phrase.length)).slice(0, 20000);
+
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-ascii-fits-'));
+    const filePath = path.join(tmpDir, 'code.js');
+    await fsp.writeFile(filePath, asciiContent, 'utf8');
+
+    const handler = new AnalyzeFileHandler({});
+    handler.makeRequest = async () => ({
+      content: '{"summary":"ok","findings":[],"confidence":0.9,"suggestedActions":[]}',
+      metadata: { finishReason: 'stop' }
+    });
+
+    const result = await handler.execute({
+      filePath,
+      question: 'what does this do',
+      options: { backend: 'nvidia_glm' }
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(result.summary).toBe('ok');
+  });
+});
+
 describe('analyze_file oversize handling', () => {
   let tmpDir;
 
@@ -97,7 +219,7 @@ describe('analyze_file oversize handling', () => {
   });
 
   it('succeeds on the escalated backend when the payload fits after escalation', async () => {
-    const content = 'x'.repeat(100000); // exceeds local (85196) but fits nvidia_glm/others
+    const content = realisticText(100000); // ~24677 tokens: exceeds local (~21299) but fits nvidia_glm/others
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-escalate-'));
     const filePath = path.join(tmpDir, 'big.js');
     await fsp.writeFile(filePath, content, 'utf8');
