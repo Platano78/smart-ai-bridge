@@ -55,3 +55,74 @@ describe('documentation references only tools that exist', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Guard: every KEY a doc example passes must exist in that tool's schema.
+ *
+ * The guard above catches a doc naming a tool that does not exist. This one
+ * catches the quieter failure: a doc naming an OPTION that does not exist.
+ * Ajv runs with `strict: false` and the schemas set no `additionalProperties`,
+ * so an unknown key is not rejected — it is silently ignored. A user follows
+ * the example, sets the option, and nothing happens, with no error to explain
+ * why. That is worse than a hard failure.
+ */
+describe('documentation examples only pass keys that exist in the schema', () => {
+  it('every key in a documented tool call is a real schema property', () => {
+    const schemas = Object.fromEntries(
+      CORE_TOOL_DEFINITIONS.map(t => [t.name, t.schema?.properties || {}])
+    );
+    const offenders = [];
+
+    for (const file of trackedMarkdown()) {
+      const text = readFileSync(join(REPO_ROOT, file), 'utf-8');
+
+      for (const match of text.matchAll(/@([a-z_]{3,40})\s*\(\{/g)) {
+        const tool = match[1];
+        if (!schemas[tool]) continue; // handled by the tool-name guard above
+
+        // Walk to the matching close brace of the call's object literal.
+        const open = match.index + match[0].length - 1;
+        let depth = 0, end = -1;
+        for (let j = open; j < text.length; j++) {
+          if (text[j] === '{') depth++;
+          else if (text[j] === '}' && --depth === 0) { end = j; break; }
+        }
+        if (end < 0) continue;
+
+        const body = text.slice(open, end + 1);
+        const line = text.slice(0, match.index).split('\n').length;
+
+        // Indent-based descent. A key that opens an object or array pushes that
+        // property's sub-schema (or its array items' sub-schema) as the context
+        // for the more-indented keys beneath it.
+        const stack = [{ indent: 0, props: schemas[tool], path: '' }];
+        for (const raw of body.split('\n')) {
+          const km = raw.match(/^(\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+          if (!km) continue;
+          const [, pad, key] = km;
+          const indent = pad.length;
+
+          while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop();
+          const cur = stack[stack.length - 1];
+
+          const def = cur.props?.[key];
+          if (!def) {
+            offenders.push(`${file}:${line} -> @${tool} passes '${cur.path}${key}'`);
+          } else if (raw.includes('{') || raw.includes('[')) {
+            stack.push({
+              indent,
+              props: def.properties || def.items?.properties || {},
+              path: `${cur.path}${key}.`
+            });
+          }
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `Docs pass keys no schema declares. Ajv silently ignores unknown keys, so ` +
+      `a user setting these gets no effect and no error:\n  ${offenders.join('\n  ')}`
+    ).toEqual([]);
+  });
+});
