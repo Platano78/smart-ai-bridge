@@ -14,6 +14,8 @@ import { promises as fs } from 'fs';
 import { PlaybookSystem } from '../intelligence/playbook-system.js';
 import { detectLanguage } from '../utils/language-detector.js';
 import { getLocalContextLimit } from '../utils/model-discovery.js';
+import { PROVIDER_ENDPOINTS } from '../backends/provider-endpoints.js';
+import { discoverCapacity } from '../backends/capacity-discovery.js';
 
 const RETRY_CONFIG = {
   maxLocalRetries: 2,
@@ -121,11 +123,20 @@ class BaseHandler {
    *   from getContextLimit(), which already reserves output headroom
    *   (getLocalContextLimit computes safeInputTokens as 65% of the
    *   per-request window).
-   * - everything else: the static table value with a 10% response
-   *   headroom carved out (matching the reserve this repo already used in
-   *   generate-file-handler's cloud guard). Not local's 35% reserve —
-   *   cloud output is separately capped by each backend's maxTokens, so
-   *   35% would over-reserve.
+   * - everything else: a three-step resolution chain, each step falling
+   *   through silently to the next:
+   *     1. DISCOVERED — the provider's own catalog (see capacity-discovery.js).
+   *        Never blocks: no key, no discoverer, or a failed/timed-out probe
+   *        all fall through here rather than erroring.
+   *     2. CONFIGURED — the backend's `context_limit` from the registry
+   *        config (tokens), if one is set.
+   *     3. CONSERVATIVE DEFAULT — the static per-backend table in
+   *        getBackendContextLimit(), unchanged, as the final fallback.
+   *   Response headroom: when discovery yields a real output limit, that
+   *   actual number is reserved instead of the flat 10% (matching the
+   *   reserve this repo already used in generate-file-handler's cloud
+   *   guard). Not local's 35% reserve — cloud output is separately capped
+   *   by each backend's maxTokens, so 35% would over-reserve.
    * @param {string} backendName - Backend identifier (or 'auto')
    * @returns {Promise<number>}
    */
@@ -137,23 +148,85 @@ class BaseHandler {
         return this.getBackendContextLimit('local');
       }
     }
+
+    try {
+      const discovered = await this._discoveredCapacityChars(backendName);
+      if (discovered != null) return discovered;
+    } catch {
+      // Discovery must never block capacity resolution — fall through.
+    }
+
+    const configuredLimit = this.backendRegistry?.getBackend?.(backendName)?.context_limit;
+    if (typeof configuredLimit === 'number' && configuredLimit > 0) {
+      return Math.floor(configuredLimit * 4 * 0.9);
+    }
+
     return Math.floor(this.getBackendContextLimit(backendName) * 0.9);
   }
 
   /**
+   * Step 1 of capacityFor's resolution chain: ask the provider's own
+   * catalog for this backend's real limits, converting tokens to the
+   * repo's chars-per-token=4 convention. Returns null (never throws) when
+   * there's no registry, no resolvable key, or discovery finds nothing —
+   * every one of those is a normal "fall through to CONFIGURED" case, not
+   * an error condition.
+   * @param {string} backendName
+   * @returns {Promise<number|null>}
+   */
+  async _discoveredCapacityChars(backendName) {
+    if (!this.backendRegistry) return null;
+
+    const backend = this.backendRegistry.getBackend?.(backendName);
+    if (!backend) return null;
+
+    // No key -> skip discovery entirely; never call a provider without credentials.
+    const keyStatus = this.backendRegistry.getKeyStatus?.(backendName);
+    if (!keyStatus?.configured) return null;
+
+    // backend.config.apiKey only carries a resolved key when it came from
+    // config/`$VAR` or the secrets store — a plain env-var fallback (the
+    // common case) is resolved inside the adapter's own constructor
+    // instead, so read it off the already-built adapter rather than
+    // re-deriving key resolution here.
+    const apiKey = backend.config?.apiKey || this.backendRegistry.getAdapter?.(backendName)?.config?.apiKey;
+    if (!apiKey) return null;
+
+    const discovered = await discoverCapacity(backend, apiKey);
+    if (!discovered || typeof discovered.inputTokens !== 'number') return null;
+
+    const CHARS_PER_TOKEN = 4;
+    if (typeof discovered.outputTokens === 'number') {
+      const usableInputTokens = Math.max(discovered.inputTokens - discovered.outputTokens, 0);
+      return Math.floor(usableInputTokens * CHARS_PER_TOKEN);
+    }
+    return Math.floor(discovered.inputTokens * CHARS_PER_TOKEN * 0.9);
+  }
+
+  /**
+   * Candidate backend names for a capacity search: usable backends (enabled
+   * AND reachable — see BackendRegistry#getUsableBackends) when a registry
+   * is available, so a refusal only ever reports a backend the caller can
+   * actually reach. Handlers built without a registry (e.g. in tests) fall
+   * back to the provider type list rather than a hardcoded backend array.
+   * @returns {string[]}
+   */
+  _candidateBackendNames() {
+    if (this.backendRegistry?.getUsableBackends) {
+      return this.backendRegistry.getUsableBackends();
+    }
+    return Object.keys(PROVIDER_ENDPOINTS);
+  }
+
+  /**
    * Find the best backend that can hold a payload of the given size.
-   * Candidates come from the backend registry when available, falling back
-   * to the hardcoded backend list so handlers built without a registry
-   * (e.g. in tests) still get a usable answer.
+   * Candidates are usable backends only (see _candidateBackendNames).
    * @param {number} payloadChars - Size of the payload in characters
    * @param {string[]} [exclude] - Backend names to skip (already tried)
    * @returns {Promise<{name: string, cap: number}|null>} Best fit, or null if none fit
    */
   async findBackendWithCapacity(payloadChars, exclude = []) {
-    const fallbackList = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'openai_chatgpt', 'groq_llama'];
-    const candidates = this.backendRegistry?.getEnabledBackends?.().length
-      ? this.backendRegistry.getEnabledBackends()
-      : fallbackList;
+    const candidates = this._candidateBackendNames();
 
     const scored = [];
     for (const name of candidates) {
@@ -178,15 +251,14 @@ class BaseHandler {
   }
 
   /**
-   * Largest context capacity across all candidate backends, used only to
-   * report a helpful figure in "nothing fits" error messages.
+   * Largest context capacity across all USABLE candidate backends, used
+   * only to report a helpful figure in "nothing fits" error messages. Only
+   * counting usable backends means the number quoted in a refusal is one
+   * the caller can actually reach.
    * @returns {Promise<number>}
    */
   async largestBackendCapacity() {
-    const fallbackList = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'openai_chatgpt', 'groq_llama'];
-    const candidates = this.backendRegistry?.getEnabledBackends?.().length
-      ? this.backendRegistry.getEnabledBackends()
-      : fallbackList;
+    const candidates = this._candidateBackendNames();
 
     let largest = 0;
     for (const name of candidates) {
@@ -194,6 +266,42 @@ class BaseHandler {
       if (cap > largest) largest = cap;
     }
     return largest;
+  }
+
+  /**
+   * Build a "nothing usable fits" refusal message. When an enabled-but-not-
+   * usable backend (missing API key) would actually have held the payload,
+   * names it and the env var that would unblock it — so the refusal quotes
+   * something the operator can act on, not just a number.
+   * @param {number} payloadChars - Size of the payload in characters
+   * @param {string[]} [exclude] - Backend names already tried/excluded
+   * @returns {Promise<string>}
+   */
+  async capacityUnfitReport(payloadChars, exclude = []) {
+    const usableLargest = await this.largestBackendCapacity();
+    let base = `Payload is ${payloadChars} chars; no usable backend can hold it (largest usable: ${usableLargest}).`;
+
+    if (this.backendRegistry?.getEnabledBackends && this.backendRegistry?.getUsableBackends) {
+      const usable = new Set(this.backendRegistry.getUsableBackends());
+      const unusable = this.backendRegistry.getEnabledBackends()
+        .filter(name => !usable.has(name) && !exclude.includes(name));
+
+      let bestUnusable = null;
+      for (const name of unusable) {
+        const cap = await this.capacityFor(name);
+        if (cap >= payloadChars && (!bestUnusable || cap > bestUnusable.cap)) {
+          bestUnusable = { name, cap };
+        }
+      }
+
+      if (bestUnusable) {
+        const envVar = this.backendRegistry.getKeyStatus?.(bestUnusable.name)?.envVar;
+        base += ` ${bestUnusable.name} would fit (${bestUnusable.cap})` +
+          (envVar ? ` but has no ${envVar} configured.` : ` but is not usable.`);
+      }
+    }
+
+    return base;
   }
 
   /**

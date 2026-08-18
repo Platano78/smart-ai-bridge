@@ -436,6 +436,26 @@ class BackendRegistry {
   }
 
   /**
+   * Enabled backends that are also actually reachable: either a backend
+   * type that needs no key (local, or any type whose PROVIDER_ENDPOINTS
+   * envVar is null) or one with a resolvable API key per getKeyStatus().
+   * Key presence only — never probes a provider — so this stays synchronous
+   * and cheap. Distinct from getEnabledBackends(), whose meaning (and the
+   * stats count that depends on it) is unchanged by this method.
+   * @returns {string[]}
+   */
+  getUsableBackends() {
+    return Array.from(this.backends.values())
+      .filter(b => b.enabled)
+      .filter(b => {
+        const envVar = PROVIDER_ENDPOINTS[b.type]?.envVar ?? null;
+        if (!envVar) return true;
+        return this.getKeyStatus(b.name)?.configured === true;
+      })
+      .map(b => b.name);
+  }
+
+  /**
    * Get fallback chain
    * @returns {string[]}
    */
