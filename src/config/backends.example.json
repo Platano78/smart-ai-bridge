@@ -1,0 +1,57 @@
+{
+  "_comment": "EXAMPLE ONLY — nothing in Smart AI Bridge loads this file. It documents how to fill in the fields that src/config/backends.json ships without: a pinned model, an API key, a custom endpoint, and a disabled lane. Copy the fragment you need into backends.json.",
+  "version": "2.0.0",
+  "description": "Worked examples for backends.json fields — not a live config",
+  "backends": {
+    "gemini_pinned_example": {
+      "_comment": "Pin an explicit model id instead of relying on auto-selection. config.model, when set, ALWAYS wins over discovery — this is how you override the auto-selected choice.",
+      "type": "gemini",
+      "enabled": true,
+      "priority": 4,
+      "description": "Google Gemini, pinned to a specific model",
+      "config": {
+        "maxTokens": 32768,
+        "timeout": 60000,
+        "model": "REPLACE_WITH_A_MODEL_ID_FROM_YOUR_PROVIDER_CATALOG",
+        "apiKey": "$GEMINI_API_KEY"
+      }
+    },
+    "groq_via_proxy_example": {
+      "_comment": "Point a cloud-shaped lane at a self-hosted OpenAI-compatible proxy instead of the public endpoint, by setting config.url.",
+      "type": "groq",
+      "enabled": true,
+      "priority": 6,
+      "description": "Groq lane routed through a local proxy",
+      "config": {
+        "maxTokens": 32768,
+        "timeout": 30000,
+        "url": "http://127.0.0.1:9000/v1/chat/completions",
+        "apiKey": "$GROQ_API_KEY"
+      }
+    },
+    "nvidia_glm_disabled_example": {
+      "_comment": "Disable a lane entirely with enabled:false — it is skipped at boot, never health-checked, and never routed to.",
+      "type": "nvidia_glm",
+      "enabled": false,
+      "priority": 3,
+      "description": "NVIDIA GLM lane, disabled",
+      "config": {
+        "maxTokens": 32768,
+        "timeout": 60000
+      }
+    },
+    "openai_apikey_literal_example": {
+      "_comment": "config.apiKey accepts a literal value too, though \"$ENV_VAR_NAME\" (resolved from process.env) keeps secrets out of this file, which is why every other example above uses it.",
+      "type": "openai",
+      "enabled": true,
+      "priority": 5,
+      "description": "OpenAI lane with an inline key placeholder",
+      "config": {
+        "maxTokens": 128000,
+        "timeout": 120000,
+        "model": "REPLACE_WITH_A_MODEL_ID_FROM_YOUR_PROVIDER_CATALOG",
+        "apiKey": "REPLACE_WITH_YOUR_OPENAI_API_KEY"
+      }
+    }
+  }
+}

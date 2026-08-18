@@ -13,17 +13,20 @@ import { isModelRetired, buildRetiredModelError } from './model-retirement.js';
 import { GeminiRateLimiter } from '../utils/gemini-rate-limiter.js';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_DEFAULT_MODEL = 'gemini-3-pro-preview';
+// No default model id: the literal that used to sit here (gemini-3-pro-preview)
+// now 404s. A model comes from config.model or from catalog auto-selection.
 
 class GeminiAdapter extends BackendAdapter {
   constructor(config = {}) {
     // The model id is embedded in Gemini's URL path, so derive the URL from
     // config.model rather than hardcoding both. An explicit config.url still wins.
-    const model = config.model || GEMINI_DEFAULT_MODEL;
+    const model = config.model || null;
     super({
       name: 'gemini',
       type: 'gemini',
-      url: config.url || `${GEMINI_API_BASE}/${model}:generateContent`,
+      // Gemini embeds the model id in the URL path, so with no model yet there is
+      // no URL to build. setModel() fills both in once one is selected.
+      url: config.url || (model ? `${GEMINI_API_BASE}/${model}:generateContent` : null),
       apiKey: config.apiKey || process.env.GEMINI_API_KEY,
       maxTokens: config.maxTokens || 32768,
       timeout: config.timeout || 60000,
@@ -32,6 +35,9 @@ class GeminiAdapter extends BackendAdapter {
     });
 
     this.model = model;
+    // Tracks whether config.url was derived from the model (vs. an explicit
+    // operator override) so setModel() knows whether it's safe to rebuild it.
+    this._urlDerivedFromModel = !config.url;
 
     // Initialize rate limiter
     this.rateLimiter = new GeminiRateLimiter({
@@ -43,7 +49,22 @@ class GeminiAdapter extends BackendAdapter {
     });
   }
 
+  /**
+   * The model id is embedded in Gemini's request URL, unlike the other cloud
+   * adapters — so switching models means rebuilding config.url too, but only
+   * when that URL was derived from the (previous) model rather than set
+   * explicitly by the operator (e.g. a proxy).
+   * @param {string} modelId
+   */
+  setModel(modelId) {
+    this.model = modelId;
+    if (this._urlDerivedFromModel) {
+      this.config.url = `${GEMINI_API_BASE}/${modelId}:generateContent`;
+    }
+  }
+
   async makeAPICall(body, errorPrefix = 'Gemini error') {
+    this._assertModelConfigured();
     const url = this.config.url;
     const response = await fetch(url, {
       method: 'POST',

@@ -23,7 +23,8 @@ class OpenAIAdapter extends BackendAdapter {
       ...stripUndefined(config)
     });
 
-    this.model = config.model || 'gpt-5.2';
+    // No default model id — see BackendAdapter._assertModelConfigured().
+    this.model = config.model || null;
   }
 
   async makeRequest(prompt, options = {}) {

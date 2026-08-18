@@ -10,6 +10,7 @@
  */
 
 import { PROVIDER_ENDPOINTS, PROVIDER_CATALOGS, CATALOG_KIND_FOR_TYPE, resolveBackendKey } from './provider-endpoints.js';
+import { selectModel } from './capacity-discovery.js';
 
 /** `/chat/completions` URL -> provider `/models` catalog URL, or null. */
 export function catalogUrlFor(url) {
@@ -91,8 +92,35 @@ export async function auditReadiness({ backendsConfig, councilConfig, timeoutMs 
     if (!catalogCache.has(catUrl)) catalogCache.set(catUrl, await fetchCatalog(catUrl, key, catalog, timeoutMs));
     checked++;
     const cat = catalogCache.get(catUrl);
-    if (cat.error) findings.push({ severity: 'unknown', backend: e.name, model: e.model, reason: `catalog unreachable (${cat.error})` });
-    else if (e.model && !cat.ids.includes(e.model)) findings.push({ severity: 'critical', backend: e.name, model: e.model, reason: 'model is NOT in the provider catalog — likely retired or renamed' });
+    if (cat.error) {
+      findings.push({ severity: 'unknown', backend: e.name, model: e.model, reason: `catalog unreachable (${cat.error})` });
+    } else if (e.model) {
+      if (!cat.ids.includes(e.model)) {
+        findings.push({ severity: 'critical', backend: e.name, model: e.model, reason: 'model is NOT in the provider catalog — likely retired or renamed' });
+      }
+    } else {
+      // No config.model — see whether auto-selection (largest published input
+      // capacity) can resolve one. Providers that publish no capacity data for
+      // any model (NVIDIA NIM today) can't be ranked honestly, so the lane
+      // stays unconfigured and this reports real ids the operator can copy in.
+      const selected = await selectModel({ name: e.name, type: e.type, config: e.config }, key);
+      if (!selected) {
+        // Deliberately NOT presenting a "top 5" here. This provider publishes no
+        // capacity or capability fields, so any subset we picked would be an
+        // arbitrary slice — and the alphabetically-first entries are things like
+        // embedding models, which would break the lane if copied. Point the
+        // operator at the full catalog instead of implying a recommendation.
+        const catalogUrl = catalogUrlFor(e.url) ?? 'the provider catalog';
+        findings.push({
+          severity: 'unknown', backend: e.name, model: null,
+          reason: `no model configured, and this provider publishes no capacity data, so one ` +
+            `cannot be chosen automatically. ${cat.ids.length} models are available — list them ` +
+            `with:  curl ${catalogUrl}  — then set config.model for "${e.name}" in ` +
+            `src/config/backends.json (see src/config/backends.example.json). ` +
+            `Note the catalog includes non-chat models, so pick a chat/instruct one.`
+        });
+      }
+    }
   }
 
   const defined = new Set(entries.map(e => e.name));

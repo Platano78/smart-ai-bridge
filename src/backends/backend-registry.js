@@ -20,7 +20,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { getSecret } from './secret-store.js';
-import { PROVIDER_ENDPOINTS } from './provider-endpoints.js';
+import { PROVIDER_ENDPOINTS, resolveBackendKey } from './provider-endpoints.js';
+import { selectModel } from './capacity-discovery.js';
 
 // Get directory of current module for resolving config paths
 const __filename = fileURLToPath(import.meta.url);
@@ -469,6 +470,44 @@ class BackendRegistry {
    */
   getBackendCount() {
     return this.backends.size;
+  }
+
+  /**
+   * For every enabled, non-local backend with no `config.model`, ask its
+   * provider's catalog for one (largest published input capacity — see
+   * capacity-discovery.js#selectModel) and apply it to both the stored
+   * backend config and the live adapter, so the very first real request
+   * targets a live model instead of an adapter's hardcoded fallback literal.
+   *
+   * An explicit `config.model` always wins and is never queried. A backend
+   * with no resolvable API key is skipped — it can't reach a catalog, and
+   * the readiness audit already reports it as `unknown`. Never throws:
+   * failures leave the backend unconfigured, which downstream (adapter
+   * construction, the readiness audit) already handles.
+   * @returns {Promise<void>}
+   */
+  async discoverModels() {
+    const tasks = [];
+    for (const [name, backend] of this.backends) {
+      if (!backend.enabled || backend.type === 'local' || backend.config?.model) continue;
+
+      const envVar = PROVIDER_ENDPOINTS[backend.type]?.envVar ?? null;
+      const apiKey = resolveBackendKey(backend.config, envVar);
+      if (!apiKey) continue;
+
+      tasks.push((async () => {
+        const selected = await selectModel({ name, type: backend.type, config: backend.config }, apiKey);
+        if (!selected) return;
+        backend.config.model = selected.id;
+        const adapter = this.adapters.get(name);
+        if (adapter) adapter.setModel(selected.id);
+        console.error(
+          `[BackendRegistry] Auto-selected model for "${name}": ${selected.id} ` +
+          `(input capacity ${selected.inputTokens})`
+        );
+      })());
+    }
+    await Promise.allSettled(tasks);
   }
 
   /**

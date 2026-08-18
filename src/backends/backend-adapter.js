@@ -136,6 +136,18 @@ class BackendAdapter {
   }
 
   /**
+   * Update the model this adapter targets after construction — used when a
+   * backend ships with no `config.model` and one is auto-selected from the
+   * provider's catalog post-boot (see BackendRegistry.discoverModels()).
+   * Subclasses whose request URL or other derived state is model-dependent
+   * (e.g. GeminiAdapter, whose URL embeds the model id) override this.
+   * @param {string} modelId
+   */
+  setModel(modelId) {
+    this.model = modelId;
+  }
+
+  /**
    * Make a request to the backend
    * @abstract
    * @param {string} prompt - The prompt to send
@@ -158,7 +170,32 @@ class BackendAdapter {
     return 5000;
   }
 
+  /**
+   * A cloud lane must never send a guessed model id. Adapters ship with NO
+   * hardcoded model default — one comes from `config.model` or from
+   * BackendRegistry.discoverModels() picking from the provider's catalog. If
+   * neither supplied one, fail HERE with something the operator can act on,
+   * rather than sending `undefined` (an opaque provider 400) or a literal that
+   * has since been retired (an opaque 404/410).
+   *
+   * Deliberately request-time, not construction-time: boot must still succeed
+   * with unconfigured lanes so the readiness audit can report them.
+   * @protected
+   */
+  _assertModelConfigured() {
+    if (this.model || this.config.model) return;
+    throw new Error(
+      `Backend "${this.name}" has no model configured. No model id ships with this ` +
+      `bridge (provider model ids are retired without notice), and one could not be ` +
+      `selected automatically — either this provider publishes no capacity data to ` +
+      `rank by, or its catalog was unreachable. Set config.model for "${this.name}" in ` +
+      `src/config/backends.json; the startup readiness audit lists real model ids you ` +
+      `can copy. See src/config/backends.example.json for the shape.`
+    );
+  }
+
   async makeAPICall(body, errorPrefix = 'API error') {
+    this._assertModelConfigured();
     const response = await fetch(this.config.url, {
       method: 'POST',
       headers: this.buildHeaders(),

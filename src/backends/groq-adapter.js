@@ -2,7 +2,7 @@
  * @fileoverview GroqAdapter - Groq Llama backend adapter
  * @module backends/groq-adapter
  *
- * Adapter for Groq (openai/gpt-oss-120b) — the lane formerly served
+ * Adapter for Groq — the lane formerly served
  * llama-3.3-70b-versatile, which Groq shuts down 2026-08-16
  * Ultra-fast inference (500+ tokens/second)
  *
@@ -24,7 +24,9 @@ class GroqAdapter extends BackendAdapter {
       ...stripUndefined(config)
     });
 
-    this.model = config.model || 'openai/gpt-oss-120b'; // llama-3.3-70b-versatile shuts down 2026-08-16
+    // No default model id: provider ids rot (llama-3.3-70b-versatile was retired
+    // 2026-08-16). config.model, else auto-selected from the catalog at boot.
+    this.model = config.model || null;
   }
 
   async makeRequest(prompt, options = {}) {

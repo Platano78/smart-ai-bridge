@@ -49,7 +49,16 @@ if (!VERSION) {
 }
 
 // ── Compression config (disabled by default — enable after fidelity eval) ─
-const _backendsConfig = JSON.parse(readFileSync(join(__dirname, 'config/backends.json'), 'utf8'));
+// backends.json may be missing or malformed (hand-edited, partial deploy, etc.) —
+// boot must survive that. BackendRegistry has its own independent load with its
+// own minimal fallback (see backend-registry.js), so a parse failure here only
+// costs the compression-config override, not the server.
+let _backendsConfig = {};
+try {
+  _backendsConfig = JSON.parse(readFileSync(join(__dirname, 'config/backends.json'), 'utf8'));
+} catch (err) {
+  console.error(`[SAB] backends.json unreadable or malformed, using defaults: ${err.message}`);
+}
 const compressionConfig = {
   ...DEFAULT_CRUSHER_CONFIG,
   ...(_backendsConfig.compression || {}),
@@ -77,6 +86,17 @@ console.error(`Smart AI Bridge v${VERSION} starting...`);
 // ── 1. Initialize backend registry ──────────────────────────────
 const backendRegistry = new BackendRegistry();
 console.error(`[SAB] Backends initialized: ${backendRegistry.getBackendCount()} configured`);
+
+// Auto-select a model for any enabled cloud backend that ships with no
+// config.model, so the first real request targets a live model rather than
+// an adapter's hardcoded fallback literal. Never throws — a catalog outage
+// or missing key just leaves the backend unconfigured (readiness audit below
+// reports it).
+try {
+  await backendRegistry.discoverModels();
+} catch (err) {
+  console.error(`[SAB] Model auto-discovery skipped: ${err.message}`);
+}
 
 // ── 2. Link council config to backend registry ──────────────────
 setBackendRegistry(backendRegistry);

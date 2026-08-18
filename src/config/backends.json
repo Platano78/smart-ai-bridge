@@ -31,8 +31,7 @@
       "config": {
         "maxTokens": 8192,
         "timeout": 60000,
-        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "model": "deepseek-ai/deepseek-v4-pro"
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions"
       }
     },
     "nvidia_glm": {
@@ -48,8 +47,7 @@
       "strengths": "Code review, refactoring",
       "config": {
         "maxTokens": 32768,
-        "timeout": 60000,
-        "model": "z-ai/glm-5.2"
+        "timeout": 60000
       }
     },
     "gemini": {
@@ -65,8 +63,7 @@
       "strengths": "Fast docs, quick responses",
       "config": {
         "maxTokens": 32768,
-        "timeout": 60000,
-        "model": "gemini-3-pro-preview"
+        "timeout": 60000
       }
     },
     "openai_chatgpt": {
@@ -75,7 +72,6 @@
       "priority": 5,
       "description": "OpenAI GPT-5.2 (premium reasoning, 128K context)",
       "config": {
-        "model": "gpt-5.2",
         "maxTokens": 128000,
         "timeout": 120000
       }
@@ -84,9 +80,8 @@
       "type": "groq",
       "enabled": true,
       "priority": 6,
-      "description": "Groq gpt-oss-120b (ultra-fast 500+ t/s)",
+      "description": "Groq — ultra-fast inference; model auto-selected from the catalog",
       "config": {
-        "model": "openai/gpt-oss-120b",
         "maxTokens": 32768,
         "timeout": 30000
       }

@@ -69,19 +69,39 @@ class NvidiaDeepSeekAdapter extends BackendAdapter {
     // default for callers that construct the adapter directly. Hardcoding here
     // previously made backends.json inert, so a retired model could not be fixed
     // from config.
-    this.model = config.model || 'deepseek-ai/deepseek-v4-pro';
+    // No default model id. The literal that used to sit here was retired four
+    // days after it was adopted; NIM publishes no capacity data, so this lane
+    // must be configured explicitly.
+    this.model = config.model || null;
     this.fallbackModel = config.fallbackModel || null;
 
     // Whether this.model's NIM endpoint accepts extra_body.chat_template_kwargs.thinking.
     // Only the terminus family did; deepseek-v4-pro rejects it with HTTP 400. Resolved
     // from config so a future model that supports it needs no code change.
-    this.supportsThinkingParam = config.supportsThinkingParam ?? this.model.includes('terminus');
+    this._supportsThinkingConfigured = config.supportsThinkingParam !== undefined;
+    this.supportsThinkingParam = config.supportsThinkingParam ?? (this.model?.includes('terminus') ?? false);
+  }
+
+  /**
+   * @param {string} modelId
+   * @override
+   */
+  setModel(modelId) {
+    this.model = modelId;
+    if (!this._supportsThinkingConfigured) {
+      this.supportsThinkingParam = modelId.includes('terminus');
+    }
   }
 
   async makeRequest(prompt, options = {}) {
     if (!this.config.apiKey) {
       throw new Error('NVIDIA_API_KEY not configured');
     }
+    // _executeWithModel reads `model.includes(...)` directly (below makeAPICall,
+    // which is where the base class's own check would normally fire), so this
+    // must be asserted here too or a null model crashes with a raw TypeError
+    // instead of the actionable message.
+    this._assertModelConfigured();
 
     try {
       return await this._executeWithModel(prompt, this.model, options);
@@ -176,7 +196,8 @@ class NvidiaGlmAdapter extends BackendAdapter {
       ...stripUndefined(config)
     });
 
-    this.model = config.model || 'z-ai/glm-5.2';
+    // No default model id — see BackendAdapter._assertModelConfigured().
+    this.model = config.model || null;
   }
 
   async makeRequest(prompt, options = {}) {
