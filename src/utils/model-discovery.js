@@ -8,7 +8,7 @@
  * This replaces hardcoded MODEL_CAPABILITY_PATTERNS with true dynamic discovery.
  */
 
-import { CAPABILITIES } from './capability-matcher.js';
+import { CAPABILITIES, DEFAULT_UNKNOWN_CAPABILITIES } from './capability-matcher.js';
 
 /**
  * Default ports to scan for local LLM instances
@@ -46,7 +46,13 @@ const SERVER_TYPES = {
       // by n_parallel before reporting. Never divide this by `slots` again.
       nCtx: props?.default_generation_settings?.n_ctx || 4096,
       nCtxPerRequest: props?.default_generation_settings?.n_ctx || 4096,
-      slots: props?.total_slots || 1
+      slots: props?.total_slots || 1,
+      // Reported capability surface. These are what the SERVER says about the model
+      // it actually loaded, so they beat any inference from the model's name.
+      chatTemplate: typeof props?.chat_template === 'string' ? props.chat_template : '',
+      chatTemplateCaps: props?.chat_template_caps || null,
+      modelFtype: props?.model_ftype || '',
+      buildInfo: props?.build_info || ''
     })
   },
   'vllm': {
@@ -298,6 +304,14 @@ async function discoverModelOnPort(port, timeout = 2000) {
             nCtxPerRequest: nCtxPerRequest,
             slots: slots,
             modalities: props?.modalities || { vision: false, audio: false },
+            chatTemplate: typeof props?.chat_template === 'string' ? props.chat_template : '',
+            chatTemplateCaps: props?.chat_template_caps || null,
+            modelFtype: props?.model_ftype || '',
+            buildInfo: props?.build_info || '',
+            supportsThinkingToggle: supportsThinkingToggle({
+              chatTemplate: props?.chat_template,
+              chatTemplateCaps: props?.chat_template_caps
+            }),
             endpoint: `http://localhost:${port}/v1/chat/completions`,
             capabilities: [],
             isOrchestrator: false
@@ -347,6 +361,15 @@ async function discoverModelOnPort(port, timeout = 2000) {
       nCtxPerRequest: metadata.nCtxPerRequest,
       slots: metadata.slots,
       modalities: props?.modalities || { vision: false, audio: false },
+      // Server-reported capability surface (empty/null on servers that report none)
+      chatTemplate: metadata.chatTemplate || '',
+      chatTemplateCaps: metadata.chatTemplateCaps || null,
+      modelFtype: metadata.modelFtype || '',
+      buildInfo: metadata.buildInfo || '',
+      supportsThinkingToggle: supportsThinkingToggle({
+        chatTemplate: metadata.chatTemplate,
+        chatTemplateCaps: metadata.chatTemplateCaps
+      }),
       endpoint: type === 'ollama'
         ? `http://localhost:${port}/api/chat`
         : `http://localhost:${port}/v1/chat/completions`,
@@ -370,14 +393,42 @@ async function discoverModelOnPort(port, timeout = 2000) {
 }
 
 /**
- * Infer capabilities from actual model metadata (not hardcoded patterns)
+ * Infer capabilities from what the SERVER reported about the model it loaded.
+ *
+ * Precedence, strongest evidence first:
+ *   1. `chat_template_caps` / `modalities` — the server describing this exact model
+ *   2. `n_params` / `n_ctx` / `n_ctx_train` — measured numbers, not guesses
+ *   3. name patterns — LAST RESORT, only ever ADD to what the reported data gave
+ *
+ * A model that matches nothing anywhere still leaves here with a non-empty,
+ * routable capability set. Never returns [].
+ *
  * @param {Object} model - Model info from discoverModelOnPort
  * @returns {string[]}
  */
 function inferCapabilitiesFromMetadata(model) {
   const capabilities = [];
 
-  // === SIZE-BASED CAPABILITIES ===
+  // === (1) REPORTED CAPABILITIES ===
+  // llama.cpp publishes what the loaded model's own chat template can actually do.
+  const templateCaps = model.chatTemplateCaps || null;
+  if (templateCaps) {
+    // Tool-calling models are instruction-following general workhorses.
+    if (templateCaps.supports_tools || templateCaps.supports_tool_calls) {
+      capabilities.push(CAPABILITIES.GENERAL);
+    }
+    // A model whose template carries reasoning through is a reasoning model.
+    if (templateCaps.supports_preserve_reasoning) {
+      capabilities.push(CAPABILITIES.DEEP_REASONING);
+    }
+  }
+
+  const modalities = model.modalities || null;
+  if (modalities?.vision) {
+    capabilities.push(CAPABILITIES.VISION);
+  }
+
+  // === (2) MEASURED NUMBERS ===
   const params = model.nParams;
   if (params > 0) {
     if (params >= 30e9) {
@@ -393,7 +444,6 @@ function inferCapabilitiesFromMetadata(model) {
     }
   }
 
-  // === CONTEXT-BASED CAPABILITIES ===
   const ctxTrain = model.nCtxTrain;
   const ctxCurrent = model.nCtx;
 
@@ -401,36 +451,39 @@ function inferCapabilitiesFromMetadata(model) {
     capabilities.push(CAPABILITIES.LARGE_CONTEXT);
   }
 
-  // === NAME-BASED CAPABILITIES (backup/refinement) ===
+  // Native FIM is direct evidence of code training — the server only answers
+  // /infill when the GGUF actually carries FIM tokens. Only present when a
+  // caller already probed it; discovery never probes /infill on its own.
+  if (model.supportsInfill === true) {
+    capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
+  }
+
+  // === (3) NAME PATTERNS — LAST RESORT ===
+  // These only ADD. They can never remove or override anything reported above,
+  // and a model whose name matches none of them is not penalised for it.
   const name = (model.modelAlias || '').toLowerCase();
   const path = (model.modelPath || '').toLowerCase();
   const combined = `${name} ${path}`;
 
-  // Code-specialized models
-  if (/coder|code|reap|starcoder|codellama|seed.?coder/i.test(combined)) {
-    if (!capabilities.includes(CAPABILITIES.CODE_SPECIALIZED)) {
-      capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
-    }
+  if (/coder|code|reap|starcoder|codellama/i.test(combined)) {
+    capabilities.push(CAPABILITIES.CODE_SPECIALIZED);
   }
 
-  // Security-focused (DeepSeek is known for reasoning/security)
   if (/deepseek/i.test(combined)) {
-    if (!capabilities.includes(CAPABILITIES.SECURITY_FOCUS)) {
-      capabilities.push(CAPABILITIES.SECURITY_FOCUS);
-    }
-    if (!capabilities.includes(CAPABILITIES.DEEP_REASONING)) {
-      capabilities.push(CAPABILITIES.DEEP_REASONING);
-    }
+    capabilities.push(CAPABILITIES.SECURITY_FOCUS);
+    capabilities.push(CAPABILITIES.DEEP_REASONING);
   }
 
-  // Documentation models
   if (/gemini|doc|write/i.test(combined)) {
     capabilities.push(CAPABILITIES.DOCUMENTATION);
   }
 
-  // Ensure at least GENERAL capability
+  // === DEFAULT ===
+  // Nothing reported, nothing measured, nothing matched: the model is still a
+  // model. Give it the general set so routing can reach it rather than an empty
+  // set that silently excludes it forever.
   if (capabilities.length === 0) {
-    capabilities.push(CAPABILITIES.GENERAL);
+    capabilities.push(...DEFAULT_UNKNOWN_CAPABILITIES);
   }
 
   return [...new Set(capabilities)]; // Remove duplicates
@@ -522,7 +575,11 @@ async function findBestLocalModel(requiredCapabilities, options = {}) {
   let bestReason = '';
 
   for (const model of models) {
-    let score = 0;
+    // Base score: a discovered, reachable model is always a candidate. Starting
+    // at 0 meant a model whose capabilities matched none of the requirements
+    // never beat `bestScore = 0`, so an unrecognised model was reported as "no
+    // local models available" even though it was running and usable.
+    let score = 1;
 
     // Score based on capability matches
     for (const cap of requiredCapabilities) {
@@ -566,6 +623,8 @@ async function findBestLocalModel(requiredCapabilities, options = {}) {
  */
 function clearCache() {
   modelCache.clear();
+  serverCapsCache.clear();
+  infillCache.clear();
   // The context-limit memo below otherwise only self-invalidates on a modelAlias change,
   // so a model reloaded at a different context under the same alias would keep the stale
   // window. Callers asking to force rediscovery must get a fresh sizing too.
@@ -787,9 +846,263 @@ async function getAllRouterModelSlots(routerPort = 8081) {
   return slotMap;
 }
 
+
+// ============================================================
+// Server capability surface (model-agnostic feature detection)
+// ============================================================
+
+/**
+ * Normalize any target (port number, base URL, or full endpoint URL) to an origin.
+ * Returns null when the input cannot be parsed, so callers degrade instead of throw.
+ * @param {number|string} target
+ * @returns {string|null} e.g. "http://localhost:8081"
+ */
+function toOrigin(target) {
+  if (typeof target === 'number' && Number.isFinite(target)) {
+    return `http://localhost:${target}`;
+  }
+  if (typeof target !== 'string' || target.length === 0) return null;
+  try {
+    return new URL(target).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Does this model's chat template understand the `enable_thinking` kwarg?
+ *
+ * Detected from the template TEXT the server publishes, never from the model's
+ * name. Sending a template kwarg a model does not understand is exactly the
+ * failure mode this replaces, so the answer is false whenever there is no
+ * evidence — including on servers that publish no template at all.
+ *
+ * @param {{chatTemplate?: string, chatTemplateCaps?: Object|null}} reported
+ * @returns {boolean}
+ */
+function supportsThinkingToggle(reported) {
+  const template = reported?.chatTemplate;
+  if (typeof template === 'string' && template.includes('enable_thinking')) {
+    return true;
+  }
+  // Some templates spell the same switch differently; both are template TEXT
+  // evidence, not name matching.
+  if (typeof template === 'string' && /\benable_reasoning\b/.test(template)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Cached server capability surface, keyed by origin.
+ * TTL + in-flight dedup, following backend-registry's checkHealth idiom: the
+ * in-flight promise is cached so concurrent callers join one probe instead of
+ * stampeding, and the TTL is stamped from completion.
+ * @type {Map<string, {value: Object, timestamp: number}>}
+ */
+const serverCapsCache = new Map();
+/** @type {Map<string, Promise<Object>>} */
+const serverCapsInFlight = new Map();
+
+/**
+ * Capability surface for a server, as the server itself reports it.
+ * Never throws: an unreachable, non-llama.cpp, or silent server yields a
+ * defaults object with `available: false` and every feature flag off.
+ *
+ * @param {number|string} target - Port, base URL, or full endpoint URL
+ * @param {Object} [options]
+ * @param {number} [options.timeout=2000] - Probe timeout in ms
+ * @param {boolean} [options.force=false] - Bypass the TTL cache
+ * @returns {Promise<{available: boolean, serverType: string, modelIdentity: string,
+ *   chatTemplate: string, chatTemplateCaps: Object|null, modalities: Object,
+ *   nCtx: number, slots: number, supportsThinkingToggle: boolean, origin: string|null}>}
+ */
+async function getServerCapabilities(target, options = {}) {
+  const { timeout = 2000, force = false } = options;
+  const origin = toOrigin(target);
+
+  const unavailable = {
+    available: false,
+    serverType: 'unknown',
+    modelIdentity: '',
+    chatTemplate: '',
+    chatTemplateCaps: null,
+    modalities: { vision: false, audio: false },
+    nCtx: 0,
+    slots: 1,
+    supportsThinkingToggle: false,
+    origin
+  };
+
+  if (!origin) return unavailable;
+
+  if (!force) {
+    const inFlight = serverCapsInFlight.get(origin);
+    if (inFlight) return inFlight;
+
+    const cached = serverCapsCache.get(origin);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      return cached.value;
+    }
+  }
+
+  const probe = (async () => {
+    try {
+      const res = await fetch(`${origin}/props`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(timeout)
+      });
+      if (!res.ok) return unavailable;
+
+      const props = await res.json();
+      const chatTemplate = typeof props?.chat_template === 'string' ? props.chat_template : '';
+      const chatTemplateCaps = props?.chat_template_caps || null;
+
+      return {
+        available: true,
+        serverType: 'llama.cpp',
+        // Identity is what makes a MODEL SWAP invalidate every derived cache.
+        modelIdentity: props?.model_path || props?.model_alias || '',
+        chatTemplate,
+        chatTemplateCaps,
+        modalities: props?.modalities || { vision: false, audio: false },
+        nCtx: props?.default_generation_settings?.n_ctx || 0,
+        slots: props?.total_slots || 1,
+        supportsThinkingToggle: supportsThinkingToggle({ chatTemplate, chatTemplateCaps }),
+        origin
+      };
+    } catch {
+      // No /props: not llama.cpp, or not up. Both mean "assume nothing".
+      return unavailable;
+    }
+  })();
+
+  serverCapsInFlight.set(origin, probe);
+  try {
+    const value = await probe;
+    // Stamp the TTL from completion so a slow probe is not already expired.
+    serverCapsCache.set(origin, { value, timestamp: Date.now() });
+    return value;
+  } finally {
+    serverCapsInFlight.delete(origin);
+  }
+}
+
+/**
+ * Cached /infill support, keyed by `origin::modelIdentity` so a MODEL SWAP can
+ * never let a new model inherit the previous occupant's answer.
+ * @type {Map<string, {value: boolean, timestamp: number}>}
+ */
+const infillCache = new Map();
+/** @type {Map<string, Promise<boolean>>} */
+const infillInFlight = new Map();
+
+/**
+ * Does this server answer llama.cpp's native `/infill` endpoint?
+ *
+ * This is the model-agnostic FIM path: llama.cpp applies the loaded model's OWN
+ * FIM tokens from GGUF metadata, so a model nobody has a token table for still
+ * gets correct fill-in-the-middle. The probe is a zero-length generation, run
+ * once per model per TTL and cached — never on the request hot path.
+ *
+ * Never throws. Anything other than a 2xx answer means "no", which is the safe
+ * direction: the caller falls back rather than shipping wrong sentinel tokens.
+ *
+ * @param {number|string} target - Port, base URL, or full endpoint URL
+ * @param {Object} [options]
+ * @param {number} [options.timeout=3000] - Probe timeout in ms
+ * @returns {Promise<boolean>}
+ */
+async function probeInfillSupport(target, options = {}) {
+  const { timeout = 3000 } = options;
+  const origin = toOrigin(target);
+  if (!origin) return false;
+
+  const caps = await getServerCapabilities(target, { timeout });
+  const key = `${origin}::${caps.modelIdentity}`;
+
+  const inFlight = infillInFlight.get(key);
+  if (inFlight) return inFlight;
+
+  const cached = infillCache.get(key);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.value;
+  }
+
+  const probe = (async () => {
+    try {
+      const res = await fetch(`${origin}/infill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input_prefix: '',
+          input_suffix: '',
+          n_predict: 1
+        }),
+        signal: AbortSignal.timeout(timeout)
+      });
+      return res.ok === true;
+    } catch {
+      return false;
+    }
+  })();
+
+  infillInFlight.set(key, probe);
+  try {
+    const value = await probe;
+    infillCache.set(key, { value, timestamp: Date.now() });
+    return value;
+  } finally {
+    infillInFlight.delete(key);
+  }
+}
+
+/**
+ * Run a native `/infill` completion. The server supplies the model's own FIM
+ * tokens, so nothing here needs to know which model is loaded.
+ *
+ * @param {number|string} target - Port, base URL, or full endpoint URL
+ * @param {Object} params
+ * @param {string} params.prefix - Text before the insertion point
+ * @param {string} params.suffix - Text after the insertion point
+ * @param {number} [params.nPredict=512] - Max tokens to generate
+ * @param {number} [params.timeout=120000] - Request timeout in ms
+ * @returns {Promise<string|null>} Generated middle, or null on any failure
+ */
+async function runInfill(target, params) {
+  const origin = toOrigin(target);
+  if (!origin) return null;
+
+  const { prefix = '', suffix = '', nPredict = 512, timeout = 120000 } = params || {};
+
+  try {
+    const res = await fetch(`${origin}/infill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input_prefix: prefix,
+        input_suffix: suffix,
+        n_predict: nPredict
+      }),
+      signal: AbortSignal.timeout(timeout)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const content = data?.content;
+    return typeof content === 'string' ? content : null;
+  } catch {
+    return null;
+  }
+}
+
 export {
   DEFAULT_SCAN_PORTS,
   SERVER_TYPES,
+  getServerCapabilities,
+  probeInfillSupport,
+  runInfill,
+  supportsThinkingToggle,
   discoverModelOnPort,
   detectServerType,
   discoverAllModels,

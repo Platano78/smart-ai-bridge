@@ -43,7 +43,7 @@ export class AnalyzeFileHandler extends BaseHandler {
    * @param {string} args.filePath - Path to the file to analyze
    * @param {string} args.question - Question about the file
    * @param {Object} [args.options] - Optional configuration
-   * @param {string} [args.options.backend] - Force specific backend (auto|local|deepseek|qwen3|gemini|groq)
+   * @param {string} [args.options.backend] - Force specific backend (auto|local|deepseek|glm|gemini|groq)
    * @param {string} [args.options.modelProfile] - Model id to request from the local router (whatever your router serves)
    * @param {string} [args.options.analysisType] - Type of analysis (general|bug|security|performance|architecture)
    * @param {string[]} [args.options.includeContext] - Related files for better analysis
@@ -158,8 +158,10 @@ export class AnalyzeFileHandler extends BaseHandler {
         maxTokens: allocatedTokens,
         routerModel: modelProfile,  // Pass model profile for llama-swap router
         timeout: timeoutMs,
-        disableThinking: true  // Suppress qwen3/reasoning-default thinking that
-                               // burns the token budget and never closes </think>
+        disableThinking: true  // Intent only: suppress reasoning that burns the token
+                               // budget and never closes </think>. The adapter decides
+                               // whether the loaded model's template understands the
+                               // switch — see local-adapter.makeRequest.
       });
 
       const processingTime = Date.now() - startTime;

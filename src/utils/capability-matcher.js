@@ -3,7 +3,12 @@
  * @module utils/capability-matcher
  *
  * Provides capability-based matching for subagent backend selection.
- * Infers model capabilities from model IDs and scores backend matches.
+ *
+ * Model NAMES are the weakest evidence available and are used only as a
+ * last resort. Prefer what a server actually reports about the model it loaded
+ * (see model-discovery.js: chat_template_caps, modalities, n_ctx, n_params).
+ * A model that matches no pattern anywhere still gets a routable default set —
+ * an unrecognised model must never be silently excluded from routing.
  */
 
 /**
@@ -18,13 +23,39 @@ const CAPABILITIES = {
   SECURITY_FOCUS: 'security_focus',      // Security/vulnerability analysis
   DOCUMENTATION: 'documentation',        // Technical writing
   FAST_ROUTING: 'fast_routing',          // Orchestrator routing (NOT for subagent work)
+  VISION: 'vision',                      // Multimodal image input (server-reported)
   GENERAL: 'general'                     // General purpose
 };
 
 /**
- * Model name patterns -> capabilities inference
- * Uses regex patterns for flexible matching
- * Order matters: more specific patterns should come first
+ * Capability set for a model nothing is known about.
+ *
+ * Deliberately just GENERAL: it is honest (no capability is being claimed on no
+ * evidence) and non-empty, and scoreCapabilityMatch gives a GENERAL-only model a
+ * non-zero floor so it stays reachable. Padding this with specialist capabilities
+ * would let an unknown model outrank a model actually known to have them.
+ * @type {string[]}
+ */
+const DEFAULT_UNKNOWN_CAPABILITIES = [CAPABILITIES.GENERAL];
+
+/**
+ * Score floor for a model that advertises only GENERAL against specific
+ * requirements. Non-zero on purpose: 0 removes a backend from consideration
+ * entirely, which is how an unrecognised model used to get excluded from
+ * routing. Low enough that any model with real evidence still wins.
+ * @type {number}
+ */
+const UNKNOWN_MODEL_FLOOR_SCORE = 20;
+
+/**
+ * Model name patterns -> capabilities inference.
+ *
+ * LAST-RESORT HINTS ONLY. A name is a guess about a model's behaviour; whenever
+ * server-reported metadata is available it wins (inferCapabilitiesFromMetadata in
+ * model-discovery.js). This list exists so a recognised name adds signal, never
+ * so an unrecognised one loses any.
+ *
+ * Order matters: more specific patterns should come first.
  * @type {Array<{pattern: RegExp, capabilities: string[]}>}
  */
 const MODEL_CAPABILITY_PATTERNS = [
@@ -128,7 +159,7 @@ const ORCHESTRATOR_PORTS = [8085, 8083];
  */
 function inferCapabilitiesFromModelId(modelId) {
   if (!modelId) {
-    return [CAPABILITIES.GENERAL];
+    return [...DEFAULT_UNKNOWN_CAPABILITIES];
   }
 
   const normalizedId = modelId.toLowerCase();
@@ -140,8 +171,9 @@ function inferCapabilitiesFromModelId(modelId) {
     }
   }
 
-  // Default to general capabilities
-  return [CAPABILITIES.GENERAL];
+  // No pattern matched. That is a fact about this list, not about the model —
+  // return the routable default rather than nothing.
+  return [...DEFAULT_UNKNOWN_CAPABILITIES];
 }
 
 /**
@@ -178,12 +210,12 @@ function isOrchestratorModel(modelId, endpoint = null) {
 function getBackendCapabilities(backend) {
   const config = BACKEND_CAPABILITIES[backend];
   if (!config) {
-    return [CAPABILITIES.GENERAL];
+    return [...DEFAULT_UNKNOWN_CAPABILITIES];
   }
 
   // Dynamic backends need runtime inference
   if (config.capabilities === 'dynamic') {
-    return [CAPABILITIES.GENERAL]; // Caller should use inferCapabilitiesFromModelId
+    return [...DEFAULT_UNKNOWN_CAPABILITIES]; // Caller should use inferCapabilitiesFromModelId
   }
 
   return config.capabilities;
@@ -225,6 +257,14 @@ function scoreCapabilityMatch(backendCaps, requiredCaps) {
     if (backendCaps.includes(cap)) {
       matchCount++;
     }
+  }
+
+  // Nothing matched, and all this backend claims is GENERAL: that is an
+  // unrecognised model, not a disqualified one. Returning 0 here is what used to
+  // drop it out of routing entirely (findBestBackend only keeps score > 0), so a
+  // model nobody has heard of could never be selected. Give it the floor instead.
+  if (matchCount === 0 && backendCaps.every(c => c === CAPABILITIES.GENERAL)) {
+    return UNKNOWN_MODEL_FLOOR_SCORE;
   }
 
   // Calculate percentage match
@@ -429,6 +469,8 @@ function findBestBackend(options) {
 
 export {
   CAPABILITIES,
+  DEFAULT_UNKNOWN_CAPABILITIES,
+  UNKNOWN_MODEL_FLOOR_SCORE,
   MODEL_CAPABILITY_PATTERNS,
   BACKEND_CAPABILITIES,
   ORCHESTRATOR_PORTS,

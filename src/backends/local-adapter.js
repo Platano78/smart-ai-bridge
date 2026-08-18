@@ -12,6 +12,7 @@ import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { LocalServiceDetector } from '../utils/local-service-detector.js';
 import { inferCapabilitiesFromModelId, isOrchestratorModel } from '../utils/capability-matcher.js';
 import {
+  getServerCapabilities,
   discoverModelOnPort,
   discoverAllModels,
   discoverSubagentCapableModels,
@@ -19,6 +20,10 @@ import {
   getModelSummary,
   clearCache as clearDiscoveryCache
 } from '../utils/model-discovery.js';
+import {
+  recordTimings,
+  getLearnedTokensPerSecond
+} from '../utils/model-throughput.js';
 
 class LocalAdapter extends BackendAdapter {
   /**
@@ -354,8 +359,20 @@ class LocalAdapter extends BackendAdapter {
    * @returns {number} Estimated tokens/second
    */
   getTokensPerSecond() {
+    // MEASURED FIRST. Every llama.cpp completion carries a `timings` block with
+    // predicted_per_second; parseResponse() files those under the model identity
+    // that produced them. A real measurement of this model on this hardware beats
+    // any table, and because the store is keyed on model identity a model swap
+    // cannot inherit the previous occupant's number.
+    const learned = getLearnedTokensPerSecond(this.modelId);
+    if (learned !== null) {
+      return learned;
+    }
+
+    // COLD START ONLY, until the first completion comes back with timings.
     // Keyed on model-family substrings, not router profile names — unmatched ids
-    // fall through to the parameter-count heuristic below.
+    // fall through to the parameter-count heuristic below, and an id matching
+    // nothing gets the generic default rather than being treated as unusable.
     const modelSpeedTable = {
       'qwen-14b': 35,
       'qwen-32b': 15,
@@ -447,14 +464,33 @@ class LocalAdapter extends BackendAdapter {
       body.max_tokens = options.maxTokens;
     }
 
-    // Opt-in: suppress reasoning/thinking emission for qwen3-family + similar
-    // models whose chat template defaults thinking=true. Without this, max_tokens
-    // can land mid-<think>, the closing tag never arrives, and the parser sees
-    // raw reasoning prose instead of a structured answer.
+    // Opt-in: suppress reasoning/thinking emission on models whose chat template
+    // defaults thinking=true. Without it, max_tokens can land mid-<think>, the
+    // closing tag never arrives, and the parser sees raw reasoning prose instead
+    // of a structured answer.
+    //
+    // `disableThinking` is the caller's INTENT; whether the kwarg is actually sent
+    // is decided here from what the server reports about the loaded model, never
+    // from its name. Sending chat_template_kwargs a model does not understand is
+    // how a bridge fails to survive an unfamiliar backend — some OpenAI-compatible
+    // servers reject unknown body fields outright. When support is unknown we send
+    // nothing: llm-json-parser strips <think> blocks generically at parse time, so
+    // the safety net holds either way.
+    //
+    // The probe is cached (TTL + in-flight dedup in model-discovery) and only runs
+    // when a caller actually asks to disable thinking, so it adds no round-trip to
+    // the normal request path.
     if (options.disableThinking) {
-      if (!body.chat_template_kwargs) body.chat_template_kwargs = {};
-      body.chat_template_kwargs.enable_thinking = false;
-      body.reasoning_format = 'none';
+      const caps = await getServerCapabilities(this.config.url).catch(() => null);
+      if (caps?.supportsThinkingToggle) {
+        if (!body.chat_template_kwargs) body.chat_template_kwargs = {};
+        body.chat_template_kwargs.enable_thinking = false;
+      }
+      // reasoning_format is a llama.cpp server field, not a chat-template kwarg —
+      // gate it on the server type rather than on the model's template.
+      if (caps?.serverType === 'llama.cpp') {
+        body.reasoning_format = 'none';
+      }
     }
 
     const timeout = options.timeout
@@ -625,6 +661,15 @@ class LocalAdapter extends BackendAdapter {
       if (typeof reasoningContent === 'string' && reasoningContent.trim().length > 0) {
         result.content = reasoningContent;
       }
+    }
+
+    // Learn this model's real generation speed from the timings llama.cpp already
+    // returned on this very response — no extra call, no name lookup. Servers that
+    // report no timings (vLLM, LM Studio, Ollama, an OpenAI-compatible proxy) are
+    // simply never recorded, and getTokensPerSecond() keeps using its seed.
+    const measuredModel = response.model || this.modelId;
+    if (measuredModel && response.timings) {
+      recordTimings(measuredModel, response.timings);
     }
 
     result.metadata = {
