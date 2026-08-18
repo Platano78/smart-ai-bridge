@@ -581,7 +581,7 @@ IMPORTANT:
       const backendMap = {
         local: 'local',
         deepseek: 'nvidia_deepseek',
-        qwen3: 'nvidia_glm',
+        glm: 'nvidia_glm',
         gemini: 'gemini',
         groq: 'groq_llama'
       };
