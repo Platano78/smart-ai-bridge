@@ -11,6 +11,7 @@ import { AskHandler } from '../src/handlers/ask-handler.js';
 import { CouncilHandler } from '../src/handlers/council-handler.js';
 import { ReviewHandler } from '../src/handlers/review-handler.js';
 import { DualIterateHandler } from '../src/handlers/dual-iterate-handler.js';
+import { WorkflowMode } from '../src/intelligence/dual-workflow-manager.js';
 import { ExploreHandler } from '../src/handlers/explore-handler.js';
 import { countTokens } from '../src/utils/token-count.js';
 
@@ -113,22 +114,74 @@ describe('ReviewHandler capacity gate', () => {
 });
 
 describe('DualIterateHandler capacity gate', () => {
-  function makeHandler() {
-    return new DualIterateHandler({ dualWorkflowManager: {} });
+  const TASK = 'write a moderately detailed task description here for testing purposes';
+
+  function makeDWM(mode, backendForRole) {
+    return {
+      detectMode: async () => ({ mode }),
+      getBackendForRole: async (role) => ({ backend: backendForRole(role) })
+    };
   }
 
-  it('refuses an oversized task with a token-denominated message (upper bound alongside the <10 floor)', async () => {
-    const handler = makeHandler();
-    handler.capacityTokensFor = async () => 5;
+  it('refuses an oversized task, falling back to the roomiest usable backend when mode/routing cannot be resolved', async () => {
+    // dualWorkflowManager present but lacks detectMode/getBackendForRole ->
+    // _resolveGatingBackends() returns null -> the "cannot resolve" fallback.
+    const handler = new DualIterateHandler({ dualWorkflowManager: {} });
+    handler.largestBackendCapacityTokens = async () => 5;
 
-    const result = await handler.execute({ task: 'a task description that is definitely long enough to pass the floor' });
+    const result = await handler.execute({ task: TASK });
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/\d+ tokens.*exceeds the local dual-mode lane/);
+    expect(result.error).toMatch(/\d+ tokens.*exceeds the largest usable backend/);
   });
 
-  it('still runs the executor for a normal-sized task', async () => {
-    const handler = makeHandler();
+  it('CLOUD_FALLBACK mode: sizes against the resolved CLOUD backend, not local (regression for the wrong-lane bug)', async () => {
+    // Under CLOUD_FALLBACK, DualWorkflowManager routes the 'generator' role
+    // (the only role runPassThrough actually calls) to nvidia_glm, not
+    // local. The gate must refuse against nvidia_glm's tiny stubbed cap
+    // even though local's stubbed cap is huge — proving it does NOT size
+    // against a hardcoded 'local'.
+    const handler = new DualIterateHandler({
+      dualWorkflowManager: makeDWM(WorkflowMode.CLOUD_FALLBACK, (role) => (role === 'reviewer' ? 'nvidia_deepseek' : 'nvidia_glm'))
+    });
+    handler.capacityTokensFor = async (name) => (name === 'local' ? 999999 : (name === 'nvidia_glm' ? 5 : 999999));
+
+    const result = await handler.execute({ task: TASK });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/\d+ tokens.*exceeds 'nvidia_glm'/);
+  });
+
+  it('CLOUD_FALLBACK mode: a task that fits the resolved cloud backend still runs the executor', async () => {
+    const handler = new DualIterateHandler({
+      dualWorkflowManager: makeDWM(WorkflowMode.CLOUD_FALLBACK, () => 'nvidia_glm')
+    });
+    handler.capacityTokensFor = async () => 999999;
+    let executed = false;
+    handler._getExecutor = () => ({
+      execute: async () => { executed = true; return { success: true, code: 'x', mode: 'cloud_fallback', iterations: 1, executionTime: 1 }; }
+    });
+
+    const result = await handler.execute({ task: TASK });
+
+    expect(executed).toBe(true);
+    expect(result.success).toBe(true);
+  });
+
+  it('DUAL_ITERATIVE mode: gates against whichever of generator/reviewer resolves to the smaller capacity', async () => {
+    const handler = new DualIterateHandler({
+      dualWorkflowManager: makeDWM(WorkflowMode.DUAL_ITERATIVE, () => 'local')
+    });
+    handler.capacityTokensFor = async () => 5;
+
+    const result = await handler.execute({ task: TASK });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/\d+ tokens.*exceeds 'local'/);
+  });
+
+  it('still runs the executor for a normal-sized task (no DualWorkflowManager resolution available)', async () => {
+    const handler = new DualIterateHandler({ dualWorkflowManager: {} });
     let executed = false;
     handler._getExecutor = () => ({
       execute: async () => { executed = true; return { success: true, code: 'x', mode: 'test', iterations: 1, executionTime: 1 }; }

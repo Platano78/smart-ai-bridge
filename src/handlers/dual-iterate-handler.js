@@ -8,6 +8,7 @@
 
 import { BaseHandler } from './base-handler.js';
 import { DualIterateExecutor } from '../intelligence/dual-iterate-executor.js';
+import { WorkflowMode } from '../intelligence/dual-workflow-manager.js';
 import { countTokens } from '../utils/token-count.js';
 
 /**
@@ -49,6 +50,39 @@ class DualIterateHandler extends BaseHandler {
   }
 
   /**
+   * Resolve the backend name(s) DualIterateExecutor will ACTUALLY route this
+   * task to, so the capacity gate sizes against the real lane rather than a
+   * hardcoded guess. DualWorkflowManager#detectMode() is not fixed to local:
+   * under CLOUD_FALLBACK it hands generator/reviewer roles to different
+   * CLOUD backends (nvidia_glm / nvidia_deepseek) — see
+   * src/intelligence/dual-workflow-manager.js getBackendForRole(). Only
+   * DUAL_ITERATIVE mode's loop actually calls both the 'generator' and
+   * 'reviewer' roles (dual-iterate-executor.js runDualLoop); every other
+   * mode's loop (runSelfReflection, runPassThrough) only ever calls
+   * 'generator'. Mirrors that role usage here rather than checking both
+   * roles unconditionally, which would over-refuse on modes that never
+   * touch 'reviewer'.
+   * @private
+   * @returns {Promise<string[]|null>} Resolved backend names, or null if the
+   *   mode/routing could not be resolved up front (no DualWorkflowManager
+   *   wired, or resolution itself failed).
+   */
+  async _resolveGatingBackends() {
+    const dualWorkflowManager = this.context.dualWorkflowManager;
+    if (!dualWorkflowManager?.detectMode || !dualWorkflowManager?.getBackendForRole) return null;
+
+    try {
+      const { mode } = await dualWorkflowManager.detectMode();
+      const roles = mode === WorkflowMode.DUAL_ITERATIVE ? ['generator', 'reviewer'] : ['generator'];
+      const routings = await Promise.all(roles.map(role => dualWorkflowManager.getBackendForRole(role)));
+      const names = [...new Set(routings.map(r => r?.backend).filter(Boolean))];
+      return names.length ? names : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Execute dual_iterate tool
    * @param {Object} args - Tool arguments
    * @param {string} args.task - Code generation task
@@ -82,16 +116,36 @@ class DualIterateHandler extends BaseHandler {
       };
     }
 
-    // Upper bound: measured in TOKENS against the local dual-mode lane
-    // (DualIterateExecutor targets fixed local router ports, not the
-    // general backend set), so gate against 'local' capacity specifically.
+    // Upper bound: measured in TOKENS against the backend(s) the executor
+    // will ACTUALLY route this task to (see _resolveGatingBackends — under
+    // CLOUD_FALLBACK mode that can be a cloud lane, not local). Gate against
+    // the SMALLEST of the resolved lanes, since the loop can hit either
+    // role's backend and a payload that doesn't fit the smaller one will
+    // still fail there.
     const taskTokens = countTokens(task);
-    const dualIterateCapTokens = await this.capacityTokensFor('local');
+    const resolvedBackends = await this._resolveGatingBackends();
+
+    let gateLabel;
+    let dualIterateCapTokens;
+    if (resolvedBackends) {
+      const caps = await Promise.all(resolvedBackends.map(b => this.capacityTokensFor(b)));
+      const minAt = caps.indexOf(Math.min(...caps));
+      gateLabel = `'${resolvedBackends[minAt]}'`;
+      dualIterateCapTokens = caps[minAt];
+    } else {
+      // Mode/routing could not be resolved up front (no DualWorkflowManager
+      // wired, or resolution itself failed) — gate against the roomiest
+      // USABLE backend instead of guessing a lane, so this only ever
+      // refuses what genuinely nothing could serve.
+      gateLabel = 'the largest usable backend';
+      dualIterateCapTokens = await this.largestBackendCapacityTokens();
+    }
+
     if (taskTokens > dualIterateCapTokens) {
       return {
         success: false,
-        error: `Task is ${taskTokens} tokens (${task.length} chars); exceeds the local dual-mode lane's usable input ` +
-          `capacity (${dualIterateCapTokens} tokens, after reserving room for the response). Shorten the task description.`,
+        error: `Task is ${taskTokens} tokens (${task.length} chars); exceeds ${gateLabel}'s usable input capacity ` +
+          `(${dualIterateCapTokens} tokens, after reserving room for the response). Shorten the task description.`,
         task_tokens: taskTokens
       };
     }
