@@ -52,14 +52,19 @@ const CONFIDENCE_BACKENDS = {
 };
 
 /**
- * Default backend selection for council (fallback)
+ * Default backend selection for council (fallback when config supplies none).
+ * Not a static roster: no set of names can be assumed configured on a public
+ * install, so this derives from what the registry actually has enabled and
+ * reachable right now (BackendRegistry#getUsableBackends). Council itself
+ * already refuses honestly (see execute()'s `availableBackends.length < 2`
+ * check) rather than papering over a short roster with names that don't
+ * resolve.
+ * @param {Object} [backendRegistry] - The live BackendRegistry, if wired
+ * @returns {string[]} Usable backend names, or [] if none / no registry
  */
-const DEFAULT_COUNCIL_BACKENDS = [
-  'nvidia_deepseek',
-  'nvidia_glm', 
-  'gemini',
-  'local'
-];
+function getDefaultCouncilBackends(backendRegistry) {
+  return backendRegistry?.getUsableBackends?.() || [];
+}
 
 
 /**
@@ -752,5 +757,5 @@ export {
   COUNCIL_MODES,
   TOPIC_BACKENDS,
   CONFIDENCE_BACKENDS,
-  DEFAULT_COUNCIL_BACKENDS
+  getDefaultCouncilBackends
 };

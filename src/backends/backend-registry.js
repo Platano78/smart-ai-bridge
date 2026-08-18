@@ -854,6 +854,20 @@ class BackendRegistry {
     };
   }
 
+  /**
+   * Pick a default lane for an 'auto' request. This is a routing HINT only,
+   * not a capacity decision — real capacity gating happens in the handlers
+   * (countTokens vs capacityTokensFor), so this threshold does not need to
+   * be, and must not pretend to be, authoritative. It exists purely to bias
+   * small/cheap requests toward a free local lane and large ones toward
+   * whatever cloud lane the operator has actually configured — never a
+   * hardcoded name, since the repo ships no model ids and expects the
+   * operator to configure their own backends.
+   * @param {string} requestedBackend
+   * @param {Object} [context]
+   * @param {number} [context.contentLength]
+   * @returns {{backend: string|null, recommendation?: string}}
+   */
   selectBackend(requestedBackend, context = {}) {
     if (requestedBackend && requestedBackend !== 'auto') {
       return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend };
@@ -865,10 +879,25 @@ class BackendRegistry {
         return override;
       }
     }
-    if (context.contentLength > 40000) {
-      return { backend: 'nvidia_glm', recommendation: 'Large content — routed to cloud' };
+
+    const usable = new Set(this.getUsableBackends());
+    const chain = this.getFallbackChain().filter(b => usable.has(b));
+    const candidates = chain.length > 0 ? chain : [...usable];
+
+    if (candidates.length === 0) {
+      return { backend: null, recommendation: 'No usable backend is configured' };
     }
-    return { backend: 'local' };
+
+    const localCandidate = candidates.find(b => this.getBackend(b)?.type === 'local');
+    const nonLocalCandidates = candidates.filter(b => b !== localCandidate);
+
+    // Large content: prefer the highest-priority usable non-local lane —
+    // still just a hint, so degrade to whatever IS usable if none exists.
+    if (context.contentLength > 40000 && nonLocalCandidates.length > 0) {
+      return { backend: nonLocalCandidates[0], recommendation: 'Large content — routed to cloud' };
+    }
+
+    return { backend: localCandidate || candidates[0] };
   }
 
   registerRoutingOverride(handlerType, fn) {

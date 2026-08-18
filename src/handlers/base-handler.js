@@ -26,6 +26,14 @@ const RETRY_CONFIG = {
 };
 
 /**
+ * Throughput assumed when no real measurement exists for a backend. See
+ * estimateBackendSpeed — deliberately a single conservative constant, not a
+ * per-backend guess.
+ * @type {number}
+ */
+const DEFAULT_TOKENS_PER_SECOND = 20;
+
+/**
  * @typedef {Object} HandlerContext
  * @property {Object} router - AI router instance
  * @property {Object} [server] - Server instance for MCP calls
@@ -369,20 +377,28 @@ class BaseHandler {
   }
 
   /**
-   * Estimate tokens per second for a backend (used for timeout calculation)
+   * Estimate tokens per second for a backend (used for timeout calculation).
+   *
+   * MEASURED FIRST for local: llama.cpp reports real `predicted_per_second`
+   * on every completion (see model-throughput.js), and LocalAdapter already
+   * resolves measured-or-cold-start via getTokensPerSecond(). No other
+   * backend here is wired to report per-token timings, so there is nothing
+   * real to look up for them.
+   *
+   * A per-backend NUMBER table used to stand in for that — a set of guesses
+   * with no more basis than a name, and one entry ('chatgpt') was a dead key:
+   * no backend is ever actually named that (the real id is 'openai_chatgpt'),
+   * so it silently fell through to the same default anyway. Deleted rather
+   * than fixed by adding the right name — a per-name guess is still a guess.
    * @param {string} backendName - Backend identifier
    * @returns {number} Estimated tokens/second
    */
   estimateBackendSpeed(backendName) {
-    const backendSpeeds = {
-      'local': 20,           // Conservative estimate for local models
-      'nvidia_deepseek': 40, // Cloud DeepSeek V3
-      'nvidia_glm': 35,      // Cloud GLM-5.2
-      'gemini': 50,          // Gemini Flash
-      'groq_llama': 80,      // Ultra-fast Groq
-      'chatgpt': 40          // OpenAI GPT-4
-    };
-    return backendSpeeds[backendName] || 20;
+    if (backendName === 'local') {
+      const speed = this.backendRegistry?.getAdapter?.('local')?.getTokensPerSecond?.();
+      if (typeof speed === 'number' && speed > 0) return speed;
+    }
+    return DEFAULT_TOKENS_PER_SECOND;
   }
 
   /**
