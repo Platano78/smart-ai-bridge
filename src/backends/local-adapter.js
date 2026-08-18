@@ -10,7 +10,7 @@
 
 import { BackendAdapter, stripUndefined } from './backend-adapter.js';
 import { LocalServiceDetector } from '../utils/local-service-detector.js';
-import { resolveModelCapabilities, isOrchestratorModel } from '../utils/capability-matcher.js';
+import { resolveModelCapabilities, isExcludedFromSubagent } from '../utils/capability-matcher.js';
 import {
   getServerCapabilities,
   discoverModelOnPort,
@@ -388,11 +388,13 @@ class LocalAdapter extends BackendAdapter {
   }
 
   /**
-   * Check if this is an orchestrator model (not suitable for subagent work)
+   * Whether this lane is excluded from subagent work — operator-declared only
+   * (`config.excludeFromSubagent`). No port or model name can tell you what a
+   * lane is for; see capability-matcher.js#isExcludedFromSubagent.
    * @returns {boolean}
    */
   isOrchestrator() {
-    return isOrchestratorModel(this.modelId, this.config.url);
+    return isExcludedFromSubagent(this.config);
   }
 
   /**

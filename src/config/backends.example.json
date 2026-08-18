@@ -78,6 +78,20 @@
         "maxTokens": 65536,
         "timeout": 120000
       }
+    },
+    "local_excluded_from_subagent_example": {
+      "_comment": "Reserve this lane for orchestration/fast-routing and keep it out of subagent selection. No port number or model name can tell SAB what a lane is for, so this is operator-declared only: excludeFromSubagent:true is the sole way to exclude a lane, and it does so regardless of what capabilities are declared alongside it. Omitting the flag (the default) leaves every lane, including one you tag fast_routing, eligible for subagent work.",
+      "type": "local",
+      "enabled": true,
+      "priority": 9,
+      "description": "Local lane reserved for fast routing, excluded from subagent work",
+      "config": {
+        "capabilities": ["fast_routing"],
+        "excludeFromSubagent": true,
+        "url": "http://127.0.0.1:8081/v1/chat/completions",
+        "maxTokens": 4096,
+        "timeout": 30000
+      }
     }
   }
 }

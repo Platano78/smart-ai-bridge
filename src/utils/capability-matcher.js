@@ -93,12 +93,6 @@ const BACKEND_CAPABILITIES = {
 };
 
 /**
- * Ports that indicate orchestrator (should be excluded from subagent work)
- * @type {number[]}
- */
-const ORCHESTRATOR_PORTS = [8085, 8083];
-
-/**
  * Context sizes above which a model counts as LARGE_CONTEXT.
  * Both are server-reported numbers, not guesses about the model.
  * @type {number}
@@ -201,29 +195,21 @@ function resolveModelCapabilities(model = {}) {
 }
 
 /**
- * Check if a model is an orchestrator (should be excluded from subagent work)
- * @param {string} modelId - Model identifier
- * @param {string} [endpoint] - Optional endpoint URL to check port
+ * Whether the operator has explicitly excluded this backend lane from
+ * subagent work.
+ *
+ * This is the ONLY source: a port number cannot tell you what a model is
+ * for, and neither can its name — a public user who happens to run a normal
+ * model on a port that used to be hardcoded here would otherwise get it
+ * silently dropped from routing with no explanation. If an operator wants a
+ * lane reserved (e.g. for a fast-routing/orchestrator role), they say so in
+ * config with `excludeFromSubagent: true`. See src/config/backends.example.json.
+ * @param {Object} [config] - Backend config
+ * @param {boolean} [config.excludeFromSubagent] - Operator opt-out
  * @returns {boolean}
  */
-function isOrchestratorModel(modelId, endpoint = null) {
-  // Check by model name
-  if (modelId && /orchestrator/i.test(modelId)) {
-    return true;
-  }
-
-  // Check by port if endpoint provided
-  if (endpoint) {
-    const portMatch = endpoint.match(/:(\d+)/);
-    if (portMatch) {
-      const port = parseInt(portMatch[1], 10);
-      if (ORCHESTRATOR_PORTS.includes(port)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+function isExcludedFromSubagent(config = {}) {
+  return config?.excludeFromSubagent === true;
 }
 
 /**
@@ -360,24 +346,21 @@ function estimateTaskContextSize(task, filePatterns = []) {
 }
 
 /**
- * Check if a backend is suitable for subagent work
- * (Orchestrators are not suitable)
+ * Check if a backend is suitable for subagent work.
  * @param {string} backend - Backend name
- * @param {string} [modelId] - Optional model ID for local backend
- * @param {string} [endpoint] - Optional endpoint URL
+ * @param {Object} [config] - The backend's own config, for the operator's
+ *   `excludeFromSubagent` opt-out (see isExcludedFromSubagent). Omitted when
+ *   the caller has no config in hand, in which case nothing is excluded.
  * @returns {boolean}
  */
-function isSuitableForSubagent(backend, modelId = null, endpoint = null) {
+function isSuitableForSubagent(backend, config = null) {
   // Known orchestrator backend
   if (backend === 'orchestrator') {
     return false;
   }
 
-  // Check local backend by model and port
-  if (backend === 'local') {
-    if (isOrchestratorModel(modelId, endpoint)) {
-      return false;
-    }
+  if (isExcludedFromSubagent(config)) {
+    return false;
   }
 
   // All other backends are suitable
@@ -496,11 +479,10 @@ export {
   DEFAULT_UNKNOWN_CAPABILITIES,
   UNKNOWN_MODEL_FLOOR_SCORE,
   BACKEND_CAPABILITIES,
-  ORCHESTRATOR_PORTS,
   normalizeDeclaredCapabilities,
   capabilitiesFromServerReport,
   resolveModelCapabilities,
-  isOrchestratorModel,
+  isExcludedFromSubagent,
   getBackendCapabilities,
   getBackendContextLimit,
   scoreCapabilityMatch,

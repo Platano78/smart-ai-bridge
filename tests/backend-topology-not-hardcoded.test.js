@@ -1,0 +1,123 @@
+/**
+ * @fileoverview REGRESSION GUARD: subagent exclusion and cloud fallback must
+ * come from operator declaration and the live registry, never from a
+ * hardcoded port list, a name regex, or a hardcoded backend name.
+ *
+ * SAB is a public product: a port a public user happens to run a model on,
+ * or a cloud lane they never configured, must never be baked in as private
+ * fleet knowledge.
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  isExcludedFromSubagent,
+  isSuitableForSubagent
+} from '../src/utils/capability-matcher.js';
+import { LocalAdapter } from '../src/backends/local-adapter.js';
+import { DualWorkflowManager, WorkflowMode } from '../src/intelligence/dual-workflow-manager.js';
+
+describe('subagent exclusion is operator-declared only', () => {
+  it('a model served on port 8083 is not excluded from subagent work', () => {
+    const adapter = new LocalAdapter({
+      skipAutodiscovery: true,
+      url: 'http://127.0.0.1:8083/v1/chat/completions'
+    });
+    expect(adapter.isOrchestrator()).toBe(false);
+  });
+
+  it('a model served on port 8085 is not excluded from subagent work', () => {
+    const adapter = new LocalAdapter({
+      skipAutodiscovery: true,
+      url: 'http://127.0.0.1:8085/v1/chat/completions'
+    });
+    expect(adapter.isOrchestrator()).toBe(false);
+  });
+
+  it('a model literally named "orchestrator" is not excluded by name', () => {
+    const adapter = new LocalAdapter({ skipAutodiscovery: true, url: 'http://127.0.0.1:8081/v1/chat/completions' });
+    adapter.modelId = 'my-orchestrator-model';
+    expect(adapter.isOrchestrator()).toBe(false);
+  });
+
+  it('an operator-declared excludeFromSubagent:true IS honoured', () => {
+    const adapter = new LocalAdapter({
+      skipAutodiscovery: true,
+      url: 'http://127.0.0.1:8081/v1/chat/completions',
+      excludeFromSubagent: true
+    });
+    expect(adapter.isOrchestrator()).toBe(true);
+    expect(isSuitableForSubagent('local', adapter.config)).toBe(false);
+  });
+
+  it('isExcludedFromSubagent requires the exact operator flag, not any truthy config', () => {
+    expect(isExcludedFromSubagent({ url: 'http://127.0.0.1:8083' })).toBe(false);
+    expect(isExcludedFromSubagent()).toBe(false);
+    expect(isExcludedFromSubagent({ excludeFromSubagent: true })).toBe(true);
+  });
+});
+
+describe('CLOUD_FALLBACK never routes to an unconfigured backend name', () => {
+  /** Minimal backendRegistry stub: a real registry's getFallbackChain()/getUsableBackends() shape. */
+  function makeRegistry({ chain, usable }) {
+    return {
+      getFallbackChain: () => chain,
+      getUsableBackends: () => usable
+    };
+  }
+
+  function makeDWM(registry) {
+    return new DualWorkflowManager({
+      backendRegistry: registry,
+      healthMonitor: { getBackendHealth: () => ({ healthy: false }) }
+    });
+  }
+
+  it('picks a usable configured backend rather than a hardcoded name', async () => {
+    const dwm = makeDWM(makeRegistry({
+      chain: ['local', 'groq_llama', 'gemini'],
+      usable: ['local', 'groq_llama', 'gemini']
+    }));
+    dwm.currentMode = WorkflowMode.CLOUD_FALLBACK;
+    dwm.lastModeCheck = Date.now();
+
+    const { backend } = await dwm.getBackendForRole('generator');
+    expect(['groq_llama', 'gemini']).toContain(backend);
+    expect(backend).not.toBe('local');
+  });
+
+  it('with only one unrelated backend configured (e.g. only groq), still returns it', async () => {
+    const dwm = makeDWM(makeRegistry({
+      chain: ['local', 'groq_llama'],
+      usable: ['local', 'groq_llama']
+    }));
+    dwm.currentMode = WorkflowMode.CLOUD_FALLBACK;
+    dwm.lastModeCheck = Date.now();
+
+    const generator = await dwm.getBackendForRole('generator');
+    const reviewer = await dwm.getBackendForRole('reviewer');
+    expect(generator.backend).toBe('groq_llama');
+    expect(reviewer.backend).toBe('groq_llama');
+  });
+
+  it('nothing usable -> a clear, non-throwing null result', async () => {
+    const dwm = makeDWM(makeRegistry({ chain: ['local'], usable: ['local'] }));
+    dwm.currentMode = WorkflowMode.CLOUD_FALLBACK;
+    dwm.lastModeCheck = Date.now();
+
+    const { backend } = await dwm.getBackendForRole('generator');
+    expect(backend).toBeNull();
+  });
+
+  it('_getFirstHealthyBackend degrades to a usable registry backend, never a hardcoded literal', () => {
+    const dwm = makeDWM(makeRegistry({
+      chain: ['local', 'groq_llama'],
+      usable: ['groq_llama']
+    }));
+    expect(dwm._getFirstHealthyBackend()).toBe('groq_llama');
+  });
+
+  it('_getFirstHealthyBackend returns null, never throws, when nothing is usable', () => {
+    const dwm = makeDWM(makeRegistry({ chain: [], usable: [] }));
+    expect(() => dwm._getFirstHealthyBackend()).not.toThrow();
+    expect(dwm._getFirstHealthyBackend()).toBeNull();
+  });
+});

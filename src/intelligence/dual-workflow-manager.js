@@ -10,7 +10,7 @@
  * Integrates with health monitoring and learning engine for optimal routing.
  */
 
-import { CAPABILITIES } from '../utils/capability-matcher.js';
+import { CAPABILITIES, getBackendCapabilities } from '../utils/capability-matcher.js';
 
 /**
  * Workflow modes
@@ -198,11 +198,9 @@ class DualWorkflowManager {
         break;
 
       case WorkflowMode.CLOUD_FALLBACK:
-        // Cloud fallback: route based on role
-        if (role === 'reviewer') {
-          return { backend: 'nvidia_deepseek', routerModel: null }; // Reasoning model for review
-        }
-        return { backend: 'nvidia_glm', routerModel: null }; // Coding model for generation
+        // Emergency mode: local is down, so this MUST resolve to whatever the
+        // operator actually configured, never to a name that may not exist.
+        return { backend: this._pickCloudBackend(role), routerModel: null };
     }
 
     // Default fallback
@@ -210,21 +208,50 @@ class DualWorkflowManager {
   }
 
   /**
-   * Get first healthy backend from priority list
+   * Pick a usable (enabled + resolvable-key) non-local backend for a role,
+   * preferring one whose declared/reported capabilities suit the role but
+   * never requiring a specific name — the repo ships no model ids and
+   * expects operators to configure their own lanes, so assuming e.g.
+   * nvidia_glm/nvidia_deepseek exist is unsafe. Degrades to any usable
+   * backend, and to null (never throws) if nothing is usable at all.
    * @private
+   * @param {string} role - 'generator' | 'reviewer' | 'fixer'
+   * @returns {string|null}
+   */
+  _pickCloudBackend(role) {
+    const chain = this.backendRegistry?.getFallbackChain?.() || [];
+    const usable = new Set(this.backendRegistry?.getUsableBackends?.() || chain);
+    const candidates = (chain.length > 0 ? chain : [...usable])
+      .filter(b => b !== 'local' && usable.has(b));
+
+    if (candidates.length === 0) return null;
+
+    const wantCap = role === 'reviewer' ? CAPABILITIES.DEEP_REASONING : CAPABILITIES.CODE_SPECIALIZED;
+    const preferred = candidates.find(b => getBackendCapabilities(b).includes(wantCap));
+    return preferred || candidates[0];
+  }
+
+  /**
+   * Get first healthy, usable backend from the registry's own priority
+   * order. Never a hardcoded name: an operator who configured only one
+   * cloud lane (e.g. just Groq) must still get it back here rather than an
+   * unconfigured 'nvidia_glm' that will fail at request time.
+   * @private
+   * @returns {string|null}
    */
   _getFirstHealthyBackend() {
-    const priority = [
-      'local', 'local', 'local',
-      'nvidia_glm', 'nvidia_deepseek', 'gemini', 'groq_llama'
-    ];
+    const chain = this.backendRegistry?.getFallbackChain?.() || [];
+    const usable = new Set(this.backendRegistry?.getUsableBackends?.() || chain);
+    const candidates = (chain.length > 0 ? chain : [...usable]).filter(b => usable.has(b));
 
-    for (const backend of priority) {
+    for (const backend of candidates) {
       const health = this.healthMonitor?.getBackendHealth?.(backend);
       if (health?.healthy) return backend;
     }
 
-    return 'nvidia_glm'; // Ultimate fallback
+    // No health data yet (nothing probed) — degrade to any usable backend
+    // rather than a name that may not be configured.
+    return candidates[0] || null;
   }
 
   /**
