@@ -5,6 +5,76 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-08-18
+
+The model-agnosticism release. One defect at nine altitudes: behaviour derived
+from a NAME — a model id, a backend key, a port — rather than from what the
+operator declared or the server actually reported. Every shipped model id was
+correct on the maintainer's machine the day it was written, and every one was
+a time bomb for everyone else (`deepseek-v4-pro` was adopted as a fix on
+2026-08-03 and end-of-lifed four days later). Resolution everywhere is now:
+operator-declared → server-reported → one honest default that keeps the lane
+routable. Tests 252 → 475.
+
+### Changed — breaking for saved configs
+
+- **No model ids ship anywhere.** Not in `backends.json`, not as adapter
+  fallbacks. Models are discovered from each provider's live catalog;
+  `config.model` remains an explicit override. Where a provider publishes
+  nothing to rank by, boot names the command to check rather than guessing.
+- **The `nvidia_qwen` lane is removed outright** (not aliased — NVIDIA's
+  catalog has zero Qwen models). A saved `force_backend: "nvidia_qwen"` or
+  `"qwen3"` no longer resolves; use `nvidia_glm`. Local-Qwen handling (FIM
+  tokens, capability inference, thinking suppression) is unrelated to the
+  retired cloud lane and is kept.
+- **Auto-selection ranks on provider data only** — input window desc, output
+  window desc, then the provider's own catalog order. No substring heuristics.
+- **Keyless or unusable backends are never selected**, and a refusal names
+  the missing environment variable instead of failing downstream.
+
+### Fixed
+
+- All 17 tools now gate payload size against the backend that will actually
+  run the request; five (`ask`, `council`, `explore`, `review`,
+  `dual_iterate`) previously had no check of any kind, and `dual_iterate`
+  gated against the wrong lane.
+- Gates measure the assembled prompt, not the raw file content, and count
+  real tokens instead of assuming 4 chars/token — with a chunking fix for
+  the tokenizer's quadratic pre-tokenizer on repetitive text (previously
+  ~10 minutes at 1MB; now bounded).
+- Capacity is discovered from provider catalogs. The static per-backend
+  context table is gone, collapsed to one conservative last-resort constant
+  only reached when capacity is neither discovered nor configured — a
+  too-small default yields an honest refusal recoverable by declaring
+  `context_limit`; a too-large one ships silently truncated payloads.
+- **Local endpoint discovery no longer stalls for minutes** when no local
+  server is listening: candidates are probed concurrently (winner still
+  chosen by priority, not by which probe answers first) and a nothing-found
+  scan is remembered for 30s, so a rediscovery storm during an outage costs
+  one bounded scan instead of one per failed request.
+- Local model auto-selection ranks on the **per-request** context window
+  (`--kv-unified`-aware), not the raw `--ctx-size` pool — a 65536-ctx
+  4-slot model no longer beats a 32768-ctx single-slot model that actually
+  offers twice the usable window.
+- Boot readiness audit catches dead lanes and no longer counts unchecked
+  lanes as checked.
+- Every provider endpoint has exactly one home; operator `config.url` is
+  honoured everywhere, including catalog lookups.
+
+### Removed
+
+- The never-dispatched council mode family (simple/full/vote/peer-review
+  synthesis, ~300 lines): unreachable since the day it was introduced. The
+  live council is the four working strategies — parallel / sequential /
+  debate / fallback — now capacity-gated per member, per round.
+
+### Verified
+
+- Every tool's documented response shape is now asserted against what its
+  handler actually emits — 127 documented keys across all 17 tools driven
+  through real handlers with stubbed backends. One doc drift found and
+  corrected (`refactor`'s review/dry-run shape).
+
 ## [2.13.0] - 2026-08-17
 
 Selective capability port from the private upstream bridge. Three silent-failure

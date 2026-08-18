@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.13.0
+# Smart AI Bridge v2.14.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />

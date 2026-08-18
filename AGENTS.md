@@ -5,7 +5,7 @@ Instructions for AI agents and agentic harnesses. Two audiences, in order:
 1. **Consuming** this project — installing and running it as an MCP server. Start here.
 2. **Working on** this repo — where code lives and what the hard rules are.
 
-Everything below is verified against the code at v2.13.0. If something here disagrees with the
+Everything below is verified against the code at v2.14.0. If something here disagrees with the
 code, the code wins and this file is a bug.
 
 ---
