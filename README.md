@@ -17,6 +17,8 @@ Smart AI Bridge is an MCP server that sits between Claude Code and your AI backe
 
 ## How It Works
 
+<img src="https://github.com/Platano78/smart-ai-bridge/releases/download/v2.13.0/sab-v2.13-infographic.png" alt="Smart AI Bridge overview: the 4-tier router (forced selection, learning, heuristics, health-based fallback), the token-saving architecture that offloads file reading to backends and returns only analysis, real-time tokens_saved tracking calculated from actual character counts, and the backend alias table mapping friendly names like deepseek and glm to nvidia_deepseek and nvidia_glm." width="100%">
+
 ### The core idea: Claude never reads the file
 
 Most of Claude's context on a coding task is spent on file contents. Smart AI Bridge hands
