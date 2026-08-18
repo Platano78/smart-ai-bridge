@@ -15,7 +15,7 @@
  * into a single in-flight request — the same idiom backend-registry.js
  * already uses for its health-check sweep.
  */
-import { PROVIDER_ENDPOINTS } from './provider-endpoints.js';
+import { PROVIDER_ENDPOINTS, PROVIDER_CATALOGS } from './provider-endpoints.js';
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — provider catalogs change rarely
 const FETCH_TIMEOUT_MS = 5000;
@@ -39,10 +39,6 @@ async function fetchWithTimeout(url, options) {
   }
 }
 
-function toModelsUrl(chatCompletionsUrl) {
-  return chatCompletionsUrl.replace(/\/chat\/completions\/?$/, '/models');
-}
-
 /**
  * OpenAI-compatible providers (NVIDIA NIM, Groq, OpenAI): GET .../models,
  * find the configured model by id, read context_window/max_completion_tokens
@@ -57,16 +53,16 @@ function toModelsUrl(chatCompletionsUrl) {
  */
 async function discoverOpenAICompatible(backend, apiKey) {
   const endpoint = backend.config?.url || PROVIDER_ENDPOINTS[backend.type]?.endpoint;
-  if (!endpoint) return null;
+  const catalog = PROVIDER_CATALOGS.openaiCompatible;
+  const catalogUrl = catalog.catalogUrl(endpoint);
+  if (!catalogUrl) return null;
 
-  const res = await fetchWithTimeout(toModelsUrl(endpoint), {
-    headers: { Authorization: `Bearer ${apiKey}` }
-  });
+  const res = await fetchWithTimeout(catalogUrl, { headers: catalog.authHeader(apiKey) });
   if (!res.ok) return null;
 
   const json = await res.json();
   const model = backend.config?.model;
-  const entry = Array.isArray(json?.data) ? json.data.find(m => m.id === model) : null;
+  const entry = catalog.entries(json).find(e => e.id === model)?.raw;
   if (!entry || typeof entry.context_window !== 'number') return null;
 
   return {
@@ -89,15 +85,14 @@ async function discoverOpenAICompatible(backend, apiKey) {
  * which is the correct trade against silently querying the wrong host.
  */
 async function discoverGemini(backend, apiKey) {
-  const res = await fetchWithTimeout('https://generativelanguage.googleapis.com/v1beta/models', {
-    headers: { 'x-goog-api-key': apiKey }
-  });
+  const catalog = PROVIDER_CATALOGS.gemini;
+  const res = await fetchWithTimeout(catalog.catalogUrl(), { headers: catalog.authHeader(apiKey) });
   if (!res.ok) return null;
 
   const json = await res.json();
   const model = backend.config?.model;
-  const wanted = model?.startsWith('models/') ? model : `models/${model}`;
-  const entry = Array.isArray(json?.models) ? json.models.find(m => m.name === wanted) : null;
+  const wanted = typeof model === 'string' ? model.replace(/^models\//, '') : model;
+  const entry = catalog.entries(json).find(e => e.id === wanted)?.raw;
   if (!entry || typeof entry.inputTokenLimit !== 'number') return null;
 
   return {

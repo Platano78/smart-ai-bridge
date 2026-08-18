@@ -46,3 +46,62 @@ export function resolveBackendKey(config, envVar) {
   }
   return null;
 }
+
+/**
+ * Per-provider catalog descriptor: how to build a provider's model-catalog
+ * URL, the auth header shape it expects, and how to list its models as
+ * `{id, raw}` pairs (raw kept so callers can read provider-specific fields
+ * like context_window or inputTokenLimit without re-fetching).
+ *
+ * `readiness-audit.js` (boot-time drift check) and `capacity-discovery.js`
+ * (on-demand capacity lookup) both need this — sharing it here is what keeps
+ * the two from drifting apart, per this module's header.
+ */
+export const PROVIDER_CATALOGS = Object.freeze({
+  openaiCompatible: {
+    /** `.../chat/completions` -> `.../models`, or null when the shape doesn't match. */
+    catalogUrl(endpoint) {
+      if (typeof endpoint !== 'string') return null;
+      const m = endpoint.match(/^(https?:\/\/[^/]+(?:\/[^/]+)*?)\/chat\/completions$/);
+      return m ? `${m[1]}/models` : null;
+    },
+    authHeader(apiKey) {
+      return { Authorization: `Bearer ${apiKey}` };
+    },
+    entries(json) {
+      return Array.isArray(json?.data)
+        ? json.data.filter(m => m && typeof m.id === 'string').map(m => ({ id: m.id, raw: m }))
+        : [];
+    }
+  },
+  gemini: {
+    // Gemini's model id is part of the URL PATH, not a fixed endpoint, so
+    // unlike the OpenAI-compatible shape there is no per-backend endpoint to
+    // rewrite — the catalog URL is fixed regardless of what's passed in.
+    catalogUrl() {
+      return 'https://generativelanguage.googleapis.com/v1beta/models';
+    },
+    authHeader(apiKey) {
+      return { 'x-goog-api-key': apiKey };
+    },
+    // Ids come back prefixed "models/" — normalized here so callers can
+    // compare against a bare configured model id.
+    entries(json) {
+      return Array.isArray(json?.models)
+        ? json.models
+            .filter(m => typeof m?.name === 'string')
+            .map(m => ({ id: m.name.replace(/^models\//, ''), raw: m }))
+        : [];
+    }
+  }
+});
+
+/** backend type -> key into PROVIDER_CATALOGS, or undefined when not catalog-checkable (e.g. `local`). */
+export const CATALOG_KIND_FOR_TYPE = Object.freeze({
+  nvidia_deepseek: 'openaiCompatible',
+  nvidia_glm: 'openaiCompatible',
+  nvidia_qwen: 'openaiCompatible',
+  groq: 'openaiCompatible',
+  openai: 'openaiCompatible',
+  gemini: 'gemini',
+});

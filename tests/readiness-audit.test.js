@@ -3,6 +3,7 @@ import { auditReadiness, formatFindings, isLocalEndpoint, catalogUrlFor } from '
 
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const LOCAL_URL = 'http://127.0.0.1:8081/v1/chat/completions';
+const GEMINI_CATALOG_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 function backendsConfig(backends) {
   return { backends };
@@ -45,6 +46,7 @@ describe('auditReadiness', () => {
     global.fetch = fetchMock;
     delete process.env.NVIDIA_API_KEY;
     delete process.env.GROQ_API_KEY;
+    delete process.env.GEMINI_API_KEY;
   });
 
   afterEach(() => {
@@ -122,6 +124,106 @@ describe('auditReadiness', () => {
     });
     await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks gemini against its catalog with the x-goog-api-key header at the v1beta URL', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'models/gemini-3.1-pro-preview' }] })
+    });
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3.1-pro-preview' } }
+    });
+    await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(fetchMock).toHaveBeenCalledWith(GEMINI_CATALOG_URL, expect.objectContaining({
+      headers: { 'x-goog-api-key': 'test-key' }
+    }));
+  });
+
+  it('flags a retired gemini model as critical', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'models/gemini-3.1-pro-preview' }] })
+    });
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3-pro-preview' } }
+    });
+    const { findings, checked } = await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(findings).toContainEqual(expect.objectContaining({
+      severity: 'critical', backend: 'gemini', model: 'gemini-3-pro-preview',
+      reason: expect.stringContaining('NOT in the provider catalog')
+    }));
+    expect(checked).toBe(1);
+  });
+
+  it('reports no finding when the configured gemini model IS in the catalog', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'models/gemini-3.1-pro-preview' }] })
+    });
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3.1-pro-preview' } }
+    });
+    const { findings } = await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(findings).toEqual([]);
+  });
+
+  it('normalizes the catalog\'s "models/" prefix so a bare configured id matches', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'models/gemini-3.1-pro-preview' }] })
+    });
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3.1-pro-preview' } }
+    });
+    const { findings } = await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(findings.some(f => /NOT in the provider catalog/.test(f.reason))).toBe(false);
+  });
+
+  it('reports a keyless gemini backend as unknown, not critical', async () => {
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3-pro-preview' } }
+    });
+    const { findings } = await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(findings).toContainEqual(expect.objectContaining({
+      severity: 'unknown', backend: 'gemini', reason: expect.stringContaining('cannot verify — GEMINI_API_KEY not set')
+    }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('shares one catalog fetch across two gemini backends', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'models/gemini-3.1-pro-preview' }] })
+    });
+    const cfg = backendsConfig({
+      gemini: { enabled: true, type: 'gemini', config: { model: 'gemini-3.1-pro-preview' } },
+      gemini_flash: { enabled: true, type: 'gemini', config: { model: 'gemini-3.1-pro-preview' } }
+    });
+    await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks an un-checkable backend as unknown and excludes it from `checked`', async () => {
+    const cfg = backendsConfig({
+      // A public (non-RFC-1918) URL with a resolvable key, but a type with no
+      // catalog descriptor — must not be silently counted as "checked".
+      mystery: {
+        enabled: true, type: 'mystery_type',
+        config: { url: 'https://example.com/v1/chat/completions', model: 'x', apiKey: 'literal-key' }
+      }
+    });
+    const { findings, checked } = await auditReadiness({ backendsConfig: cfg, councilConfig: {} });
+    expect(findings).toContainEqual(expect.objectContaining({
+      severity: 'unknown', backend: 'mystery', reason: expect.stringContaining('cannot verify')
+    }));
+    expect(checked).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('flags a council topic member that is not a defined backend', async () => {

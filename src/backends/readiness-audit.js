@@ -9,13 +9,11 @@
  * critical/broken — most public users configure exactly one provider.
  */
 
-import { PROVIDER_ENDPOINTS, resolveBackendKey } from './provider-endpoints.js';
+import { PROVIDER_ENDPOINTS, PROVIDER_CATALOGS, CATALOG_KIND_FOR_TYPE, resolveBackendKey } from './provider-endpoints.js';
 
 /** `/chat/completions` URL -> provider `/models` catalog URL, or null. */
 export function catalogUrlFor(url) {
-  if (typeof url !== 'string') return null;
-  const m = url.match(/^(https?:\/\/[^/]+(?:\/[^/]+)*?)\/chat\/completions$/);
-  return m ? `${m[1]}/models` : null;
+  return PROVIDER_CATALOGS.openaiCompatible.catalogUrl(url);
 }
 
 /**
@@ -33,15 +31,15 @@ export function isLocalEndpoint(url) {
   } catch { return false; }
 }
 
-async function fetchCatalog(catalogUrl, apiKey, timeoutMs) {
+async function fetchCatalog(catalogUrl, apiKey, catalog, timeoutMs) {
   try {
     const res = await fetch(catalogUrl, {
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      headers: catalog.authHeader(apiKey),
       signal: AbortSignal.timeout(timeoutMs)
     });
     if (!res.ok) return { error: `HTTP ${res.status}` };
     const body = await res.json();
-    return { ids: (body.data ?? []).map(m => m.id).filter(Boolean) };
+    return { ids: catalog.entries(body).map(e => e.id) };
   } catch (err) { return { error: err.message || String(err) }; }
 }
 
@@ -83,9 +81,14 @@ export async function auditReadiness({ backendsConfig, councilConfig, timeoutMs 
       continue;
     }
 
-    const catUrl = e.url ? catalogUrlFor(e.url) : null;
-    if (!catUrl) { checked++; continue; }
-    if (!catalogCache.has(catUrl)) catalogCache.set(catUrl, await fetchCatalog(catUrl, key, timeoutMs));
+    const catalogKind = CATALOG_KIND_FOR_TYPE[e.type];
+    const catalog = catalogKind ? PROVIDER_CATALOGS[catalogKind] : null;
+    const catUrl = catalog ? catalog.catalogUrl(e.url) : null;
+    if (!catalog || !catUrl) {
+      findings.push({ severity: 'unknown', backend: e.name, model: e.model, reason: 'cannot verify — no catalog check available for this backend type' });
+      continue;
+    }
+    if (!catalogCache.has(catUrl)) catalogCache.set(catUrl, await fetchCatalog(catUrl, key, catalog, timeoutMs));
     checked++;
     const cat = catalogCache.get(catUrl);
     if (cat.error) findings.push({ severity: 'unknown', backend: e.name, model: e.model, reason: `catalog unreachable (${cat.error})` });
