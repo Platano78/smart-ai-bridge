@@ -103,7 +103,7 @@ class SubagentHandler extends BaseHandler {
       // Read file contents with backend-specific size limits
       console.error(`[SubagentHandler] Reading ${resolvedFiles.length} files for backend: ${backend}`);
       const fileContents = resolvedFiles.length > 0
-        ? await this.readFileContents(resolvedFiles, this.getFileSizeLimits(backend))
+        ? await this.readFileContents(resolvedFiles, await this.getFileSizeLimits(backend))
         : [];
       console.error(`[SubagentHandler] File contents loaded: ${fileContents.length} files, ${fileContents.filter(f => f.content).length} with content`);
 
@@ -508,7 +508,14 @@ class SubagentHandler extends BaseHandler {
    * @returns {Promise<string[]>}
    */
   async getAvailableBackendsForSubagent() {
-    const allBackends = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'groq_llama'];
+    // Roster comes from what the operator actually configured and can reach
+    // right now (BackendRegistry#getUsableBackends) — never a fixed array. A
+    // backend the operator configured that wasn't on a hardcoded list used
+    // to be invisible to subagent work entirely; a registry-derived roster
+    // considers whatever is actually enabled and keyed. No registry wired
+    // (e.g. some test contexts): nothing to derive from, so the checks
+    // below simply have nothing to iterate.
+    const allBackends = this.backendRegistry?.getUsableBackends?.() || [];
     const circuitOpenBackends = [];
 
     const results = await Promise.all(allBackends.map(async (backend) => {
@@ -524,10 +531,11 @@ class SubagentHandler extends BaseHandler {
         const isAvailable = await this.isBackendAvailable(backend);
         if (!isAvailable) return null;
 
-        // Local backend check passed
-
-        // Check if suitable for subagent work
-        if (isSuitableForSubagent(backend)) {
+        // Check if suitable for subagent work — operator-declared exclusion
+        // only (see isExcludedFromSubagent), so the backend's own config
+        // must be passed rather than defaulting to "nothing excluded".
+        const backendConfig = this.backendRegistry?.getBackend?.(backend)?.config;
+        if (isSuitableForSubagent(backend, backendConfig)) {
           return backend;
         }
         return null;
@@ -608,15 +616,23 @@ class SubagentHandler extends BaseHandler {
         return result;
       }
 
-      // For local backend, do a quick health ping
-      if (backend === 'local') {
+      // Pick a health-check STRATEGY from the backend's registered TYPE, not
+      // its name — an operator can rename any backend instance (custom
+      // names in backends.json, FRIENDLY_NAME_MAP aliases), so a name-keyed
+      // `=== 'local'` / `startsWith('nvidia_')` check would silently miss a
+      // renamed lane. Type is what the registry actually knows determines
+      // which adapter (and therefore which real check) applies.
+      const backendType = this.backendRegistry?.getBackend?.(backend)?.type;
+
+      // For a local-type backend, do a quick health ping
+      if (backendType === 'local') {
         const result = await this.checkLocalHealth(HEALTH_TIMEOUT);
         console.error(`[DEBUG] isBackendAvailable(${backend}) - checkLocalHealth result:`, result);
         return result;
       }
 
-      // For NVIDIA backends, check with cached health status
-      if (backend.startsWith('nvidia_')) {
+      // For NVIDIA-type backends, check with cached health status
+      if (backendType === 'nvidia_deepseek' || backendType === 'nvidia_glm') {
         const result = await this.checkNvidiaHealth(backend, HEALTH_TIMEOUT);
         console.error(`[DEBUG] isBackendAvailable(${backend}) - checkNvidiaHealth result:`, result);
         return result;
@@ -785,20 +801,26 @@ Best role:`;
 
 
   /**
-   * Get file size limits based on backend context window
+   * Get file size limits based on the backend's REAL input capacity
+   * (capacityFor, from BaseHandler — see _resolveCapacity's resolution
+   * chain: provider catalog, then configured context_limit, then a single
+   * conservative default). Never a per-backend guess table: a backend
+   * missing from a hardcoded roster used to silently fall back to whatever
+   * `nvidia_glm` happened to be sized for, which is wrong for every backend
+   * that isn't nvidia_glm.
+   *
+   * Files share the request with the role template + task text, so they
+   * don't get the whole budget (70%), and no single file may consume all of
+   * that share (half of it) — the only call site is already inside an
+   * async execute(), so awaiting real capacity here costs nothing extra.
    * @param {string} backend - Backend identifier
-   * @returns {Object} - { maxTotalSize, maxSizePerFile }
+   * @returns {Promise<Object>} - { maxTotalSize, maxSizePerFile }
    */
-  getFileSizeLimits(backend) {
-    const LIMITS = {
-      local: { maxTotalSize: 400000, maxSizePerFile: 100000 },
-      nvidia_deepseek: { maxTotalSize: 50000, maxSizePerFile: 25000 },
-      nvidia_glm: { maxTotalSize: 150000, maxSizePerFile: 50000 },
-      gemini: { maxTotalSize: 150000, maxSizePerFile: 50000 },
-      openai_chatgpt: { maxTotalSize: 500000, maxSizePerFile: 100000 },
-      groq_llama: { maxTotalSize: 150000, maxSizePerFile: 50000 }
-    };
-    return LIMITS[backend] || LIMITS.nvidia_glm; // Safe default
+  async getFileSizeLimits(backend) {
+    const totalCapacity = await this.capacityFor(backend);
+    const maxTotalSize = Math.floor(totalCapacity * 0.7);
+    const maxSizePerFile = Math.floor(maxTotalSize / 2);
+    return { maxTotalSize, maxSizePerFile };
   }
 
   /**
