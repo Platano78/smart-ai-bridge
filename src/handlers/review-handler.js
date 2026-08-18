@@ -7,6 +7,7 @@
  */
 
 import { BaseHandler } from './base-handler.js';
+import { countTokens } from '../utils/token-count.js';
 
 class ReviewHandler extends BaseHandler {
   /**
@@ -34,10 +35,29 @@ class ReviewHandler extends BaseHandler {
 
     const prompt = this.buildReviewPrompt(content, detectedLanguage, review_type);
 
-    const endpoint = await this.routeRequest(prompt, {
+    let endpoint = await this.routeRequest(prompt, {
       taskType: 'analysis',
       language: detectedLanguage
     });
+
+    // Capacity gate: measured in TOKENS against the assembled review prompt
+    // (content + review-type scaffolding), not just the raw content.
+    const promptTokens = countTokens(prompt);
+    const reviewCapTokens = await this.capacityTokensFor(endpoint);
+    if (promptTokens > reviewCapTokens) {
+      console.error(`[Review] ⚠️ Payload (${promptTokens} tokens, ${prompt.length} chars) exceeds ${endpoint} limit (${reviewCapTokens} tokens)`);
+      const roomier = await this.findBackendWithCapacityTokens(promptTokens, [endpoint]);
+      if (roomier) {
+        console.error(`[Review] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
+        endpoint = roomier.name;
+      } else {
+        const largest = await this.largestBackendCapacityTokens();
+        throw new Error(
+          `Review prompt is ${promptTokens} tokens (${prompt.length} chars); no configured backend can hold it in one context ` +
+          `(largest limit found: ${largest} tokens). Shorten the content or split the review.`
+        );
+      }
+    }
 
     const startTime = Date.now();
     const review = await this.makeRequest(prompt, endpoint);

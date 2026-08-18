@@ -13,6 +13,7 @@
 import { BaseHandler } from './base-handler.js';
 import { configManager, VALID_TOPICS } from '../config/council-config-manager.js';
 import { CouncilMetrics } from '../monitoring/council-metrics.js';
+import { countTokens } from '../utils/token-count.js';
 
 /**
  * Available council modes
@@ -313,19 +314,65 @@ class CouncilHandler extends BaseHandler {
   }
 
   /**
+   * Gate a prompt against ONE backend's real capacity (measured in TOKENS,
+   * not chars — see src/utils/token-count.js), escalating to a roomier
+   * usable backend when it doesn't fit rather than shipping an oversized
+   * payload (see commit 16ff9fe). Council fans the same prompt to several
+   * backends of differing capacity, and a debate/sequential prompt compounds
+   * across rounds — so this is called per backend, per round/step, never
+   * once up front for the whole call.
+   *
+   * Never throws: council's whole value is dissent from several backends,
+   * so one member that can't be gated must not fail the call. Callers get
+   * back either the (possibly escalated) backend to use, or an `error`
+   * string to record as that member's failure and continue.
+   * @param {string} prompt
+   * @param {string} backend
+   * @returns {Promise<{backend: string}|{error: string}>}
+   */
+  async gateBackendCapacity(prompt, backend) {
+    const tokens = countTokens(prompt);
+    const cap = await this.capacityTokensFor(backend);
+    if (tokens <= cap) return { backend };
+
+    const roomier = await this.findBackendWithCapacityTokens(tokens, [backend]);
+    if (roomier) {
+      console.error(`[Council] ⚠️ Payload (${tokens} tokens) exceeds ${backend} limit (${cap} tokens); escalating to ${roomier.name} (${roomier.cap} tokens)`);
+      return { backend: roomier.name };
+    }
+
+    const largest = await this.largestBackendCapacityTokens();
+    return {
+      error: `Payload is ${tokens} tokens; exceeds ${backend}'s limit (${cap} tokens) and no usable backend can hold it ` +
+        `(largest limit found: ${largest} tokens). This council member was skipped.`
+    };
+  }
+
+  /**
    * Get parallel responses from multiple backends
    */
   async getParallelResponses(prompt, backends, maxTokens) {
     const promises = backends.map(async (backend) => {
+      const gate = await this.gateBackendCapacity(prompt, backend);
+      if (gate.error) {
+        console.error(`[Council] Backend ${backend} skipped:`, gate.error);
+        return {
+          backend,
+          content: null,
+          error: gate.error,
+          success: false
+        };
+      }
+
       try {
         const startTime = Date.now();
-        const response = await this.makeRequest(prompt, backend, {
+        const response = await this.makeRequest(prompt, gate.backend, {
           maxTokens,
           thinking: true
         });
-        
+
         return {
-          backend,
+          backend: gate.backend,
           content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true
@@ -528,13 +575,29 @@ SYNTHESIS: [Final unified answer]`;
           sequentialPrompt = `${prompt}\n\nPrevious expert responses (consider and build upon these):\n${priorSummary}`;
         }
 
-        const response = await this.makeRequest(sequentialPrompt, backend, {
+        // Gate the COMPOUNDED prompt (grows each round with prior responses)
+        // against THIS step's target backend — a prompt that fit an earlier
+        // step can overflow a later one on a smaller backend.
+        const gate = await this.gateBackendCapacity(sequentialPrompt, backend);
+        if (gate.error) {
+          console.error(`[Council] Sequential backend ${backend} skipped:`, gate.error);
+          responses.push({
+            backend,
+            content: null,
+            error: gate.error,
+            success: false,
+            order: responses.length + 1
+          });
+          continue;
+        }
+
+        const response = await this.makeRequest(sequentialPrompt, gate.backend, {
           maxTokens,
           thinking: true
         });
 
         responses.push({
-          backend,
+          backend: gate.backend,
           content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true,
@@ -584,14 +647,26 @@ SYNTHESIS: [Final unified answer]`;
 
     for (const backend of backends) {
       try {
+        const gate = await this.gateBackendCapacity(prompt, backend);
+        if (gate.error) {
+          console.error(`[Council] Fallback backend ${backend} skipped:`, gate.error);
+          responses.push({
+            backend,
+            content: null,
+            error: gate.error,
+            success: false
+          });
+          continue;
+        }
+
         const startTime = Date.now();
-        const response = await this.makeRequest(prompt, backend, {
+        const response = await this.makeRequest(prompt, gate.backend, {
           maxTokens,
           thinking: true
         });
 
         responses.push({
-          backend,
+          backend: gate.backend,
           content: this.extractResponseText(response),
           latency: Date.now() - startTime,
           success: true

@@ -6,6 +6,7 @@
  */
 
 import { BaseHandler } from './base-handler.js';
+import { countTokens } from '../utils/token-count.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -301,7 +302,7 @@ export class ExploreHandler extends BaseHandler {
 
     // Select backend: groq for shallow (fast), nvidia_glm for deep (thorough)
     const normalizedBackend = BACKEND_ALIASES[requestedBackend] || requestedBackend;
-    const backend = normalizedBackend !== 'auto'
+    let backend = normalizedBackend !== 'auto'
       ? normalizedBackend
       : (depth === 'deep' ? 'nvidia_glm' : 'groq_llama');
 
@@ -326,6 +327,28 @@ Codebase search results:
 ${evidenceSummary}
 
 Provide a concise answer to the question based on the search results. Include specific file locations when relevant. If the results don't fully answer the question, say what was found and what might be missing.`;
+
+    // Capacity gate: measured in TOKENS against the assembled prompt (evidence
+    // summary + question + scaffolding). Placed BEFORE the try/catch below —
+    // that catch exists for genuine network failures and degrades gracefully
+    // to a basic summary; an oversized payload must surface as a real
+    // refusal instead of being swallowed by that fallback.
+    const promptTokens = countTokens(prompt);
+    const exploreCapTokens = await this.capacityTokensFor(backend);
+    if (promptTokens > exploreCapTokens) {
+      console.error(`[ExploreHandler] ⚠️ Payload (${promptTokens} tokens, ${prompt.length} chars) exceeds ${backend} limit (${exploreCapTokens} tokens)`);
+      const roomier = await this.findBackendWithCapacityTokens(promptTokens, [backend]);
+      if (roomier) {
+        console.error(`[ExploreHandler] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
+        backend = roomier.name;
+      } else {
+        const largest = await this.largestBackendCapacityTokens();
+        throw new Error(
+          `Explore prompt is ${promptTokens} tokens (${prompt.length} chars); no configured backend can hold it in one context ` +
+          `(largest limit found: ${largest} tokens). Narrow the question, scope, or maxFiles.`
+        );
+      }
+    }
 
     try {
       const response = await this.makeRequest(prompt, backend, {

@@ -7,6 +7,7 @@
  */
 
 import { BaseHandler } from './base-handler.js';
+import { countTokens } from '../utils/token-count.js';
 
 /**
  * Model name aliases (user-friendly names → backend names)
@@ -116,6 +117,33 @@ class AskHandler extends BaseHandler {
     if (!selectedBackend) {
       console.error('[SAB] ⚠️ No backend selected after routing, falling back to local');
       selectedBackend = 'local';
+    }
+
+    // Capacity gate: measured in TOKENS (not chars — see src/utils/token-count.js),
+    // against the backend actually selected above, including an explicit
+    // force_backend. A caller naming a too-small backend must get a clear
+    // refusal here, not a provider error downstream.
+    const promptTokens = countTokens(prompt);
+    const askCapTokens = await this.capacityTokensFor(selectedBackend);
+    if (promptTokens > askCapTokens) {
+      if (force_backend) {
+        throw new Error(
+          `Prompt is ${promptTokens} tokens (${prompt.length} chars); force_backend='${force_backend}' only accepts ` +
+          `${askCapTokens} tokens. Drop force_backend to let routing pick a larger backend, or shorten the prompt.`
+        );
+      }
+      console.error(`[Ask] ⚠️ Payload (${promptTokens} tokens, ${prompt.length} chars) exceeds ${selectedBackend} limit (${askCapTokens} tokens)`);
+      const roomier = await this.findBackendWithCapacityTokens(promptTokens, [selectedBackend]);
+      if (roomier) {
+        console.error(`[Ask] 🔄 Escalating to ${roomier.name} (${roomier.cap} token limit)`);
+        selectedBackend = roomier.name;
+      } else {
+        const largest = await this.largestBackendCapacityTokens();
+        throw new Error(
+          `Prompt is ${promptTokens} tokens (${prompt.length} chars); no configured backend can hold it in one context ` +
+          `(largest limit found: ${largest} tokens). Shorten the prompt or split the request.`
+        );
+      }
     }
 
     // Dynamic token optimization. Skip the tiering entirely for a local-fleet backend

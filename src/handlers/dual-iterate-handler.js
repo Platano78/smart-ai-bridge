@@ -8,6 +8,7 @@
 
 import { BaseHandler } from './base-handler.js';
 import { DualIterateExecutor } from '../intelligence/dual-iterate-executor.js';
+import { countTokens } from '../utils/token-count.js';
 
 /**
  * Handler for dual_iterate tool
@@ -78,6 +79,20 @@ class DualIterateHandler extends BaseHandler {
         success: false,
         error: 'Task is too short. Please provide a detailed description.',
         task_length: task.length
+      };
+    }
+
+    // Upper bound: measured in TOKENS against the local dual-mode lane
+    // (DualIterateExecutor targets fixed local router ports, not the
+    // general backend set), so gate against 'local' capacity specifically.
+    const taskTokens = countTokens(task);
+    const dualIterateCapTokens = await this.capacityTokensFor('local');
+    if (taskTokens > dualIterateCapTokens) {
+      return {
+        success: false,
+        error: `Task is ${taskTokens} tokens (${task.length} chars); exceeds the local dual-mode lane's usable input ` +
+          `capacity (${dualIterateCapTokens} tokens, after reserving room for the response). Shorten the task description.`,
+        task_tokens: taskTokens
       };
     }
 
