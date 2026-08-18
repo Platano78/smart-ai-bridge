@@ -15,6 +15,78 @@ Smart AI Bridge is an MCP server that sits between Claude Code and your AI backe
 - **Council system** queries multiple backends on the same prompt and returns all responses for Claude to synthesize. Configurable strategies (parallel, sequential, debate, fallback) per topic.
 - **Web dashboard** for managing backends and council configuration without editing JSON files.
 
+## How It Works
+
+### The core idea: Claude never reads the file
+
+Most of Claude's context on a coding task is spent on file contents. Smart AI Bridge hands
+that work to another model and returns only the conclusions, so the expensive context stays
+free for reasoning.
+
+```mermaid
+sequenceDiagram
+    accTitle: How Smart AI Bridge saves tokens
+    accDescr: Claude Code calls analyze_file. Smart AI Bridge reads the file and sends its contents to a backend model. The backend returns a structured analysis, and only that analysis is returned to Claude. The file contents never enter Claude's context.
+    participant C as Claude Code
+    participant S as Smart AI Bridge
+    participant F as Your files
+    participant B as Backend<br/>(local or cloud)
+
+    C->>S: analyze_file({ filePath, question })
+    S->>F: read the file
+    S->>B: file contents + question
+    B-->>S: structured analysis
+    S-->>C: { summary, findings[], confidence, tokens_saved }
+
+    Note over C,S: The file contents never enter Claude's context.<br/>tokens_saved is measured from the real bytes,<br/>not estimated.
+```
+
+`modify_file` works the same way but returns a diff; `explore` returns matching `file:line`
+evidence; `batch_analyze` does it across a glob. Every one of these reports a `tokens_saved`
+figure computed from the actual characters read versus the actual response returned.
+
+### Choosing a backend: the 4-tier router
+
+Every call that doesn't name a backend goes through the same decision, in order. The first
+tier that produces a healthy backend wins.
+
+```mermaid
+flowchart TD
+    accTitle: The four-tier backend routing decision
+    accDescr: A tool call is routed in four ordered tiers. Tier 1 uses an explicitly named backend. Otherwise Tier 2 uses a learned preference above 0.7 confidence if that backend is healthy. Otherwise Tier 3 applies complexity and task-type rules. Otherwise Tier 4 takes the first healthy backend in the fallback chain.
+    A[Tool call] --> B{"backend named<br/>and not 'auto'?"}
+    B -- yes --> T1["<b>Tier 1 · Forced</b><br/>use it as given"]
+    B -- no --> C{"learned preference<br/>above 0.7 confidence<br/><i>and</i> that backend healthy?"}
+    C -- yes --> T2["<b>Tier 2 · Learned</b><br/>from past outcomes"]
+    C -- no --> D{"a rule matches on<br/>complexity / task type?"}
+    D -- yes --> T3["<b>Tier 3 · Rules</b><br/>heuristic match"]
+    D -- no --> T4["<b>Tier 4 · Fallback</b><br/>first healthy backend<br/>in the chain"]
+```
+
+A learned preference that is confident but points at an *unhealthy* backend falls through to
+Tier 3 rather than being used. Health failures open a circuit breaker, so a provider that is
+down is skipped rather than retried into a timeout.
+
+### Asking several models at once: the council
+
+`council` sends one prompt to multiple backends and returns every response for Claude to
+synthesize. It does not vote or pick a winner — disagreement between models is the signal,
+so it is preserved rather than averaged away.
+
+```mermaid
+flowchart LR
+    accTitle: Council strategies
+    accDescr: One prompt is dispatched by a configurable strategy. Parallel queries all backends at once. Sequential runs them in order, each seeing the previous answer. Debate has models respond to each other. Fallback tries the next backend only if the previous failed. Every response is returned to Claude to synthesize.
+    Q[One prompt] --> R{strategy}
+    R -->|parallel| P[All backends at once]
+    R -->|sequential| S[One after another,<br/>each sees the last]
+    R -->|debate| D[Models respond<br/>to each other]
+    R -->|fallback| F[Next only if<br/>the previous failed]
+    P & S & D & F --> A[All responses returned<br/>to Claude to synthesize]
+```
+
+Strategy is configurable per topic. See [docs/COUNCIL.md](docs/COUNCIL.md).
+
 ## Quick Start
 
 There is no npm package -- install by cloning. Requires **Node.js >= 18**.
