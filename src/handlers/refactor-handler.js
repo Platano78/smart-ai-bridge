@@ -129,9 +129,19 @@ export class RefactorHandler extends BaseHandler {
 
       // Auto-fallback if total input exceeds local limit
       if (totalInputSize > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
-        console.error(`[Refactor] ⚠️ Total input size (${totalInputSize} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[Refactor] 🔄 Auto-fallback to nvidia_glm (128K context)`);
-        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
+        console.error(`[Refactor] ⚠️ Payload (${totalInputSize} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+        const roomier = await this.findBackendWithCapacity(totalInputSize, [selectedBackend]);
+        if (roomier) {
+          console.error(`[Refactor] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          selectedBackend = roomier.name;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${totalInputSize} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — fewer target files, or split the input.`
+          );
+        }
       }
 
       console.error(`[Refactor] 🎯 Backend: ${selectedBackend}`);

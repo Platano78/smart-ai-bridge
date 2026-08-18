@@ -105,9 +105,83 @@ class BaseHandler {
       'nvidia_glm': 128000,      // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
       'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'chatgpt': 512000          // 128K tokens * 4 = 512K chars
+      'openai_chatgpt': 512000   // 128K tokens * 4 = 512K chars (author's figure, unverified against the provider)
     };
     return contextLimits[backendName] || 128000;
+  }
+
+  /**
+   * Find the best backend that can hold a payload of the given size.
+   * Candidates come from the backend registry when available, falling back
+   * to the hardcoded backend list so handlers built without a registry
+   * (e.g. in tests) still get a usable answer.
+   * @param {number} payloadChars - Size of the payload in characters
+   * @param {string[]} [exclude] - Backend names to skip (already tried)
+   * @returns {Promise<{name: string, cap: number}|null>} Best fit, or null if none fit
+   */
+  async findBackendWithCapacity(payloadChars, exclude = []) {
+    const fallbackList = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'openai_chatgpt', 'groq_llama'];
+    const candidates = this.backendRegistry?.getEnabledBackends?.().length
+      ? this.backendRegistry.getEnabledBackends()
+      : fallbackList;
+
+    const scored = [];
+    for (const name of candidates) {
+      if (exclude.includes(name)) continue;
+      let cap;
+      if (name === 'local') {
+        try {
+          cap = (await this.getContextLimit()).charLimit;
+        } catch {
+          cap = this.getBackendContextLimit('local');
+        }
+      } else {
+        cap = this.getBackendContextLimit(name);
+      }
+      if (cap >= payloadChars) {
+        const priority = this.backendRegistry?.getBackend?.(name)?.priority ?? 99;
+        scored.push({ name, cap, priority });
+      }
+    }
+
+    if (scored.length === 0) return null;
+
+    scored.sort((a, b) => {
+      if (a.name === 'local' && b.name !== 'local') return -1;
+      if (b.name === 'local' && a.name !== 'local') return 1;
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return b.cap - a.cap;
+    });
+
+    return { name: scored[0].name, cap: scored[0].cap };
+  }
+
+  /**
+   * Largest context capacity across all candidate backends, used only to
+   * report a helpful figure in "nothing fits" error messages.
+   * @returns {Promise<number>}
+   */
+  async largestBackendCapacity() {
+    const fallbackList = ['local', 'nvidia_deepseek', 'nvidia_glm', 'gemini', 'openai_chatgpt', 'groq_llama'];
+    const candidates = this.backendRegistry?.getEnabledBackends?.().length
+      ? this.backendRegistry.getEnabledBackends()
+      : fallbackList;
+
+    let largest = 0;
+    for (const name of candidates) {
+      let cap;
+      if (name === 'local') {
+        try {
+          cap = (await this.getContextLimit()).charLimit;
+        } catch {
+          cap = this.getBackendContextLimit('local');
+        }
+      } else {
+        cap = this.getBackendContextLimit(name);
+      }
+      if (cap > largest) largest = cap;
+    }
+    return largest;
   }
 
   /**

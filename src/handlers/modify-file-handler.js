@@ -177,9 +177,19 @@ export class ModifyFileHandler extends BaseHandler {
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (originalContent.length > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
-        console.error(`[ModifyFile] ⚠️ File size (${originalContent.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[ModifyFile] 🔄 Auto-fallback to nvidia_glm (128K context)`);
-        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
+        console.error(`[ModifyFile] ⚠️ Payload (${originalContent.length} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+        const roomier = await this.findBackendWithCapacity(originalContent.length, [selectedBackend]);
+        if (roomier) {
+          console.error(`[ModifyFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          selectedBackend = roomier.name;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${originalContent.length} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — split the file, or target a smaller region.`
+          );
+        }
       }
 
       // 9. Context limit check for cloud backends

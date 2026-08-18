@@ -113,24 +113,20 @@ export class AnalyzeFileHandler extends BaseHandler {
 
       // Smart fallback logic when file exceeds context limit
       if (content.length > contextLimit) {
-        if (selectedBackend === 'local') {
-          // Local can't handle it - escalate to cloud with larger context
-          console.error(`[AnalyzeFile] ⚠️ File (${content.length} chars) exceeds local limit (${contextLimit} chars)`);
-          console.error(`[AnalyzeFile] 🔄 Falling back to nvidia_glm (128K char limit)`);
-          selectedBackend = 'nvidia_glm';
-          contextLimit = this.getBackendContextLimit(selectedBackend);
+        console.error(`[AnalyzeFile] ⚠️ Payload (${content.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
+        const roomier = await this.findBackendWithCapacity(content.length, [selectedBackend]);
+        if (roomier) {
+          console.error(`[AnalyzeFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          selectedBackend = roomier.name;
+          contextLimit = roomier.cap;
         } else {
-          // Cloud backend can't handle it - try local as fallback (might have larger context)
-          console.error(`[AnalyzeFile] ⚠️ File size (${content.length} chars) exceeds ${selectedBackend} limit (${contextLimit} chars)`);
-          const { charLimit: localLimit, model: loadedModel } = await this.getContextLimit();
-          if (content.length <= localLimit) {
-            console.error(`[AnalyzeFile] 🔄 Falling back to local (${localLimit} char limit via ${loadedModel})`);
-            selectedBackend = 'local';
-            contextLimit = localLimit;
-          } else {
-            // Neither can handle it - proceed with warning
-            console.error(`[AnalyzeFile] ⚠️ File too large for any backend, attempting anyway`);
-          }
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${content.length} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — pass a line range in the question, drop options.includeContext, ` +
+            `or split the file. For several files, batch_analyze works.`
+          );
         }
       }
 

@@ -155,8 +155,19 @@ export class BatchAnalyzeHandler extends BaseHandler {
       }
       // Safety: if local but exceeds local limit, escalate
       if (totalInputSize > MAX_LOCAL_INPUT_CHARS && effectiveBackend === 'local') {
-        console.error(`[BatchAnalyze] ⚠️ Total input (${totalInputSize} chars) exceeds limit (${MAX_LOCAL_INPUT_CHARS})`);
-        effectiveBackend = 'nvidia_glm';
+        console.error(`[BatchAnalyze] ⚠️ Payload (${totalInputSize} chars) exceeds ${effectiveBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+        const roomier = await this.findBackendWithCapacity(totalInputSize, [effectiveBackend]);
+        if (roomier) {
+          console.error(`[BatchAnalyze] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          effectiveBackend = roomier.name;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${totalInputSize} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — fewer files, or split the input.`
+          );
+        }
       }
 
       // 2. Analyze each file

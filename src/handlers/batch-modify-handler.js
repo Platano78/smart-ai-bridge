@@ -98,9 +98,19 @@ export class BatchModifyHandler extends BaseHandler {
       // Auto-fallback if total input exceeds local limit
       let effectiveBackend = backend;
       if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (backend === 'auto' || backend === 'local')) {
-        console.error(`[BatchModify] ⚠️ Total input size (${totalInputSize} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[BatchModify] 🔄 Auto-fallback to nvidia_glm (128K context)`);
-        effectiveBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
+        console.error(`[BatchModify] ⚠️ Payload (${totalInputSize} chars) exceeds local limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+        const roomier = await this.findBackendWithCapacity(totalInputSize, ['local']);
+        if (roomier) {
+          console.error(`[BatchModify] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          effectiveBackend = roomier.name;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${totalInputSize} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — fewer files, or split the input.`
+          );
+        }
       }
 
       // 2. Create backups for atomic rollback

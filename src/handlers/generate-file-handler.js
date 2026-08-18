@@ -105,9 +105,19 @@ export class GenerateFileHandler extends BaseHandler {
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
       if (prompt.length > MAX_LOCAL_INPUT_CHARS && selectedBackend === 'local') {
-        console.error(`[GenerateFile] ⚠️ Prompt size (${prompt.length} chars) exceeds local server limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        console.error(`[GenerateFile] 🔄 Auto-fallback to nvidia_glm (128K context)`);
-        selectedBackend = 'nvidia_glm'; // Fast cloud alternative with 128K context
+        console.error(`[GenerateFile] ⚠️ Payload (${prompt.length} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+        const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
+        if (roomier) {
+          console.error(`[GenerateFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
+          selectedBackend = roomier.name;
+        } else {
+          const largest = await this.largestBackendCapacity();
+          throw new Error(
+            `Payload is ${prompt.length} chars; no configured backend can hold it in one context ` +
+            `(largest limit found: ${largest} chars). This tool makes a single LLM call and cannot chunk. ` +
+            `Next step: narrow the call — shorten the spec, or split the file.`
+          );
+        }
       }
 
       console.error(`[GenerateFile] 📝 Generating ${outputPath}`);
