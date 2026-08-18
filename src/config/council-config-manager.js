@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { CAPABILITIES, getBackendCapabilities } from '../utils/capability-matcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,6 +103,50 @@ const VALID_TOPICS = [
 const VALID_STRATEGIES = ['parallel', 'sequential', 'debate', 'fallback'];
 
 /**
+ * Topic -> preferred CAPABILITY, for deriving a default backend roster when
+ * a topic has no operator-configured one. Capability vocabulary
+ * (capability-matcher.js), never a backend name — a topic pointing at
+ * 'nvidia_glm' by name is dead for an operator who never configured it.
+ * `null` means no particular capability angle (any usable backend fits).
+ * @type {Object<string, string|null>}
+ */
+const TOPIC_CAPABILITY = {
+  coding: CAPABILITIES.CODE_SPECIALIZED,
+  reasoning: CAPABILITIES.DEEP_REASONING,
+  architecture: CAPABILITIES.DEEP_REASONING,
+  security: CAPABILITIES.SECURITY_FOCUS,
+  performance: CAPABILITIES.FAST_GENERATION,
+  creative: CAPABILITIES.FAST_GENERATION,
+  general: null
+};
+
+/**
+ * Derive a default backend roster for a topic from what is actually usable
+ * right now (BackendRegistry#getUsableBackends), preferring a capability
+ * match for the topic where one is expressible. Never throws, never names a
+ * specific backend: an operator running only Groq gets Groq back here,
+ * whether or not Groq happens to declare the topic's preferred capability.
+ * @param {string} topic
+ * @returns {string[]}
+ */
+function deriveDefaultBackendsForTopic(topic) {
+  const usable = _backendRegistry?.getUsableBackends?.() || [];
+  if (usable.length === 0) return [];
+
+  const wantCap = TOPIC_CAPABILITY[topic];
+  if (!wantCap) return usable;
+
+  const matching = usable.filter(name => {
+    const caps = _backendRegistry.getBackend?.(name)?.capabilities || getBackendCapabilities(name);
+    return caps?.includes(wantCap);
+  });
+  const rest = usable.filter(name => !matching.includes(name));
+  // Capability-matching lanes first, but still include every other usable
+  // lane — a topic needs >=2 to convene even when only one lane matches.
+  return [...matching, ...rest];
+}
+
+/**
  * Singleton config manager
  */
 class CouncilConfigManager {
@@ -144,20 +189,31 @@ class CouncilConfigManager {
   }
 
   /**
-   * Get default configuration
+   * Get default configuration.
+   *
+   * Per-topic STRATEGY (parallel/debate/etc.) is a real design choice and
+   * stays hardcoded. Per-topic BACKEND ROSTERS do not: this manager is a
+   * singleton constructed at module-load time (see the bottom of this
+   * file), typically before `setBackendRegistry()` runs at server startup,
+   * so baking concrete backend names in here would freeze in whatever was
+   * true (or nothing) at that instant. `backends: []` is a sentinel for
+   * "not operator-customized" — validateConfig() already rejects an empty
+   * array from a real operator submission, so it can never collide with a
+   * legitimate config — and getBackendsForTopic() resolves it LIVE, against
+   * the registry as wired at call time (well after startup), every time.
    */
   getDefaultConfig() {
     return {
       version: 1,
       topics: {
-        coding: { strategy: 'parallel', backends: ['nvidia_glm', 'nvidia_deepseek'] },
-        architecture: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_glm', 'gemini'] },
-        general: { strategy: 'parallel', backends: ['gemini', 'groq_llama', 'nvidia_glm'] },
-        creative: { strategy: 'parallel', backends: ['gemini', 'nvidia_glm', 'groq_llama'] },
-        security: { strategy: 'debate', backends: ['nvidia_deepseek', 'nvidia_glm', 'gemini'] },
-        performance: { strategy: 'parallel', backends: ['nvidia_deepseek', 'nvidia_glm'] }
+        coding: { strategy: 'parallel', backends: [] },
+        architecture: { strategy: 'debate', backends: [] },
+        general: { strategy: 'parallel', backends: [] },
+        creative: { strategy: 'parallel', backends: [] },
+        security: { strategy: 'debate', backends: [] },
+        performance: { strategy: 'parallel', backends: [] }
       },
-      defaults: ['local', 'gemini'],
+      defaults: [],
       availableBackends: VALID_BACKENDS
     };
   }
@@ -170,14 +226,19 @@ class CouncilConfigManager {
   }
 
   /**
-   * Get backends for a specific topic
+   * Get backends for a specific topic. An operator-customized roster (a
+   * real, non-empty array — validateConfig() never accepts an empty one)
+   * always wins outright. Otherwise derives live from whatever is usable
+   * right now, preferring a capability fit for the topic — see
+   * deriveDefaultBackendsForTopic. Never a hardcoded name.
    */
   getBackendsForTopic(topic) {
     const topicConfig = this.config.topics[topic];
-    if (topicConfig) {
-      return [...topicConfig.backends];
+    const stored = topicConfig ? topicConfig.backends : this.config.defaults;
+    if (Array.isArray(stored) && stored.length > 0) {
+      return [...stored];
     }
-    return [...this.config.defaults];
+    return deriveDefaultBackendsForTopic(topic);
   }
 
   /**

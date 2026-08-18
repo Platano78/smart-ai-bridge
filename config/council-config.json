@@ -3,55 +3,30 @@
   "topics": {
     "coding": {
       "strategy": "parallel",
-      "backends": [
-        "nvidia_glm",
-        "nvidia_deepseek"
-      ]
+      "backends": []
     },
     "architecture": {
       "strategy": "debate",
-      "backends": [
-        "nvidia_deepseek",
-        "nvidia_glm",
-        "gemini"
-      ]
+      "backends": []
     },
     "general": {
       "strategy": "parallel",
-      "backends": [
-        "gemini",
-        "groq_llama",
-        "nvidia_glm"
-      ]
+      "backends": []
     },
     "creative": {
       "strategy": "parallel",
-      "backends": [
-        "gemini",
-        "nvidia_glm",
-        "groq_llama"
-      ]
+      "backends": []
     },
     "security": {
       "strategy": "debate",
-      "backends": [
-        "nvidia_deepseek",
-        "nvidia_glm",
-        "gemini"
-      ]
+      "backends": []
     },
     "performance": {
       "strategy": "parallel",
-      "backends": [
-        "nvidia_deepseek",
-        "nvidia_glm"
-      ]
+      "backends": []
     }
   },
-  "defaults": [
-    "local",
-    "gemini"
-  ],
+  "defaults": [],
   "availableBackends": [
     "local",
     "nvidia_deepseek",
@@ -59,5 +34,6 @@
     "gemini",
     "openai_chatgpt",
     "groq_llama"
-  ]
+  ],
+  "_comment": "Backend rosters are intentionally EMPTY: they are derived at request time from the backends the operator actually has configured and can reach. Pinning names here shipped one machine's topology to every install, and silently overrode the derivation because this file exists on disk. Per-topic `strategy` is a real design choice and is kept. To pin a roster deliberately, list backend names in a topic's `backends` array \u2014 a non-empty array always wins."
 }

@@ -11,6 +11,7 @@
 
 import { ConcurrentRequestManager } from './utils/concurrent-request-manager.js';
 import { detectLanguage as _detectLanguage } from './utils/language-detector.js';
+import { CAPABILITIES, getBackendCapabilities } from './utils/capability-matcher.js';
 
 export class MultiAIRouter {
   /**
@@ -122,20 +123,42 @@ export class MultiAIRouter {
   }
 
   /**
-   * Apply rule-based routing heuristics
+   * Apply rule-based routing heuristics.
+   *
+   * Expresses INTENT (prefer a deep-reasoning lane for complex tasks, prefer
+   * a code-specialized lane for code tasks) against declared/known
+   * CAPABILITY, never a backend NAME — an operator without 'nvidia_glm' or
+   * 'nvidia_deepseek' configured used to get a tier that could never fire,
+   * silently, with no indication why. Candidates are healthy AND usable
+   * (enabled + reachable), walked in the registry's own priority order, so
+   * the first capability match is also the operator's preferred lane among
+   * ties. Returns null when nothing matches, exactly as before.
    * @private
    */
   async _applyRuleBasedRouting(context) {
     const backends = await this.registry.checkHealth();
+    const usable = new Set(this.registry.getUsableBackends?.() || Object.keys(backends));
+    const chain = (this.registry.getFallbackChain?.() || Object.keys(backends))
+      .filter(name => usable.has(name) && backends[name]?.healthy);
 
-    // Complex tasks -> prefer nvidia_glm (code-specialist lane)
-    if (context.complexity === 'complex' && backends.nvidia_glm?.healthy) {
-      return 'nvidia_glm';
+    const pickByCapability = (capability) => {
+      for (const name of chain) {
+        const caps = this.registry.getBackend?.(name)?.capabilities || getBackendCapabilities(name);
+        if (caps?.includes(capability)) return name;
+      }
+      return null;
+    };
+
+    // Complex tasks -> prefer a deep-reasoning-capable lane
+    if (context.complexity === 'complex') {
+      const pick = pickByCapability(CAPABILITIES.DEEP_REASONING);
+      if (pick) return pick;
     }
 
-    // Code tasks -> prefer nvidia_deepseek (specialized coder)
-    if (context.taskType === 'code' && backends.nvidia_deepseek?.healthy) {
-      return 'nvidia_deepseek';
+    // Code tasks -> prefer a code-specialized lane
+    if (context.taskType === 'code') {
+      const pick = pickByCapability(CAPABILITIES.CODE_SPECIALIZED);
+      if (pick) return pick;
     }
 
     return null;
@@ -253,13 +276,33 @@ export class MultiAIRouter {
     await this.learningEngine.recordOutcome(outcome);
   }
 
+  /**
+   * Dynamic output-token budget for a generation-shaped prompt.
+   *
+   * The 'local' vs everything-else split this replaced hardcoded two
+   * numbers by NAME — any non-local lane got the smaller one regardless of
+   * what it could actually handle. This is the router, not a handler (no
+   * capacityFor/estimateBackendSpeed here), but the registry's own
+   * CONFIGURED `context_limit` is synchronously available and real — this
+   * method's one caller (AskHandler#calculateDynamicTokens) calls it
+   * synchronously, so it cannot become async without touching that
+   * out-of-scope file. Capped at 16384 (the old ceiling) so an unusually
+   * large context doesn't turn into an unusually large output ask; a
+   * backend with no configured limit gets the single flat default the old
+   * code already used for "not local".
+   * @private
+   */
   calculateDynamicTokenLimit(prompt, backend) {
     const lower = (prompt || '').toLowerCase();
     if (lower.includes('unity') || lower.includes('monobehaviour') || lower.includes('gameobject')) {
       return 16384;
     }
     if (lower.includes('implement') || lower.includes('generate') || prompt.length > 2000) {
-      return backend === 'local' ? 16384 : 8192;
+      const configuredLimit = this.registry.getBackend?.(backend)?.context_limit;
+      if (typeof configuredLimit === 'number' && configuredLimit > 0) {
+        return Math.min(configuredLimit, 16384);
+      }
+      return 8192;
     }
     return 2048;
   }
