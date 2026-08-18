@@ -153,9 +153,10 @@ export class BatchAnalyzeHandler extends BaseHandler {
       if (routingResult.recommendation) {
         console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
       }
-      // Safety: if local but exceeds local limit, escalate
-      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && effectiveBackend === 'local') {
-        console.error(`[BatchAnalyze] ⚠️ Payload (${totalInputSize} chars) exceeds ${effectiveBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+      // Safety: escalate if the payload exceeds whatever backend was selected
+      const batchAnalyzeCap = await this.capacityFor(effectiveBackend);
+      if (totalInputSize > batchAnalyzeCap) {
+        console.error(`[BatchAnalyze] ⚠️ Payload (${totalInputSize} chars) exceeds ${effectiveBackend} limit (${batchAnalyzeCap} chars)`);
         const roomier = await this.findBackendWithCapacity(totalInputSize, [effectiveBackend]);
         if (roomier) {
           console.error(`[BatchAnalyze] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);

@@ -95,11 +95,12 @@ export class BatchModifyHandler extends BaseHandler {
       }
       const totalInputSize = instructions.length + totalFileChars;
 
-      // Auto-fallback if total input exceeds local limit
+      // Auto-fallback if total input exceeds whatever backend was selected
       let effectiveBackend = backend;
-      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && (backend === 'auto' || backend === 'local')) {
-        console.error(`[BatchModify] ⚠️ Payload (${totalInputSize} chars) exceeds local limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
-        const roomier = await this.findBackendWithCapacity(totalInputSize, ['local']);
+      const batchModifyCap = await this.capacityFor(backend);
+      if (totalInputSize > batchModifyCap) {
+        console.error(`[BatchModify] ⚠️ Payload (${totalInputSize} chars) exceeds ${backend} limit (${batchModifyCap} chars)`);
+        const roomier = await this.findBackendWithCapacity(totalInputSize, [backend]);
         if (roomier) {
           console.error(`[BatchModify] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
           effectiveBackend = roomier.name;

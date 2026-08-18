@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AnalyzeFileHandler } from '../src/handlers/analyze-file-handler.js';
+import { GenerateFileHandler } from '../src/handlers/generate-file-handler.js';
 import { promises as fsp } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -53,6 +54,20 @@ describe('getBackendContextLimit', () => {
     const handler = stubbedAnalyzeHandler();
     expect(handler.getBackendContextLimit('openai_chatgpt')).toBe(512000);
     expect(handler.getBackendContextLimit('chatgpt')).toBe(128000);
+  });
+});
+
+describe('capacityFor', () => {
+  it('resolves local and the unresolved auto token to the same dynamic limit', async () => {
+    const handler = stubbedAnalyzeHandler();
+    expect(await handler.capacityFor('local')).toBe(85196);
+    expect(await handler.capacityFor('auto')).toBe(85196);
+  });
+
+  it('resolves cloud backends to their static caps', async () => {
+    const handler = stubbedAnalyzeHandler();
+    expect(await handler.capacityFor('nvidia_glm')).toBe(128000);
+    expect(await handler.capacityFor('openai_chatgpt')).toBe(512000);
   });
 });
 
@@ -105,5 +120,41 @@ describe('analyze_file oversize handling', () => {
     expect(result.isError).not.toBe(true);
     expect(usedBackend).not.toBe('local');
     expect(usedBackend).not.toBeNull();
+  });
+});
+
+describe('generate_file forced-cloud oversize handling', () => {
+  let tmpDir;
+
+  afterEach(async () => {
+    if (tmpDir) {
+      await fsp.rm(tmpDir, { recursive: true, force: true });
+      tmpDir = null;
+    }
+  });
+
+  it('throws when a caller explicitly forces a small cloud backend that cannot hold the payload', async () => {
+    // The old gate only fired for selectedBackend === 'local' — an explicitly
+    // forced cloud backend (nvidia_deepseek, 128000 cap) with an oversized
+    // payload sailed straight through to the provider. Here nothing fits
+    // (spec exceeds even openai_chatgpt's 512000), so this must now throw.
+    const handler = new GenerateFileHandler({});
+    handler.getContextLimit = async () => ({ charLimit: 50000, model: 'test-model' });
+
+    const spec = 'x'.repeat(700000);
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-generate-forced-cloud-'));
+    const outputPath = path.join(tmpDir, 'out.js');
+
+    // GenerateFileHandler's execute() catches every thrown error and returns
+    // a resolved error response (unlike AnalyzeFileHandler, which rethrows) —
+    // so the refusal shows up as a failed result, not a rejected promise.
+    const result = await handler.execute({
+      spec,
+      outputPath,
+      options: { backend: 'nvidia_deepseek' }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/no configured backend can hold it/);
   });
 });

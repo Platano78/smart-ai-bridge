@@ -176,8 +176,9 @@ export class ModifyFileHandler extends BaseHandler {
       // 8. INPUT size limit check - DYNAMIC based on actual loaded model
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[ModifyFile] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      if (originalContent.length > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
-        console.error(`[ModifyFile] ⚠️ Payload (${originalContent.length} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+      const modifyFileCap = await this.capacityFor(selectedBackend);
+      if (originalContent.length > modifyFileCap) {
+        console.error(`[ModifyFile] ⚠️ Payload (${originalContent.length} chars) exceeds ${selectedBackend} limit (${modifyFileCap} chars)`);
         const roomier = await this.findBackendWithCapacity(originalContent.length, [selectedBackend]);
         if (roomier) {
           console.error(`[ModifyFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);

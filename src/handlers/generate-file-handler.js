@@ -104,8 +104,9 @@ export class GenerateFileHandler extends BaseHandler {
       // Get dynamic context limit from loaded model
       const { charLimit: MAX_LOCAL_INPUT_CHARS, model: loadedModel } = await this.getContextLimit();
       console.error(`[${this.constructor.name}] 📊 Dynamic limit: ${MAX_LOCAL_INPUT_CHARS} chars (model: ${loadedModel})`);
-      if (prompt.length > MAX_LOCAL_INPUT_CHARS && selectedBackend === 'local') {
-        console.error(`[GenerateFile] ⚠️ Payload (${prompt.length} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+      const generateFileCap = await this.capacityFor(selectedBackend);
+      if (prompt.length > generateFileCap) {
+        console.error(`[GenerateFile] ⚠️ Payload (${prompt.length} chars) exceeds ${selectedBackend} limit (${generateFileCap} chars)`);
         const roomier = await this.findBackendWithCapacity(prompt.length, [selectedBackend]);
         if (roomier) {
           console.error(`[GenerateFile] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);

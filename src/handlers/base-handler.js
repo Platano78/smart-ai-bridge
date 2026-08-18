@@ -105,9 +105,30 @@ class BaseHandler {
       'nvidia_glm': 128000,      // 32K tokens * 4 = 128K chars
       'gemini': 128000,          // 32K tokens * 4 = 128K chars
       'groq_llama': 128000,      // 32K tokens * 4 = 128K chars
-      'openai_chatgpt': 512000   // 128K tokens * 4 = 512K chars (author's figure, unverified against the provider)
+      'openai_chatgpt': 512000   // 128K tokens * 4 = 512K chars, matching the 128K context declared
+                                 // in backends.json; not confirmed against a live provider response
     };
     return contextLimits[backendName] || 128000;
+  }
+
+  /**
+   * Capacity (in characters) a given backend can hold. Single source of
+   * truth for "what can this backend take" — local (and the unresolved
+   * 'auto' routing token, which lands on local by default and is the
+   * conservative choice) use the dynamic probed limit; everything else
+   * uses the static table.
+   * @param {string} backendName - Backend identifier (or 'auto')
+   * @returns {Promise<number>}
+   */
+  async capacityFor(backendName) {
+    if (backendName === 'local' || backendName === 'auto') {
+      try {
+        return (await this.getContextLimit()).charLimit;
+      } catch {
+        return this.getBackendContextLimit('local');
+      }
+    }
+    return this.getBackendContextLimit(backendName);
   }
 
   /**
@@ -128,16 +149,7 @@ class BaseHandler {
     const scored = [];
     for (const name of candidates) {
       if (exclude.includes(name)) continue;
-      let cap;
-      if (name === 'local') {
-        try {
-          cap = (await this.getContextLimit()).charLimit;
-        } catch {
-          cap = this.getBackendContextLimit('local');
-        }
-      } else {
-        cap = this.getBackendContextLimit(name);
-      }
+      const cap = await this.capacityFor(name);
       if (cap >= payloadChars) {
         const priority = this.backendRegistry?.getBackend?.(name)?.priority ?? 99;
         scored.push({ name, cap, priority });
@@ -169,16 +181,7 @@ class BaseHandler {
 
     let largest = 0;
     for (const name of candidates) {
-      let cap;
-      if (name === 'local') {
-        try {
-          cap = (await this.getContextLimit()).charLimit;
-        } catch {
-          cap = this.getBackendContextLimit('local');
-        }
-      } else {
-        cap = this.getBackendContextLimit(name);
-      }
+      const cap = await this.capacityFor(name);
       if (cap > largest) largest = cap;
     }
     return largest;

@@ -127,9 +127,10 @@ export class RefactorHandler extends BaseHandler {
         }
       }
 
-      // Auto-fallback if total input exceeds local limit
-      if (totalInputSize > MAX_LOCAL_INPUT_CHARS && selectedBackend.startsWith('local')) {
-        console.error(`[Refactor] ⚠️ Payload (${totalInputSize} chars) exceeds ${selectedBackend} limit (${MAX_LOCAL_INPUT_CHARS} chars)`);
+      // Auto-fallback if total input exceeds whatever backend was selected
+      const refactorCap = await this.capacityFor(selectedBackend);
+      if (totalInputSize > refactorCap) {
+        console.error(`[Refactor] ⚠️ Payload (${totalInputSize} chars) exceeds ${selectedBackend} limit (${refactorCap} chars)`);
         const roomier = await this.findBackendWithCapacity(totalInputSize, [selectedBackend]);
         if (roomier) {
           console.error(`[Refactor] 🔄 Escalating to ${roomier.name} (${roomier.cap} char limit)`);
