@@ -53,6 +53,14 @@ class LocalAdapter extends BackendAdapter {
     // generation length. See BackendAdapter.omitDefaultMaxTokens.
     this.omitDefaultMaxTokens = true;
 
+    // Operator-declared endpoint. Declared > discovered (model-agnostic
+    // ruling): when the operator names a URL, autodiscovery must not scan
+    // other ports behind their back or clobber it with a fallback — a
+    // server on a port outside the scan list is exactly the case a
+    // declaration exists for. Remembered separately from config.url so
+    // forceRediscovery() (which nulls config.url) restores it.
+    this.declaredUrl = config.url || null;
+
     // Model will be discovered dynamically from /v1/models
     this.model = config.model || null;
     this.modelId = null;  // The actual model ID from server
@@ -82,6 +90,13 @@ class LocalAdapter extends BackendAdapter {
     this.initializing = true;
 
     try {
+      if (this.declaredUrl) {
+        this.config.url = this.declaredUrl;
+        console.error(`[SAB] LocalAdapter: Using declared endpoint: ${this.config.url}`);
+        await this.fetchModelInfo();
+        return;
+      }
+
       console.error('[SAB] LocalAdapter: Starting endpoint autodiscovery...');
       const endpoint = await this.detector.discover();
 
