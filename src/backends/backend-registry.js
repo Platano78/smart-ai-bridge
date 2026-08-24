@@ -32,14 +32,20 @@ const BACKENDS_CONFIG_PATH = join(__dirname, '../config/backends.json');
 const CUSTOM_BACKENDS_PATH = join(__dirname, '../../data/backends-custom.json');
 
 /**
- * Map friendly backend names to internal identifiers
+ * Map friendly backend names to internal identifiers.
+ *
+ * Every provider gets a short name; `openai` lacking one was the
+ * inconsistency, not the presence of the others. The full identifier keeps
+ * working either way — callers resolve through `FRIENDLY_NAME_MAP[x] || x`,
+ * so `openai_chatgpt` falls through to itself.
  */
 const FRIENDLY_NAME_MAP = {
   local: 'local',
   deepseek: 'nvidia_deepseek',
   gemini: 'gemini',
   groq: 'groq_llama',
-  glm: 'nvidia_glm'
+  glm: 'nvidia_glm',
+  openai: 'openai_chatgpt'
 };
 
 /**
