@@ -1,8 +1,8 @@
-# Smart AI Bridge v2.13.0 - Troubleshooting Guide
+# Smart AI Bridge v2.15.0 - Troubleshooting Guide
 
 ## Overview
 
-This guide covers common issues when running Smart AI Bridge v2.13.0, the modular MCP server with 17 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
+This guide covers common issues when running Smart AI Bridge v2.15.0, the modular MCP server with 17 tools, 6 backends, and the intelligence layer. The server entry point is `src/server.js` and it communicates via stdio transport.
 
 ---
 
@@ -18,7 +18,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
 
 **Diagnosis and Solutions:**
 
-1. **Check Node.js version** -- v2.13.0 requires Node.js 18.0.0 or later (ESM support).
+1. **Check Node.js version** -- v2.15.0 requires Node.js 18.0.0 or later (ESM support).
    ```bash
    node --version
    # Must be >= 18.0.0
@@ -32,7 +32,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
    npm install
    ```
 
-4. **Check the entry point path** -- The v2.13.0 entry point is `src/server.js`, not the legacy monolithic file.
+4. **Check the entry point path** -- The v2.15.0 entry point is `src/server.js`, not the legacy monolithic file.
    ```bash
    # Correct
    node src/server.js
@@ -41,11 +41,11 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module
    npm start
    ```
 
-5. **Verify all source files exist** -- The modular architecture requires ~53 files in src/. If files are missing (incomplete clone or checkout), the server will fail on import.
+5. **Verify all source files exist** -- The modular architecture requires ~69 files in src/. If files are missing (incomplete clone or checkout), the server will fail on import.
    ```bash
    # Quick check: count source files
    find src -name '*.js' | wc -l
-   # Expected: approximately 53
+   # Expected: approximately 69
    ```
 
 ### Server Starts But No Tools Available
@@ -127,9 +127,9 @@ Error: Model not found: deepseek-ai/deepseek-v4-pro
    export NVIDIA_API_KEY="nvapi-xxxxx"
    ```
 
-2. **Rate limits** -- NVIDIA's free tier has strict rate limits. If you hit 429 errors, the circuit breaker will trip (threshold: 5 failures, reset: 30 seconds per backends.json). Wait for the reset or reduce request frequency.
+2. **Rate limits** -- NVIDIA's free tier has strict rate limits. If you hit 429 errors, the circuit breaker will trip (threshold: 5 failures, reset: 30 seconds; both fixed in `src/backends/backend-adapter.js`, not read from backends.json). Wait for the reset or reduce request frequency.
 
-3. **Model availability** -- Model names change. If `deepseek-ai/deepseek-v4-pro` or `z-ai/glm-5.2` is unavailable, check the NVIDIA API catalog for current model IDs and update backends.json:
+3. **Model availability** -- Model names change, which is why backends.json declares none and the model is normally read from the provider's catalog instead. **On the NVIDIA lanes you must declare one yourself:** selection ranks catalog entries by their published context window, NVIDIA publishes none, so nothing can be ranked and no model is chosen. The startup readiness audit reports this per backend and names the command below. List the catalog, pick a chat/instruct entry (it also contains non-chat models), and set `config.model` on that backend in `src/config/backends.json`:
    ```bash
    curl -H "Authorization: Bearer $NVIDIA_API_KEY" \
         https://integrate.api.nvidia.com/v1/models
@@ -181,7 +181,7 @@ Error: Connection refused to api.openai.com
    export OPENAI_API_KEY="sk-xxxxx"
    ```
 
-2. **Verify the model exists** -- backends.json specifies `gpt-5.2`. If this model is not available on your OpenAI plan, update the model field in backends.json.
+2. **Verify the model** -- backends.json declares **no model id** for this backend; the model is discovered from the provider's catalog at runtime, which works only where that catalog publishes a context window to rank on (Groq's does; NVIDIA's does not). If no model gets chosen, the readiness audit says so at startup. If discovery picks a model your OpenAI plan cannot access, pin one explicitly by adding `config.model` to the `openai_chatgpt` entry in backends.json -- that field is an override, and omitting it is what lets discovery choose.
 
 3. **Network access** -- Ensure your environment can reach `api.openai.com`:
    ```bash
@@ -207,7 +207,7 @@ Error: Model not available on Groq
    export GROQ_API_KEY="gsk_xxxxx"
    ```
 
-2. **Model availability** -- backends.json specifies `llama-3.3-70b-versatile`. Groq periodically rotates available models. Check https://console.groq.com/docs/models for current options and update backends.json if needed.
+2. **Model availability** -- backends.json declares **no model id** for this backend; the model is discovered from Groq's catalog at runtime. Groq periodically rotates what it serves, so discovery is usually what you want. Check https://console.groq.com/docs/models for current options, and only if you need a specific one, pin it via `config.model` on the `groq_llama` entry.
 
 3. **Rate limits** -- Groq's free tier has aggressive rate limits (requests per minute and tokens per minute). The circuit breaker will trip after 5 consecutive failures.
 
@@ -245,7 +245,7 @@ McpError: Unknown tool: my_tool. Available: ask, review, analyze_file, ...
 
 **Solutions:**
 
-1. **Check tool name** -- v2.13.0 has 17 tools. The complete list:
+1. **Check tool name** -- v2.15.0 has 17 tools. The complete list:
    - `ask`, `review`, `analyze_file`, `modify_file`, `batch_modify`
    - `explore`, `generate_file`, `refactor`, `write_files_atomic`
    - `backup_restore`, `batch_analyze`, `check_backend_health`
@@ -459,7 +459,7 @@ If you experience cascading failures (one backend down causing slow responses as
 
 1. **Learning engine accumulation** -- The in-memory learning engine, pattern RAG store, and compound learning system accumulate data over time. Restart the server to clear in-memory state.
 
-2. **Conversation threading** -- Long sessions accumulate thread context. The `clear_all_caches` tool can help reset in-memory state.
+2. **Conversation threading** -- Long sessions accumulate thread context. There is no tool that clears it; restarting the server is the only reset.
 
 3. **Background analysis queue** -- The background analysis queue (`src/intelligence/background-analysis-queue.js`) may accumulate pending work. Monitor queue depth and consider rate-limiting background analysis.
 
@@ -545,11 +545,11 @@ When something is not working, run through this checklist:
 
 - Check stderr output -- the server logs all tool calls, backend selections, and errors to stderr
 - Use `check_backend_health` tool for real-time backend status
-- Use `health` tool for overall system status
+- Use `get_analytics` for overall telemetry -- per-backend invocation counts, success rates, and latency
 - Review `src/config/backends.json` for all configurable parameters
 - Check the project README and CHANGELOG for version-specific notes
 
 ---
 
-*Last Updated: February 2026*
-*System Version: v2.13.0*
+*Last Updated: August 2026*
+*System Version: v2.15.0*

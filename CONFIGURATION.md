@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.13.0 - Configuration Guide
+# Smart AI Bridge v2.15.0 - Configuration Guide
 
 ## Backend Configuration
 
@@ -25,7 +25,6 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "context_limit": 65536,
       "strengths": "Large context, free inference",
       "config": {
-        "url": "http://127.0.0.1:8081/v1/chat/completions",
         "model": "dynamic",
         "maxTokens": 65536,
         "timeout": 120000
@@ -36,14 +35,16 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "enabled": true,
       "priority": 2,
       "description": "NVIDIA DeepSeek (reasoning, 8K tokens)",
-      "capabilities": ["deep_reasoning", "security_focus"],
+      "capabilities": [
+        "deep_reasoning",
+        "security_focus"
+      ],
       "context_limit": 8192,
       "strengths": "Complex reasoning, security analysis",
       "config": {
         "maxTokens": 8192,
         "timeout": 60000,
-        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "model": "deepseek-ai/deepseek-v3.2"
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions"
       }
     },
     "nvidia_glm": {
@@ -51,8 +52,12 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "enabled": true,
       "priority": 3,
       "description": "NVIDIA GLM-5.2 (coding, 32K tokens)",
-      "capabilities": ["code_specialized", "deep_reasoning"],
+      "capabilities": [
+        "code_specialized",
+        "deep_reasoning"
+      ],
       "context_limit": 32768,
+      "strengths": "Code review, refactoring",
       "config": {
         "maxTokens": 32768,
         "timeout": 60000
@@ -63,6 +68,12 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "enabled": true,
       "priority": 4,
       "description": "Google Gemini (fast, 32K tokens)",
+      "capabilities": [
+        "fast_generation",
+        "documentation"
+      ],
+      "context_limit": 32768,
+      "strengths": "Fast docs, quick responses",
       "config": {
         "maxTokens": 32768,
         "timeout": 60000
@@ -73,8 +84,8 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "enabled": true,
       "priority": 5,
       "description": "OpenAI GPT-5.2 (premium reasoning, 128K context)",
+      "context_limit": 131072,
       "config": {
-        "model": "gpt-5.2",
         "maxTokens": 128000,
         "timeout": 120000
       }
@@ -83,9 +94,8 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "groq",
       "enabled": true,
       "priority": 6,
-      "description": "Groq Llama 3.3 70B (ultra-fast 500+ t/s)",
+      "description": "Groq — ultra-fast inference; model auto-selected from the catalog",
       "config": {
-        "model": "llama-3.3-70b-versatile",
         "maxTokens": 32768,
         "timeout": 30000
       }
@@ -104,6 +114,9 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "medium": 0.6,
       "complex": 0.8
     }
+  },
+  "compression": {
+    "enabled": false
   }
 }
 ```
@@ -112,7 +125,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | string | Adapter type: `local`, `nvidia_deepseek`, `nvidia_glm`, `gemini`, `openai`, `groq` (`nvidia_qwen` still resolves as a legacy alias for `nvidia_glm`) |
+| `type` | string | Adapter type: `local`, `nvidia_deepseek`, `nvidia_glm`, `gemini`, `openai`, `groq`. The `nvidia_qwen` type was removed outright in v2.14.0 — it is not an alias, and a config still naming it will not load. |
 | `enabled` | boolean | Whether the backend is active |
 | `priority` | number | Fallback chain order (lower = higher priority) |
 | `description` | string | Human-readable description |
@@ -120,9 +133,9 @@ All backend configuration lives in `src/config/backends.json`. This file is load
 | `context_limit` | number | Maximum context window in tokens |
 | `strengths` | string | What the backend excels at |
 | `config.url` | string | API endpoint URL |
-| `config.model` | string | Model identifier |
+| `config.model` | string | Model identifier. **No backend ships one.** Omit it and a model is selected from the provider's live catalog at startup, ranked by published context window — which works only where the provider publishes one (Groq's catalog does; NVIDIA's does not, so those lanes need this field set). Setting it is an explicit override that skips selection entirely. |
 | `config.maxTokens` | number | Maximum response tokens. **On the `local` backend this no longer caps the request** (see below) — it only sizes the dynamic request timeout. An explicit `max_tokens` from the caller still applies on every backend. |
-| `config.timeout` | number | Request timeout in milliseconds |
+| `config.timeout` | number | Request timeout in milliseconds. **As of v2.15.0 this is also a ceiling.** `generate_file` and `modify_file` size each attempt's budget from that attempt's own token count and backend speed, then cap the result at this value; the declared value outranks the handler's own floor, so a lane declared below what a large request needs fails fast rather than running past your declared patience. A lane that declares no `timeout` keeps whatever ceiling its handler already had. `options.timeout` from the caller still overrides it per request. |
 | `config.apiKey` | string | API key (or `$ENV_VAR_NAME` to read from environment) |
 
 ### Token caps and the local backend
@@ -198,15 +211,22 @@ MCP_LOG_LEVEL=info                     # silent | error | warn | info | debug
 
 ### Local Model Configuration
 
-```bash
-# Local model endpoint (if not using default from backends.json)
-LOCAL_MODEL_ENDPOINT=http://localhost:8081/v1
+There is no environment variable for the local endpoint — nothing in `src/` reads one.
+The `local` backend ships **no** `config.url`: at startup it scans the common local LLM
+ports (llama.cpp 8080-8086, vLLM 8000, LM Studio 1234, Ollama 11434) and uses the first
+server that answers. To pin it instead, declare the endpoint yourself:
 
-# Local model port (for auto-discovery)
-# Note: this is documentation-only; the active port is read from
-# src/config/backends.json (default http://localhost:8081).
-LOCAL_SERVER_PORT=8081
+```json
+{
+  "local": {
+    "config": {
+      "url": "http://127.0.0.1:8081/v1/chat/completions"
+    }
+  }
+}
 ```
+
+A declared URL is honoured as-is and is never overridden by discovery.
 
 ### API Key References in backends.json
 
@@ -224,7 +244,8 @@ The `BackendRegistry` resolves `$NVIDIA_API_KEY` to the value of `process.env.NV
 
 ## Fallback Policy
 
-The fallback policy in `backends.json` controls retry behavior:
+The `fallbackPolicy` block in `backends.json` records the intended retry and
+circuit-breaker policy:
 
 ```json
 {
@@ -244,6 +265,10 @@ The fallback policy in `backends.json` controls retry behavior:
 | `circuitBreakerThreshold` | Consecutive failures before circuit opens |
 | `circuitBreakerResetMs` | Time before circuit breaker resets (milliseconds) |
 
+**Nothing in `src/` currently reads this block.** The circuit breaker is real, but its
+threshold (5 consecutive failures) and reset window (30s) are fixed in
+`src/backends/backend-adapter.js`; editing `fallbackPolicy` will not change them.
+
 ## Routing Configuration
 
 ```json
@@ -259,7 +284,15 @@ The fallback policy in `backends.json` controls retry behavior:
 }
 ```
 
-The `MultiAIRouter` uses these thresholds when applying rule-based routing (Tier 3). Complex tasks are routed to higher-capability backends (nvidia_glm), while simple tasks stay on the default backend.
+**Nothing in `src/` currently reads this block either.** `MultiAIRouter` derives a
+request's complexity in `_extractContext` from prompt length and `max_tokens`, not from
+`complexityThresholds`, and its Tier-4 default is the first healthy backend in the
+registry's priority order, not `defaultBackend`.
+
+Tier-3 rule-based routing selects on declared **capability**, never on a backend name: a
+complex task prefers the first healthy, usable lane declaring `deep_reasoning`, and a code
+task the first declaring `code_specialized`, both walked in the registry's own priority
+order. An operator who configured neither capability simply falls through to Tier 4.
 
 ## Claude Code MCP Configuration
 
@@ -453,12 +486,12 @@ Disabled backends are excluded from the fallback chain and will not receive requ
 After modifying `backends.json`, verify the server starts correctly:
 
 ```bash
-node src/server.js 2>&1 | head -5
-# Expected output:
-# Smart AI Bridge v2.13.0 starting...
+node src/server.js 2>&1 | head -25
+# Expected among the startup lines (all on stderr, interleaved with other diagnostics):
+# Smart AI Bridge v2.15.0 starting...
 # [BackendRegistry] Initialized 6 backends from backends.json
 # [Router] MultiAIRouter initialized
-# Smart AI Bridge v2.13.0 connected via stdio
+# Smart AI Bridge v2.15.0 connected via stdio
 # Tools: 17 | Backends: 6
 ```
 

@@ -5,7 +5,7 @@ Instructions for AI agents and agentic harnesses. Two audiences, in order:
 1. **Consuming** this project — installing and running it as an MCP server. Start here.
 2. **Working on** this repo — where code lives and what the hard rules are.
 
-Everything below is verified against the code at v2.14.0. If something here disagrees with the
+Everything below is verified against the code at v2.15.0. If something here disagrees with the
 code, the code wins and this file is a bug.
 
 ---
@@ -92,8 +92,8 @@ Then, only if you configured one:
 check_backend_health({ "backend": "auto" })
 ```
 
-`check_backend_health({"backend": "local"})` reports critical when no local model is running.
-On a cloud-only setup that is expected and does not indicate a broken install.
+`check_backend_health({"backend": "local"})` reports `status: "offline"` when no local model is
+running. On a cloud-only setup that is expected and does not indicate a broken install.
 
 ## Update
 

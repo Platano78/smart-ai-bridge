@@ -1,10 +1,10 @@
-# Smart AI Bridge v2.13.0 - Extension Guide
+# Smart AI Bridge v2.15.0 - Extension Guide
 
 ## Adding New Backends
 
 ### Overview
 
-Smart AI Bridge v2.13.0 uses a config-driven backend system. Adding a new backend requires:
+Smart AI Bridge v2.15.0 uses a config-driven backend system. Adding a new backend requires:
 
 1. Creating an adapter class (or reusing an existing one like `openai`)
 2. Registering it in `src/config/backends.json`
@@ -493,7 +493,7 @@ _extractContext(prompt, options) {
 }
 ```
 
-## Current Tool Categories (v2.13.0)
+## Current Tool Categories (v2.15.0)
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -509,12 +509,12 @@ _extractContext(prompt, options) {
 |------|---------------|------|
 | `local` | LocalAdapter | `src/backends/local-adapter.js` |
 | `nvidia_deepseek` | NvidiaDeepSeekAdapter | `src/backends/nvidia-adapter.js` |
-| `nvidia_glm` | NvidiaGlmAdapter | `src/backends/nvidia-adapter.js` (`nvidia_qwen` still resolves as a legacy alias to the same adapter) |
+| `nvidia_glm` | NvidiaGlmAdapter | `src/backends/nvidia-adapter.js` |
 | `gemini` | GeminiAdapter | `src/backends/gemini-adapter.js` |
 | `openai` | OpenAIAdapter | `src/backends/openai-adapter.js` |
 | `groq` | GroqAdapter | `src/backends/groq-adapter.js` |
 
-Any type not in this mapping defaults to `OpenAIAdapter`, which works for standard OpenAI-compatible APIs.
+A backend added at runtime (`registry.addBackend`, the dashboard's add-backend form) with a type not in this mapping is stored as type `openai` and served by `OpenAIAdapter`, which works for standard OpenAI-compatible APIs. A type not in this mapping written directly into `backends.json` is **not** coerced — the registry logs `Unknown adapter type` and creates no adapter for it, so set `"type": "openai"` explicitly there.
 
 ## Testing Extensions
 
