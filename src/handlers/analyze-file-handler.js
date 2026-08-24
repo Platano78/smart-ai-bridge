@@ -48,9 +48,14 @@ export class AnalyzeFileHandler extends BaseHandler {
    * @param {string} [args.options.analysisType] - Type of analysis (general|bug|security|performance|architecture)
    * @param {string[]} [args.options.includeContext] - Related files for better analysis
    * @param {number} [args.options.maxResponseTokens] - Maximum tokens for response
+   * @param {Object} [internal] - Internal-only routing state. Never reachable from the
+   *   MCP tool schema (tool dispatch passes `args` alone); set by in-process callers
+   *   such as batch_analyze that already resolved the backend themselves.
+   * @param {boolean} [internal.noFallback] - Overrides this handler's own named-vs-resolved
+   *   verdict for the request it issues.
    * @returns {Promise<Object>} Structured analysis result
    */
-  async execute(args) {
+  async execute(args, internal = {}) {
     const { filePath, question, options = {} } = args;
 
     if (!filePath) {
@@ -97,6 +102,12 @@ export class AnalyzeFileHandler extends BaseHandler {
       // 5. Determine the backend with smart fallback
       const routingResult = this.selectBackend(backend, { analysisType });
       let selectedBackend = routingResult.backend;
+      // A caller-NAMED lane gets one attempt, never a silent cascade. When an
+      // internal caller (batch_analyze) already resolved the lane it passes
+      // its own verdict, so a resolved lane stays cascading downstream.
+      const noFallback = internal.noFallback !== undefined
+        ? internal.noFallback === true
+        : routingResult.explicit === true;
 
       // 6. Smart override: Dynamic context limit detection
       // For local backend, use actual model context limit from router
@@ -158,6 +169,7 @@ export class AnalyzeFileHandler extends BaseHandler {
         maxTokens: allocatedTokens,
         routerModel: modelProfile,  // Pass model profile for llama-swap router
         timeout: timeoutMs,
+        noFallback,
         disableThinking: true  // Intent only: suppress reasoning that burns the token
                                // budget and never closes </think>. The adapter decides
                                // whether the loaded model's template understands the

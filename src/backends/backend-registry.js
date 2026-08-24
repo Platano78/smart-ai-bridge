@@ -572,6 +572,12 @@ class BackendRegistry {
   async makeRequestWithFallback(prompt, preferredBackend = null, options = {}) {
     const attempted = [];
     let lastError = null;
+    // A backend the CALLER NAMED gets exactly one attempt (options.noFallback).
+    // The API keys are the operator's own, so cascading off a named lane can
+    // spend their credit on lanes they never asked for. Only RESOLVED
+    // backends — 'auto', a routing override, the content-length branch —
+    // cascade; see BackendRegistry#selectBackend's `explicit` flag.
+    const noFallback = options.noFallback === true && Boolean(preferredBackend);
 
     if (preferredBackend) {
       const adapter = this.adapters.get(preferredBackend);
@@ -586,7 +592,22 @@ class BackendRegistry {
         } catch (error) {
           lastError = error;
           attempted.push(preferredBackend);
+          if (noFallback) {
+            throw new Error(
+              `Backend "${preferredBackend}" was named by the caller and its one attempt failed; ` +
+              `no other backend was tried. Underlying error: ${error.message}. ` +
+              `Next step: fix or retry that lane, or re-run with backend "auto" to allow the ` +
+              `other configured lanes.`
+            );
+          }
         }
+      } else if (noFallback) {
+        throw new Error(
+          `Backend "${preferredBackend}" was named by the caller but could not be attempted at all — ` +
+          `it is not registered, or its circuit breaker is open. No request was made and no other ` +
+          `backend was tried. Next step: configure or recover that lane, or re-run with backend ` +
+          `"auto" to allow the other configured lanes.`
+        );
       }
     }
 
@@ -866,11 +887,16 @@ class BackendRegistry {
    * @param {string} requestedBackend
    * @param {Object} [context]
    * @param {number} [context.contentLength]
-   * @returns {{backend: string|null, recommendation?: string}}
+   * `explicit: true` marks the ONE branch where the caller NAMED the lane, so
+   * callers can request a single attempt instead of a cascade
+   * (makeRequestWithFallback's `options.noFallback`). Every other branch below
+   * is a RESOLUTION — 'auto', a routing override, the content-length hint —
+   * and deliberately carries no flag, so resolved lanes keep cascading.
+   * @returns {{backend: string|null, explicit?: boolean, recommendation?: string}}
    */
   selectBackend(requestedBackend, context = {}) {
     if (requestedBackend && requestedBackend !== 'auto') {
-      return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend };
+      return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend, explicit: true };
     }
     if (context.handlerType && this.routingOverrides[context.handlerType]) {
       const override = this.routingOverrides[context.handlerType](context);

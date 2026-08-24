@@ -107,6 +107,9 @@ export class ModifyFileHandler extends BaseHandler {
       const routingResult = this.selectBackend(backend, { complexity, contentLength: originalContent.length });
       let selectedBackend = routingResult.backend;
       const routingRecommendation = routingResult.recommendation;
+      // A caller-NAMED lane gets one attempt, never a silent cascade onto lanes
+      // the caller never chose. Resolved lanes ('auto', overrides) still cascade.
+      const noFallback = routingResult.explicit === true;
 
       // 6. Resolve the FIM strategy purely from what the SERVER supports.
       let usingFIM = false;
@@ -232,7 +235,8 @@ export class ModifyFileHandler extends BaseHandler {
               maxTokens: currentTokens,
               routerModel: modelProfile,
               timeout: attemptTimeoutMs,
-              disableThinking: true
+              disableThinking: true,
+              noFallback: noFallback && usedBackend === selectedBackend
             });
 
             const responseText = this.extractResponseText(response);
@@ -289,7 +293,9 @@ export class ModifyFileHandler extends BaseHandler {
             // operator actually configured (same selection as
             // BackendRegistry#selectBackend), never a hardcoded backend name. If
             // no such lane is configured, don't escalate — let the error surface.
-            if (RETRY_CONFIG.cloudFallbackEnabled && usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
+            // Same rule one level up: this handler-level escalation is the other
+            // way a caller-NAMED lane could quietly spend on a lane nobody asked for.
+            if (!noFallback && RETRY_CONFIG.cloudFallbackEnabled && usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
               const errorFallback = this.selectNonLocalFallback(usedBackend);
               if (errorFallback) {
                 console.error(`[ModifyFile] 🌐 Error fallback to ${errorFallback}`);

@@ -100,6 +100,9 @@ export class GenerateFileHandler extends BaseHandler {
       // 7. Determine the backend
       const routingResult = this.selectBackend(backend, { complexity });
       let selectedBackend = routingResult.backend;
+      // A caller-NAMED lane gets one attempt, never a silent cascade onto lanes
+      // the caller never chose. Resolved lanes ('auto', overrides) still cascade.
+      const noFallback = routingResult.explicit === true;
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
@@ -166,7 +169,8 @@ export class GenerateFileHandler extends BaseHandler {
           maxTokens: currentTokens,
           routerModel: modelProfile,
           timeout: attemptTimeoutMs,
-          disableThinking: true
+          disableThinking: true,
+          noFallback: noFallback && usedBackend === selectedBackend
         });
 
         // Parse the response immediately so we can check structure

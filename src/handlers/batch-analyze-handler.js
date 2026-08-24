@@ -173,9 +173,13 @@ export class BatchAnalyzeHandler extends BaseHandler {
       }
 
       // 2. Analyze each file
+      // The per-file handler receives an ALREADY-RESOLVED lane name, so it cannot
+      // tell "the caller named this" from "we picked it". Carry this call's own
+      // verdict down so an `auto` batch keeps cascading per file exactly as before.
+      const perFileNoFallback = routingResult.explicit === true && effectiveBackend === routingResult.backend;
       const rawResults = parallel
-        ? await this.analyzeParallel(files, question, { backend: effectiveBackend, analysisType })
-        : await this.analyzeSequential(files, question, { backend: effectiveBackend, analysisType });
+        ? await this.analyzeParallel(files, question, { backend: effectiveBackend, analysisType, noFallback: perFileNoFallback })
+        : await this.analyzeSequential(files, question, { backend: effectiveBackend, analysisType, noFallback: perFileNoFallback });
 
       // Filter out null/invalid results
       const results = rawResults.filter(r => r && typeof r === 'object' && (r.filePath || r.error || r.summary));
@@ -487,6 +491,9 @@ export class BatchAnalyzeHandler extends BaseHandler {
 
     const routingResult = this.selectBackend(backend, { contentLength: prompt.length });
     let effectiveBackend = routingResult.backend;
+    // Named by the caller -> one attempt. A capacity escalation below replaces the
+    // lane with one the caller did not choose, so that case cascades as before.
+    const namedByCaller = routingResult.explicit === true;
     if (routingResult.recommendation) {
       console.error(`[BatchAnalyze] 📊 ${routingResult.recommendation}`);
     }
@@ -534,7 +541,8 @@ export class BatchAnalyzeHandler extends BaseHandler {
 
     const response = await this.makeRequest(prompt, effectiveBackend, {
       maxTokens: 2000,
-      disableThinking: true
+      disableThinking: true,
+      noFallback: namedByCaller && effectiveBackend === routingResult.backend
     });
 
     const processingTime = Date.now() - startTime;
@@ -653,7 +661,7 @@ CRITICAL: Be BRIEF. Max 5-8 findings across all files. No verbose explanations.
    * Analyze files in parallel with dynamic token allocation
    */
   async analyzeParallel(files, question, options) {
-    const { backend, analysisType } = options;
+    const { backend, analysisType, noFallback = false } = options;
     const concurrency = 3; // Limit concurrent requests
     const results = [];
 
@@ -680,7 +688,7 @@ CRITICAL: Be BRIEF. Max 5-8 findings across all files. No verbose explanations.
                 analysisType,
                 maxResponseTokens // Pass dynamic token allocation
               }
-            });
+            }, { noFallback });
           } catch (error) {
             return {
               filePath,
@@ -702,7 +710,7 @@ CRITICAL: Be BRIEF. Max 5-8 findings across all files. No verbose explanations.
    * Analyze files sequentially with dynamic token allocation
    */
   async analyzeSequential(files, question, options) {
-    const { backend, analysisType } = options;
+    const { backend, analysisType, noFallback = false } = options;
     const results = [];
 
     for (const filePath of files) {
@@ -725,7 +733,7 @@ CRITICAL: Be BRIEF. Max 5-8 findings across all files. No verbose explanations.
             analysisType,
             maxResponseTokens // Pass dynamic token allocation
           }
-        });
+        }, { noFallback });
         results.push(result);
       } catch (error) {
         results.push({
