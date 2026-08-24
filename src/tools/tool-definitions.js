@@ -294,7 +294,7 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'council',
-    description: "Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic` (e.g. coding routes to glm + local, reasoning routes to deepseek). `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`. Read-only: makes N parallel HTTP calls; never writes to disk. Returns: `{success, topic, strategy, confidence_needed, backends_queried:[names], backends_responded:[names of those that succeeded], responses:[{backend, success, content, response_time, error?}], processing_time_ms, metrics, synthesis_hint (suggestion to Claude on how to synthesize)}`.",
+    description: "Pose one prompt to several AI backends in parallel and return all of their responses for Claude to synthesize. Backend selection is driven by `topic`, which maps to a declared **capability** rather than to any lane name: the usable lanes declaring that capability are preferred, and the remaining usable lanes fill the rest of the seats. An operator-configured roster for a topic overrides that entirely. `confidence_needed` controls how many backends are queried — high (4), medium (3), low (2). Use for architectural trade-offs, controversial calls, or anywhere dissent surfaced cheaply (~1-2s for 2-3 backends) is more useful than a single answer. For a single backend query, use `ask`. Read-only: makes N parallel HTTP calls; never writes to disk. Returns: `{success, topic, strategy, confidence_needed, backends_queried:[names], backends_responded:[names of those that succeeded], responses:[{backend, success, content, response_time, error?}], processing_time_ms, metrics, synthesis_hint (suggestion to Claude on how to synthesize)}`.",
     handler: 'handleCouncil',
     schema: {
       type: 'object',
@@ -306,7 +306,7 @@ const CORE_TOOL_DEFINITIONS = [
         topic: {
           type: 'string',
           enum: ['coding', 'reasoning', 'architecture', 'general', 'creative', 'security', 'performance'],
-          description: 'Topic category - determines which backends are consulted: coding (nvidia_glm, local), reasoning (nvidia_deepseek), architecture (nvidia_deepseek, nvidia_glm), general (gemini, groq), creative (gemini, nvidia_glm), security (nvidia_deepseek, nvidia_glm), performance (nvidia_deepseek, local)'
+          description: 'Topic category — determines which capability the council prefers when picking lanes, never which lane by name: coding → code_specialized, reasoning and architecture → deep_reasoning, security → security_focus, performance and creative → fast_generation, general → no preference (any usable lane). Lanes declaring the wanted capability are seated first; other usable lanes fill the remaining seats, so a council still convenes when only one lane matches.'
         },
         confidence_needed: {
           type: 'string',

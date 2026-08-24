@@ -20,7 +20,7 @@
       "type": "nvidia_deepseek",
       "enabled": true,
       "priority": 2,
-      "description": "NVIDIA DeepSeek (reasoning, 8K tokens)",
+      "description": "NVIDIA-hosted DeepSeek lane (reasoning-oriented)",
       "capabilities": [
         "deep_reasoning",
         "security_focus"
@@ -37,7 +37,7 @@
       "type": "nvidia_glm",
       "enabled": true,
       "priority": 3,
-      "description": "NVIDIA GLM-5.2 (coding, 32K tokens)",
+      "description": "NVIDIA-hosted GLM lane (code-oriented)",
       "capabilities": [
         "code_specialized",
         "deep_reasoning"
@@ -53,7 +53,7 @@
       "type": "gemini",
       "enabled": true,
       "priority": 4,
-      "description": "Google Gemini (fast, 32K tokens)",
+      "description": "Google Gemini lane",
       "capabilities": [
         "fast_generation",
         "documentation"
@@ -69,7 +69,7 @@
       "type": "openai",
       "enabled": true,
       "priority": 5,
-      "description": "OpenAI GPT-5.2 (premium reasoning, 128K context)",
+      "description": "OpenAI lane",
       "context_limit": 131072,
       "config": {
         "maxTokens": 128000,
@@ -80,7 +80,7 @@
       "type": "groq",
       "enabled": true,
       "priority": 6,
-      "description": "Groq — ultra-fast inference; model auto-selected from the catalog",
+      "description": "Groq lane (low-latency hosted inference)",
       "config": {
         "maxTokens": 32768,
         "timeout": 30000
