@@ -5,6 +5,77 @@ All notable changes to the Smart AI Bridge project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.0] - 2026-08-24
+
+The honest-reporting release. Four of the five defects here are the same
+mistake at different altitudes: the code said something that was not true —
+about which backend ran, about how long a request had, about what would
+happen when a lane failed.
+
+The headline was found by probing, not reading. A survey document asserted
+that a truncated local generation "silently moves the user's work onto a
+cloud lane and doubles the token request" on the user's own API key. It does
+not. A probe with every response truncated showed three requests, all to
+`local`, and a reported `backend_used` of `nvidia_glm` — a lane that was
+never called. The escalation set the variable on its final iteration and the
+loop then terminated. There was never any spend; there was a lie in the
+response, and the same false name went into `recordExecution` and therefore
+into `get_analytics`.
+
+### Fixed
+
+- **Retry timeouts were frozen at attempt 1.** `generate_file` and
+  `modify_file` computed a budget once, before their retry loop, then reused
+  it while scaling tokens x1.5 per retry and sometimes switching lanes. Attempt
+  3 could request 2.25x the tokens of attempt 1 under attempt 1's deadline, so
+  a budget that was too small surfaced as "the backend timed out". Each attempt
+  is now sized from its own live token count and backend.
+- **Truncation reported a backend that never ran.** The dead cloud-escalation
+  branch is removed from both handlers. A truncation now stays on the lane the
+  caller got, retries there with a larger budget, and reports honestly if it
+  still does not fit. No request ever changes lanes where the caller cannot
+  see it.
+- **`modify_file`'s truncation retry never executed.** Its loop condition
+  re-tested a value that attempt 1 had already assigned, so token-scaling
+  retries were dead code and a truncated modify got exactly one attempt. The
+  guard was doing double duty — it also skips the loop when the native
+  `/infill` path already answered — so the loop is now nested inside that
+  check instead of conditioned on it.
+- **`modify_file` attributed results to the wrong lane.** Five of its six
+  reporting and metric sites named the backend chosen *before* the retry loop
+  rather than the one that served the request.
+- **Eight hardcoded `nvidia_glm` references** are gone from the two handlers.
+  An operator who had configured only, say, Groq was previously pointed at a
+  lane they never set up. The remaining error-path fallback derives its target
+  from the operator's own configured, usable, non-local backends, and declines
+  to escalate when there are none.
+
+### Changed
+
+- **A backend you name explicitly no longer cascades.** It gets one attempt,
+  then an error distinguishing "your lane was tried and failed" from "your
+  lane could not be attempted at all", each with a concrete next step. A
+  backend the router *resolved* — from `auto`, a routing rule, or the
+  content-length hint — cascades exactly as before. The API keys are yours,
+  and silently rerouting a request you pinned to one lane can spend your
+  credit on lanes you never asked for. Pass `backend: "auto"` for the old
+  behaviour.
+- **A computed timeout is now capped by the lane's declared `config.timeout`.**
+  On the shipped configuration a scaled `modify_file` retry computed 367500ms
+  for a lane declared at 30000ms. The declared value outranks the handler's
+  floor, following the project's declared-beats-reported-beats-default rule,
+  so a lane declared below a handler's floor now fails fast rather than
+  running for minutes. A lane that declares nothing is unchanged. This
+  tightens what `config.timeout` means: it was the per-request default that
+  `options.timeout` overrode, and it is now also the maximum a handler will
+  ask for.
+
+### Notes
+
+- 17 tools, unchanged. Nothing here adds, removes, or renames a tool.
+- Test suite: 514 passing / 4 skipped, up from 478. Thirty-six net new tests,
+  no assertion weakened or skipped to get there.
+
 ## [2.14.0] - 2026-08-18
 
 The model-agnosticism release. One defect at nine altitudes: behaviour derived

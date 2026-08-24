@@ -1,4 +1,4 @@
-# Smart AI Bridge v2.14.0
+# Smart AI Bridge v2.15.0
 
 <a href="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Platano78/Smart-AI-Bridge/badge" />
@@ -241,7 +241,11 @@ The router selects backends using a 4-tier priority system:
 3. **Rules** -- complexity and task-type heuristics
 4. **Fallback** -- health-based fallback through the priority chain
 
-When a backend fails, requests automatically fall to the next healthy backend. Circuit breakers protect each backend (5 consecutive failures trigger a 30-second cooldown).
+When a **resolved** backend fails -- one the router picked, because you passed `backend: "auto"` or let a routing rule choose -- the request automatically falls to the next healthy backend in the chain.
+
+A backend **you named explicitly** does not cascade. It gets one attempt, and if that fails you get an error saying so, distinguishing "your lane was tried and failed" from "your lane could not be attempted at all". This is deliberate: the API keys are yours, and silently rerouting a request you pinned to one lane can spend your credit on lanes you never asked for. Pass `backend: "auto"` when you want the chain.
+
+Circuit breakers protect each backend (5 consecutive failures trigger a 30-second cooldown).
 
 ### Backend Names
 
