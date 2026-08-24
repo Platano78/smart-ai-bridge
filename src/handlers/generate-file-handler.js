@@ -161,10 +161,11 @@ export class GenerateFileHandler extends BaseHandler {
       while (attempts < RETRY_CONFIG.maxLocalRetries + 1) {
         attempts++;
 
+        const attemptTimeoutMs = this.calculateDynamicTimeout(usedBackend, currentTokens);
         response = await this.makeRequest(prompt, usedBackend, {
           maxTokens: currentTokens,
           routerModel: modelProfile,
-          timeout: timeoutMs,
+          timeout: attemptTimeoutMs,
           disableThinking: true
         });
 

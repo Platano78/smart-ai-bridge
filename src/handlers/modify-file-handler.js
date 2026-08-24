@@ -191,8 +191,6 @@ export class ModifyFileHandler extends BaseHandler {
 
       // 10. Make request to LLM with retry logic for failures
       // Now checks BOTH finish_reason AND response structure inside the loop
-      const estimatedSpeed = this.estimateBackendSpeed(selectedBackend);
-      const timeoutMs = Math.max(60000, Math.ceil((allocatedTokens / estimatedSpeed) * 1000) + 30000);
 
       // Native /infill talks to the server directly rather than through the
       // chat-completions prompt path, so it runs here — after the capacity gate,
@@ -226,10 +224,11 @@ export class ModifyFileHandler extends BaseHandler {
         attempts++;
 
         try {
+          const attemptTimeoutMs = Math.max(60000, Math.ceil((currentTokens / this.estimateBackendSpeed(usedBackend)) * 1000) + 30000);
           response = await this.makeRequest(prompt, usedBackend, {
             maxTokens: currentTokens,
             routerModel: modelProfile,
-            timeout: timeoutMs,
+            timeout: attemptTimeoutMs,
             disableThinking: true
           });
 
