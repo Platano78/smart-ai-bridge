@@ -202,20 +202,17 @@ export class GenerateFileHandler extends BaseHandler {
             continue;
           }
 
-          // Cloud fallback - try cloud if local exhausted OR if already on cloud but still truncated
-          if (RETRY_CONFIG.cloudFallbackEnabled) {
-            if (usedBackend !== 'nvidia_glm') {
-              console.error(`[GenerateFile] 🌐 Falling back to cloud (nvidia_glm)`);
-              usedBackend = 'nvidia_glm';
-              currentTokens = Math.min(currentTokens * 2, 16000);
-              continue;
-            } else if (attempts <= RETRY_CONFIG.maxLocalRetries) {
-              // Already on cloud, scale up tokens and retry
-              currentTokens = Math.min(Math.floor(currentTokens * RETRY_CONFIG.tokenScaleFactor), 16000);
-              console.error(`[GenerateFile] 🔄 Cloud retry with ${currentTokens} tokens`);
-              continue;
-            }
+          // Same lane, bigger budget. Deliberately never switches lanes: an
+          // escalation the caller cannot see would spend on a backend they
+          // never chose.
+          if (attempts <= RETRY_CONFIG.maxLocalRetries) {
+            currentTokens = Math.min(Math.floor(currentTokens * RETRY_CONFIG.tokenScaleFactor), 16000);
+            console.error(`[GenerateFile] 🔄 Scaling tokens to ${currentTokens} for same-lane retry`);
+            continue;
           }
+
+          // Retries exhausted: fall through to the break below and report the
+          // truncation honestly, on the backend that actually ran.
         }
 
         break; // Success or exhausted retries

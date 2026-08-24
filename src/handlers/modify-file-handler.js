@@ -220,76 +220,83 @@ export class ModifyFileHandler extends BaseHandler {
       let lastError = null;
       let wasTruncated = false;
 
-      while (!response && attempts < RETRY_CONFIG.maxLocalRetries + 1) {
-        attempts++;
+      // The native /infill path above may already have produced a response;
+      // in that case the chat-completions retry loop must not run at all.
+      if (!response) {
+        while (attempts < RETRY_CONFIG.maxLocalRetries + 1) {
+          attempts++;
 
-        try {
-          const attemptTimeoutMs = Math.max(60000, Math.ceil((currentTokens / this.estimateBackendSpeed(usedBackend)) * 1000) + 30000);
-          response = await this.makeRequest(prompt, usedBackend, {
-            maxTokens: currentTokens,
-            routerModel: modelProfile,
-            timeout: attemptTimeoutMs,
-            disableThinking: true
-          });
+          try {
+            const attemptTimeoutMs = Math.max(60000, Math.ceil((currentTokens / this.estimateBackendSpeed(usedBackend)) * 1000) + 30000);
+            response = await this.makeRequest(prompt, usedBackend, {
+              maxTokens: currentTokens,
+              routerModel: modelProfile,
+              timeout: attemptTimeoutMs,
+              disableThinking: true
+            });
 
-          const responseText = this.extractResponseText(response);
+            const responseText = this.extractResponseText(response);
 
-          // Check for truncation via BOTH finish_reason AND response structure
-          const finishReason = response.metadata?.finishReason || response.finish_reason;
-          const finishReasonTruncated = finishReason === 'length';
-          const structureTruncated = this.detectModificationTruncation(responseText);
-          wasTruncated = finishReasonTruncated || structureTruncated;
+            // Check for truncation via BOTH finish_reason AND response structure
+            const finishReason = response.metadata?.finishReason || response.finish_reason;
+            const finishReasonTruncated = finishReason === 'length';
+            const structureTruncated = this.detectModificationTruncation(responseText);
+            wasTruncated = finishReasonTruncated || structureTruncated;
 
-          if (wasTruncated) {
-            const truncationSource = finishReasonTruncated ? 'finish_reason: length' : 'response structure incomplete';
-            console.error(`[ModifyFile] ⚠️ Output truncated (${truncationSource}), attempt ${attempts}/${RETRY_CONFIG.maxLocalRetries + 1}`);
+            if (wasTruncated) {
+              const truncationSource = finishReasonTruncated ? 'finish_reason: length' : 'response structure incomplete';
+              console.error(`[ModifyFile] ⚠️ Output truncated (${truncationSource}), attempt ${attempts}/${RETRY_CONFIG.maxLocalRetries + 1}`);
 
-            // Try dual-mode iteration if available (local coding + reasoning)
-            if (usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
-              const dualResult = await this.tryDualModeModification(prompt, originalContent, currentTokens);
-              if (dualResult.success) {
-                response = dualResult.response;
-                // Re-check structure after dual mode
-                const dualText = this.extractResponseText(response);
-                wasTruncated = this.detectModificationTruncation(dualText);
-                if (!wasTruncated) {
-                  console.error(`[ModifyFile] ✅ Dual-mode iteration succeeded`);
-                  break;
+              // Try dual-mode iteration if available (local coding + reasoning)
+              if (usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
+                const dualResult = await this.tryDualModeModification(prompt, originalContent, currentTokens);
+                if (dualResult.success) {
+                  response = dualResult.response;
+                  // Re-check structure after dual mode
+                  const dualText = this.extractResponseText(response);
+                  wasTruncated = this.detectModificationTruncation(dualText);
+                  if (!wasTruncated) {
+                    console.error(`[ModifyFile] ✅ Dual-mode iteration succeeded`);
+                    break;
+                  }
                 }
-              }
 
-              // Scale up tokens for next attempt
-              currentTokens = Math.min(Math.floor(currentTokens * RETRY_CONFIG.tokenScaleFactor), 8000);
-              console.error(`[ModifyFile] 🔄 Scaling tokens to ${currentTokens} for retry`);
-              continue;
-            }
-
-            // Cloud fallback - try cloud if local exhausted OR if already on cloud but still truncated
-            if (RETRY_CONFIG.cloudFallbackEnabled) {
-              if (usedBackend !== 'nvidia_glm') {
-                console.error(`[ModifyFile] 🌐 Falling back to cloud (nvidia_glm)`);
-                usedBackend = 'nvidia_glm';
-                currentTokens = Math.min(currentTokens * 2, 8000);
-                continue;
-              } else if (attempts <= RETRY_CONFIG.maxLocalRetries) {
-                // Already on cloud, scale up tokens and retry
+                // Scale up tokens for next attempt
                 currentTokens = Math.min(Math.floor(currentTokens * RETRY_CONFIG.tokenScaleFactor), 8000);
-                console.error(`[ModifyFile] 🔄 Cloud retry with ${currentTokens} tokens`);
+                console.error(`[ModifyFile] 🔄 Scaling tokens to ${currentTokens} for retry`);
+                continue;
+              }
+
+              // Same lane, bigger budget. Deliberately never switches lanes: an
+              // escalation the caller cannot see would spend on a backend they
+              // never chose.
+              if (attempts <= RETRY_CONFIG.maxLocalRetries) {
+                currentTokens = Math.min(Math.floor(currentTokens * RETRY_CONFIG.tokenScaleFactor), 8000);
+                console.error(`[ModifyFile] 🔄 Scaling tokens to ${currentTokens} for same-lane retry`);
+                continue;
+              }
+
+              // Retries exhausted: fall through to the break below and report
+              // the truncation honestly, on the backend that actually ran.
+            }
+
+            break; // Success
+          } catch (error) {
+            lastError = error;
+            console.error(`[ModifyFile] ⚠️ Attempt ${attempts} failed: ${error.message}`);
+
+            // Cloud fallback on error. The target is whatever non-local lane the
+            // operator actually configured (same selection as
+            // BackendRegistry#selectBackend), never a hardcoded backend name. If
+            // no such lane is configured, don't escalate — let the error surface.
+            if (RETRY_CONFIG.cloudFallbackEnabled && usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
+              const errorFallback = this.selectNonLocalFallback(usedBackend);
+              if (errorFallback) {
+                console.error(`[ModifyFile] 🌐 Error fallback to ${errorFallback}`);
+                usedBackend = errorFallback;
                 continue;
               }
             }
-          }
-
-          break; // Success
-        } catch (error) {
-          lastError = error;
-          console.error(`[ModifyFile] ⚠️ Attempt ${attempts} failed: ${error.message}`);
-
-          // Cloud fallback on error
-          if (RETRY_CONFIG.cloudFallbackEnabled && usedBackend === 'local' && attempts <= RETRY_CONFIG.maxLocalRetries) {
-            console.error(`[ModifyFile] 🌐 Error fallback to cloud (nvidia_glm)`);
-            usedBackend = 'nvidia_glm';
-            continue;
           }
         }
       }
@@ -504,6 +511,26 @@ export class ModifyFileHandler extends BaseHandler {
 
       throw error;
     }
+  }
+
+  /**
+   * Pick the lane to escalate to when a request throws on the local backend.
+   * Mirrors BackendRegistry#selectBackend's candidate selection: the
+   * configured fallback chain narrowed to backends that are usable right now,
+   * then the first candidate that isn't a local lane. The repo ships no model
+   * ids and no backend names, so this is derived from the operator's own
+   * configuration — never a literal.
+   * @param {string} currentBackend - Backend that just failed (skipped)
+   * @returns {string|null} Backend name to escalate to, or null to not escalate
+   */
+  selectNonLocalFallback(currentBackend) {
+    const usable = new Set(this.backendRegistry?.getUsableBackends?.() || []);
+    const chain = (this.backendRegistry?.getFallbackChain?.() || []).filter(b => usable.has(b));
+    const candidates = chain.length > 0 ? chain : [...usable];
+
+    return candidates.find(
+      b => b !== currentBackend && this.backendRegistry?.getBackend?.(b)?.type !== 'local'
+    ) || null;
   }
 
   /**

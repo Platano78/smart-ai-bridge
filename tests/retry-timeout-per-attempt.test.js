@@ -83,26 +83,22 @@ describe('modify_file: per-attempt timeout tracks live tokens/backend', () => {
   });
 
   it('recomputes the timeout on each retry instead of reusing attempt 1\'s value', async () => {
-    // NOTE (see report): modify-file-handler's truncation-retry branch never
-    // actually re-loops — its `while (!response && ...)` condition is already
-    // false once `response` is assigned on attempt 1, truncated or not (a
-    // separate, pre-existing bug, left untouched per the "staleness only"
-    // scope). The one path that genuinely re-enters the loop is the
-    // catch(error) cloud-fallback (response stays unset on a thrown error),
-    // so that's what this test drives: attempt 1 throws on 'local', attempt 2
-    // succeeds on 'nvidia_glm'. maxTokens is unchanged by that path, but
-    // usedBackend switches — exactly the other staleness trigger named in
-    // the bug report — which is enough to prove the timeout is recomputed
-    // per attempt rather than frozen from attempt 1.
+    // Drives the LOCAL truncation-retry path: every response comes back
+    // truncated, so the loop re-enters on the same backend with a bigger token
+    // budget each time (currentTokens x tokenScaleFactor). That is the other
+    // staleness trigger named in the bug report — the timeout must be derived
+    // from each attempt's own currentTokens, not frozen at attempt 1's.
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-retry-timeout-mod-'));
     const filePath = path.join(tmpDir, 'const.js');
     await fsp.writeFile(filePath, 'const x = 1;\nconsole.log(x);\n', 'utf8');
 
     const handler = stubContextLimit(new ModifyFileHandler({}));
     handler.calculateDynamicTokens = () => 3000;
-    // Give 'local' a distinct measured speed so switching to 'nvidia_glm'
-    // (which always falls through to the shared default) changes the
-    // timeout even though maxTokens itself doesn't change on this path.
+    // Dual-mode probes localhost:8087/8088 over the network; force "unavailable"
+    // so the retry path stays on the plain chat-completions call.
+    handler.checkDualModeAvailable = async () => false;
+    // Give 'local' a distinct measured speed so the timeout math is driven by
+    // a real per-backend rate rather than the shared default.
     handler.backendRegistry = {
       selectBackend: (requested) => ({ backend: requested || 'local' }),
       getAdapter: (name) => (name === 'local' ? { getTokensPerSecond: () => 40 } : null),
@@ -113,12 +109,9 @@ describe('modify_file: per-attempt timeout tracks live tokens/backend', () => {
     const recorded = [];
     handler.makeRequest = async (prompt, backend, options) => {
       recorded.push({ backend, maxTokens: options.maxTokens, timeout: options.timeout });
-      if (recorded.length === 1) {
-        throw new Error('simulated attempt 1 failure');
-      }
       return {
-        content: '<<<<<<< SEARCH\nconst x = 1;\n=======\nconst x = 2;\n>>>>>>> REPLACE\nSUMMARY: changed x to 2',
-        metadata: { finishReason: 'stop' }
+        content: '<<<<<<< SEARCH\nconst x = 1;\n=======\nconst x = 2;\n>>>>>>> REPLACE\nSUMMARY: changed x to',
+        metadata: { finishReason: 'length' }
       };
     };
 
@@ -129,20 +122,19 @@ describe('modify_file: per-attempt timeout tracks live tokens/backend', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(recorded.length).toBe(2);
+    expect(recorded.length).toBe(3);
 
     const expectedTimeout = (backend, maxTokens) =>
       Math.max(60000, Math.ceil((maxTokens / handler.estimateBackendSpeed(backend)) * 1000) + 30000);
 
-    // Attempt 1: backend='local' (measured speed 40 tok/s, stubbed above)
-    expect(recorded[0].backend).toBe('local');
-    expect(recorded[0].maxTokens).toBe(3000);
-    expect(recorded[0].timeout).toBe(expectedTimeout('local', 3000));
+    // Every attempt stays on the caller's lane; only the token budget grows.
+    expect(recorded.map(r => r.backend)).toEqual(['local', 'local', 'local']);
+    expect(recorded.map(r => r.maxTokens)).toEqual([3000, 4500, 6750]);
 
-    // Attempt 2: backend switched to 'nvidia_glm' (default 20 tok/s) after the error fallback
-    expect(recorded[1].backend).toBe('nvidia_glm');
-    expect(recorded[1].maxTokens).toBe(3000);
-    expect(recorded[1].timeout).toBe(expectedTimeout('nvidia_glm', 3000));
+    // Each attempt's timeout is derived from THAT attempt's own tokens.
+    for (const attempt of recorded) {
+      expect(attempt.timeout).toBe(expectedTimeout(attempt.backend, attempt.maxTokens));
+    }
 
     // The core regression: the timeout must NOT be frozen at attempt 1's value.
     expect(recorded[1].timeout).not.toBe(recorded[0].timeout);
