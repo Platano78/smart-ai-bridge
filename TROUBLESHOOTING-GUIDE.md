@@ -437,6 +437,15 @@ If you experience cascading failures (one backend down causing slow responses as
    ```
    Reduce timeouts for backends that should be fast (groq: 30s is already set) and increase for backends that handle large contexts (local: 120s, openai: 120s).
 
+   **As of v2.15.0 this value is a ceiling, not just a default.** `generate_file` and
+   `modify_file` size each attempt's budget from its token count and the backend's measured
+   speed, then cap the result at the timeout you declared for that lane. The declared value
+   wins even over a handler's own minimum, so a lane declared below what a large request
+   actually needs will fail fast rather than run past your declared patience. If big
+   generations or modifications on one backend started failing quickly after upgrading,
+   that lane's declared `timeout` is the first thing to raise. A lane that declares no
+   `timeout` is unaffected.
+
 3. **Local LLM performance** -- If the local backend is slow, check GPU utilization. Large models on insufficient VRAM will offload to CPU and become very slow.
    ```bash
    nvidia-smi   # Check GPU memory usage and utilization
