@@ -128,7 +128,7 @@ const CORE_TOOL_DEFINITIONS = [
         model: {
           type: 'string',
           enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'glm', 'nvidia_deepseek', 'nvidia_glm', 'openai'],
-          description: 'AI backend to query: auto (smart routing selects optimal backend), local (autodiscover vLLM/llama.cpp/LM Studio), gemini (Gemini Enhanced, 32K tokens), nvidia_deepseek (NVIDIA DeepSeek with streaming + reasoning, 8K tokens), nvidia_glm (NVIDIA GLM-5.2 code specialist, 32K tokens), openai (OpenAI GPT-5.2, 128K context, premium reasoning), groq (Llama 3.3 70B, ultra-fast 500+ t/s). The friendly aliases `deepseek` and `glm` are also accepted (mapped to nvidia_deepseek / nvidia_glm), matching the other tools.'
+          description: 'AI backend to query: auto (smart routing selects a lane by task complexity + current health), local (your own router — vLLM/llama.cpp/LM Studio — autodiscovered), gemini (Google Gemini lane), nvidia_deepseek (NVIDIA-hosted DeepSeek lane — reasoning-oriented, supports streaming and the `thinking` option), nvidia_glm (NVIDIA-hosted GLM lane — code-oriented), openai (OpenAI lane), groq (Groq lane — low-latency hosted inference). No model id or context size is fixed here: each lane runs whatever `config.model` declares in backends.json, or a model selected from the provider\'s own catalog when nothing is declared. The friendly aliases `deepseek`, `glm` and `openai` are also accepted (mapped to nvidia_deepseek / nvidia_glm / openai_chatgpt), matching the other tools.'
         },
         prompt: {
           type: 'string',
