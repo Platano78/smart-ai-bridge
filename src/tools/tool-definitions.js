@@ -150,7 +150,7 @@ const CORE_TOOL_DEFINITIONS = [
         },
         force_backend: {
           type: 'string',
-          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai", "groq"'
+          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai_chatgpt", "groq"'
         },
         model_profile: {
           type: 'string',
@@ -194,7 +194,7 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         backend: {
           type: 'string',
-          description: 'Backend name to check (local, gemini, nvidia_deepseek, nvidia_glm, openai, groq)'
+          description: 'Backend name to check (local, gemini, nvidia_deepseek, nvidia_glm, openai_chatgpt, groq)'
         },
         force: {
           type: 'boolean',
