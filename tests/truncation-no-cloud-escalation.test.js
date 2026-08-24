@@ -43,7 +43,11 @@ function makeRegistry(backendTypes, selected = 'local') {
   const names = Object.keys(backendTypes);
   return {
     registerRoutingOverride: () => {},
-    selectBackend: (requested) => ({ backend: requested || selected }),
+    // 'auto' is a routing token, not a lane: it resolves, so it is never
+    // caller-named and the error-path escalation stays enabled.
+    selectBackend: (requested) => ({
+      backend: !requested || requested === 'auto' ? selected : requested
+    }),
     getUsableBackends: () => names,
     getFallbackChain: () => names,
     getBackend: (name) => (backendTypes[name] ? { name, type: backendTypes[name] } : null),
@@ -276,5 +280,98 @@ describe('modify_file: the error-path fallback target comes from configuration',
 
     // Local retries still happen (they are free); nothing else is contacted.
     expect([...new Set(calls)]).toEqual(['local']);
+  });
+});
+
+describe('modify_file: an escalated run reports the lane that actually served it', () => {
+  let tmpDir;
+  afterEach(async () => {
+    if (tmpDir) await fsp.rm(tmpDir, { recursive: true, force: true });
+    tmpDir = null;
+  });
+
+  const APPLIED_BLOCK =
+    '<<<<<<< SEARCH\nconst x = 1;\n=======\nconst x = 2;\n>>>>>>> REPLACE\nSUMMARY: ok';
+
+  /**
+   * Attempt 1 fails on the resolved local lane, forcing the error-path
+   * escalation; attempt 2 succeeds on whatever lane configuration escalated to.
+   * Records both the calls made and every recordExecution the handler emits,
+   * since analytics is attributed from the same value as `backend_used`.
+   */
+  async function escalatingHandler() {
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'sab-escalate-attr-'));
+    const filePath = path.join(tmpDir, 'const.js');
+    await fsp.writeFile(filePath, 'const x = 1;\nconsole.log(x);\n', 'utf8');
+
+    const registry = makeRegistry({ local: 'local', operator_cloud_lane: 'openai_compatible' });
+    const handler = stubOffline(new ModifyFileHandler({ backendRegistry: registry }));
+
+    const calls = [];
+    handler.makeRequest = async (prompt, backend) => {
+      calls.push(backend);
+      if (calls.length === 1) throw new Error('simulated local failure');
+      return { content: APPLIED_BLOCK, metadata: { finishReason: 'stop' } };
+    };
+
+    const recorded = [];
+    handler.recordExecution = (result) => { recorded.push(result); };
+
+    return { handler, filePath, calls, recorded };
+  }
+
+  it('dry run reports the escalated lane, not the one that failed', async () => {
+    const { handler, filePath, calls, recorded } = await escalatingHandler();
+
+    const result = await handler.execute({
+      filePath,
+      instructions: 'change x to 2',
+      options: { backend: 'auto', dryRun: true }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('dry_run');
+    expect(calls).toEqual(['local', 'operator_cloud_lane']);
+
+    // The lane that actually produced the modification — not the pre-escalation one.
+    expect(result.backend_used).toBe('operator_cloud_lane');
+    expect(calls.at(-1)).toBe(result.backend_used);
+
+    // Analytics must not be credited to a lane that only failed.
+    expect(recorded.map(r => r.backend)).toEqual(['operator_cloud_lane']);
+  });
+
+  it('write path reports the escalated lane, not the one that failed', async () => {
+    const { handler, filePath, calls, recorded } = await escalatingHandler();
+
+    const result = await handler.execute({
+      filePath,
+      instructions: 'change x to 2',
+      options: { backend: 'auto', review: false, backup: false }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('written');
+    expect(await fsp.readFile(filePath, 'utf8')).toContain('const x = 2;');
+    expect(calls).toEqual(['local', 'operator_cloud_lane']);
+
+    expect(result.backend_used).toBe('operator_cloud_lane');
+    expect(recorded.map(r => r.backend)).toEqual(['operator_cloud_lane']);
+  });
+
+  it('review path (the site that was already correct) stays correct', async () => {
+    const { handler, filePath, calls, recorded } = await escalatingHandler();
+
+    const result = await handler.execute({
+      filePath,
+      instructions: 'change x to 2',
+      options: { backend: 'auto' }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('pending_review');
+    expect(calls).toEqual(['local', 'operator_cloud_lane']);
+    expect(result.backend_used).toBe('operator_cloud_lane');
+    expect(recorded.map(r => r.backend)).toEqual(['operator_cloud_lane']);
   });
 });

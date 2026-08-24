@@ -401,7 +401,7 @@ export class ModifyFileHandler extends BaseHandler {
         this.recordExecution(
           {
             success: true,
-            backend: selectedBackend,
+            backend: usedBackend,
             processingTime,
             mode: 'dry_run'
           },
@@ -419,7 +419,7 @@ export class ModifyFileHandler extends BaseHandler {
           summary,
           stats,
           warnings,
-          backend_used: selectedBackend,
+          backend_used: usedBackend,
           processing_time: processingTime,
           instructions: 'This is a dry run. No changes were made.'
         });
@@ -430,7 +430,7 @@ export class ModifyFileHandler extends BaseHandler {
         this.recordExecution(
           {
             success: true,
-            backend: selectedBackend,
+            backend: usedBackend,
             processingTime,
             mode: 'review'
           },
@@ -482,7 +482,7 @@ export class ModifyFileHandler extends BaseHandler {
       this.recordExecution(
         {
           success: true,
-          backend: selectedBackend,
+          backend: usedBackend,
           processingTime,
           mode: 'write'
         },
@@ -501,7 +501,7 @@ export class ModifyFileHandler extends BaseHandler {
         stats,
         warnings,
         backupCreated: backup,
-        backend_used: selectedBackend,
+        backend_used: usedBackend,
         processing_time: processingTime
       }, originalContent.length);
 
