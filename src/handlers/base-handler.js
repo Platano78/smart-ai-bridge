@@ -400,6 +400,30 @@ class BaseHandler {
   }
 
   /**
+   * The timeout the OPERATOR declared for a backend, if they declared one.
+   *
+   * Handlers size a per-request budget from tokens and measured speed. That
+   * estimate answers "how long could this take", never "how long is this
+   * operator willing to wait" — the second question is already answered, per
+   * lane, by `config.timeout` in the backend configuration. Read here so a
+   * handler can cap its estimate with it rather than overrunning a declared
+   * patience by multiples.
+   *
+   * Deliberately returns null rather than a default when nothing is declared:
+   * an undeclared lane must keep whatever ceiling (or absence of one) its
+   * handler already had. Inventing a number here would be the same
+   * name-keyed guessing that estimateBackendSpeed's table was deleted for.
+   * @param {string} backendName - Backend identifier
+   * @returns {number|null} Declared timeout in ms, or null if none is declared
+   */
+  declaredTimeoutFor(backendName) {
+    const declared = this.backendRegistry?.getBackend?.(backendName)?.config?.timeout;
+    return typeof declared === 'number' && Number.isFinite(declared) && declared > 0
+      ? declared
+      : null;
+  }
+
+  /**
    * Check if dual-mode local backends are available
    * @returns {Promise<boolean>}
    */

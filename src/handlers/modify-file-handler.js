@@ -230,7 +230,16 @@ export class ModifyFileHandler extends BaseHandler {
           attempts++;
 
           try {
-            const attemptTimeoutMs = Math.max(60000, Math.ceil((currentTokens / this.estimateBackendSpeed(usedBackend)) * 1000) + 30000);
+            // Estimate this attempt's budget from its own live token count,
+            // then cap it at whatever timeout the operator declared for the
+            // lane. Without that cap the estimate is unbounded, so a lane
+            // declared at 30s could be handed minutes. A lane that declared
+            // nothing keeps the uncapped estimate it has always had.
+            const estimatedTimeoutMs = Math.max(60000, Math.ceil((currentTokens / this.estimateBackendSpeed(usedBackend)) * 1000) + 30000);
+            const declaredTimeoutMs = this.declaredTimeoutFor(usedBackend);
+            const attemptTimeoutMs = declaredTimeoutMs === null
+              ? estimatedTimeoutMs
+              : Math.min(estimatedTimeoutMs, declaredTimeoutMs);
             response = await this.makeRequest(prompt, usedBackend, {
               maxTokens: currentTokens,
               routerModel: modelProfile,

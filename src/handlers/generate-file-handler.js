@@ -516,8 +516,13 @@ TESTS:
 
     // Ensure minimum 30s, maximum 5min
     const timeoutSeconds = Math.max(30, Math.min(estimatedSeconds, 300));
+    const timeoutMs = Math.floor(timeoutSeconds * 1000);
 
-    return Math.floor(timeoutSeconds * 1000);
+    // A lane the operator gave an explicit timeout does not get a longer
+    // budget than that, whatever the estimate says. The 300s cap above is
+    // only the fallback for a lane that declared nothing.
+    const declared = this.declaredTimeoutFor(backendName);
+    return declared === null ? timeoutMs : Math.min(timeoutMs, declared);
   }
 
   /**
