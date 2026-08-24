@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawnSync } from 'child_process';
-import { writeFileSync, unlinkSync, mkdtempSync, cpSync, symlinkSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, mkdtempSync, cpSync, symlinkSync, rmSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
@@ -35,6 +35,26 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   process.env = { ...ORIGINAL_ENV };
+});
+
+/**
+ * The shipped config must not advertise knobs that nothing reads. Both blocks
+ * below were inert: `fallbackPolicy` looked like it tuned the circuit breaker
+ * (really fixed in backend-adapter.js) and `routing` looked like it tuned
+ * backend selection (really derived from the prompt + declared capabilities).
+ */
+describe('backends.json ships no inert knobs', () => {
+  const shipped = ['src/config/backends.json', 'src/config/backends.example.json'];
+
+  it.each(shipped)('%s carries no fallbackPolicy block', file => {
+    const cfg = JSON.parse(readFileSync(path.join(repoRoot, file), 'utf8'));
+    expect(cfg.fallbackPolicy).toBeUndefined();
+  });
+
+  it.each(shipped)('%s carries no routing.complexityThresholds', file => {
+    const cfg = JSON.parse(readFileSync(path.join(repoRoot, file), 'utf8'));
+    expect(cfg.routing?.complexityThresholds).toBeUndefined();
+  });
 });
 
 describe('selectModel', () => {

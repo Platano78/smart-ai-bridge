@@ -284,7 +284,7 @@ Error: All backends failed
    Use the check_backend_health tool to see which backends are online.
    ```
 
-2. **Circuit breaker tripped** -- If a backend has failed 5 consecutive times (configurable in backends.json `fallbackPolicy.circuitBreakerThreshold`), it enters an open state for 30 seconds (`circuitBreakerResetMs`). Wait for the reset or fix the underlying backend issue.
+2. **Circuit breaker tripped** -- If a backend has failed 5 consecutive times, it enters an open state for 30 seconds. Both values are fixed in `src/backends/backend-adapter.js` and are not configurable. Wait for the reset or fix the underlying backend issue.
 
 3. **All cloud backends down** -- If your local LLM is not running and all API keys are missing/invalid, no backends will be available. Ensure at least one backend is properly configured.
 
@@ -398,22 +398,16 @@ Error: Invalid backend configuration
 
 3. **Adding a custom backend** -- Add a new entry to `backends.backends` in backends.json, create a corresponding adapter class extending BackendAdapter (`src/backends/backend-adapter.js`), and register it in the BackendRegistry.
 
-### Fallback Policy Tuning
+### Fallback Behavior
 
-The `fallbackPolicy` section in backends.json controls retry and circuit breaker behavior:
+Fallback and circuit-breaker behavior is not configurable from backends.json. A **resolved**
+backend (you passed `auto`, or a routing rule chose the lane) cascades to the next healthy
+backend in priority order on failure; a backend **you named explicitly** gets exactly one
+attempt and then errors. The circuit breaker's threshold (5 consecutive failures) and reset
+window (30s) are fixed in `src/backends/backend-adapter.js`.
 
-```json
-{
-  "fallbackPolicy": {
-    "maxRetries": 3,                  // Retries per backend before moving to next
-    "retryDelayMs": 1000,             // Delay between retries
-    "circuitBreakerThreshold": 5,     // Failures before circuit opens
-    "circuitBreakerResetMs": 30000    // Time before circuit half-opens
-  }
-}
-```
-
-If you experience cascading failures (one backend down causing slow responses as all retries exhaust), reduce `maxRetries` or `retryDelayMs`. If backends are flapping (briefly failing then recovering), increase `circuitBreakerThreshold`.
+If backends are flapping, the lever available to you is per-backend: raise `config.timeout`,
+or set `enabled: false` on the unstable lane so it is never routed to.
 
 ---
 
@@ -478,19 +472,10 @@ If you experience cascading failures (one backend down causing slow responses as
 1. **Understand the 4-tier routing:**
    - **Forced** -- If the request specifies `backend: "name"`, that backend is used directly
    - **Learning** -- The learning engine suggests a backend based on past success patterns
-   - **Rules** -- Complexity thresholds and capability matching determine the backend
-   - **Fallback** -- The default backend (local) is used as last resort
+   - **Rules** -- Derived complexity and declared capability matching determine the backend
+   - **Fallback** -- The first healthy backend in priority order is used as last resort
 
-2. **Check complexity thresholds** in backends.json:
-   ```json
-   "routing": {
-     "complexityThresholds": {
-       "simple": 0.3,
-       "medium": 0.6,
-       "complex": 0.8
-     }
-   }
-   ```
+2. **Check declared capabilities** -- Tier-3 selects on the `capabilities` a lane declares in backends.json (`deep_reasoning`, `code_specialized`, and so on), never on a backend's name. A lane declaring nothing falls through to Tier 4. Complexity itself is derived from the prompt, not configured.
 
 3. **Force a specific backend** -- For testing, pass `backend: "groq"` (or any backend name) in the tool arguments to bypass routing.
 

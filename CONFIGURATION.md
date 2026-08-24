@@ -101,20 +101,6 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       }
     }
   },
-  "fallbackPolicy": {
-    "maxRetries": 3,
-    "retryDelayMs": 1000,
-    "circuitBreakerThreshold": 5,
-    "circuitBreakerResetMs": 30000
-  },
-  "routing": {
-    "defaultBackend": "local",
-    "complexityThresholds": {
-      "simple": 0.3,
-      "medium": 0.6,
-      "complex": 0.8
-    }
-  },
   "compression": {
     "enabled": false
   }
@@ -242,52 +228,16 @@ Backend configurations can reference environment variables using the `$` prefix:
 
 The `BackendRegistry` resolves `$NVIDIA_API_KEY` to the value of `process.env.NVIDIA_API_KEY` at startup.
 
-## Fallback Policy
+## Circuit Breaker
 
-The `fallbackPolicy` block in `backends.json` records the intended retry and
-circuit-breaker policy:
-
-```json
-{
-  "fallbackPolicy": {
-    "maxRetries": 3,
-    "retryDelayMs": 1000,
-    "circuitBreakerThreshold": 5,
-    "circuitBreakerResetMs": 30000
-  }
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `maxRetries` | Number of retry attempts per backend before moving to next |
-| `retryDelayMs` | Delay between retries (milliseconds) |
-| `circuitBreakerThreshold` | Consecutive failures before circuit opens |
-| `circuitBreakerResetMs` | Time before circuit breaker resets (milliseconds) |
-
-**Nothing in `src/` currently reads this block.** The circuit breaker is real, but its
-threshold (5 consecutive failures) and reset window (30s) are fixed in
-`src/backends/backend-adapter.js`; editing `fallbackPolicy` will not change them.
+The circuit breaker is not configurable. Its threshold (5 consecutive failures) and reset
+window (30s) are fixed in `src/backends/backend-adapter.js`.
 
 ## Routing Configuration
 
-```json
-{
-  "routing": {
-    "defaultBackend": "local",
-    "complexityThresholds": {
-      "simple": 0.3,
-      "medium": 0.6,
-      "complex": 0.8
-    }
-  }
-}
-```
-
-**Nothing in `src/` currently reads this block either.** `MultiAIRouter` derives a
-request's complexity in `_extractContext` from prompt length and `max_tokens`, not from
-`complexityThresholds`, and its Tier-4 default is the first healthy backend in the
-registry's priority order, not `defaultBackend`.
+Routing is not configured in `backends.json` — it is derived. `MultiAIRouter` scores a
+request's complexity in `_extractContext` from prompt length and `max_tokens`, and its
+Tier-4 default is the first healthy backend in the registry's priority order.
 
 Tier-3 rule-based routing selects on declared **capability**, never on a backend name: a
 complex task prefers the first healthy, usable lane declaring `deep_reasoning`, and a code
