@@ -409,20 +409,39 @@ export const ROLE_TEMPLATES = {
   // ... existing roles ...
 
   'my-custom-role': {
-    name: 'My Custom Role',
-    description: 'What this role does',
-    systemPrompt: `You are a specialized AI agent focused on [specialty].
+    description: 'My Custom Role',
+    category: 'review',
+    system_prompt: `You are a specialized AI agent focused on [specialty].
 Your task is to [detailed instructions].
 Return your analysis as structured JSON with the following fields:
 - findings: array of specific findings
 - severity: overall severity (low/medium/high/critical)
 - recommendations: array of actionable recommendations`,
-    outputFormat: 'structured',
-    defaultBackend: 'nvidia_deepseek',
-    verdictFields: ['findings', 'severity', 'recommendations']
+    suggested_tools: ['analyze_file', 'review', 'ask'],
+    output_format: `## Findings
+
+### Summary
+[one paragraph]`,
+    requiresVerdict: true,
+    required_capabilities: ['deep_reasoning']
   }
 };
 ```
+
+Note the field names: they are `snake_case` (`system_prompt`, `output_format`,
+`suggested_tools`, `required_capabilities`) with two `camelCase` exceptions
+(`requiresVerdict`, `enableThinking`). A key that is not one of these is
+ignored silently, so a role written with invented names will load and do
+nothing.
+
+**Declare capabilities, never a backend name.** There is no `defaultBackend`
+field. A role says what it *needs* via `required_capabilities`, and selection
+resolves that against whatever the operator actually has configured and
+usable at that moment (`resolveFallbackOrder` in `src/config/role-templates.js`).
+That is why a role written on one machine works on another with a completely
+different set of backends. `preferred_backend` exists as an explicit override
+but is rarely the right choice — it reintroduces the name dependency the
+capability system exists to remove.
 
 ### Step 2: Update Tool Schema
 
