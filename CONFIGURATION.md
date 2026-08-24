@@ -94,7 +94,7 @@ All backend configuration lives in `src/config/backends.json`. This file is load
       "type": "groq",
       "enabled": true,
       "priority": 6,
-      "description": "Groq lane (low-latency hosted inference)",
+      "description": "Groq lane (low-latency hosted inference); no model id needed \u2014 one is selected from the provider catalog",
       "config": {
         "maxTokens": 32768,
         "timeout": 30000

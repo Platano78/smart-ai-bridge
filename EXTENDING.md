@@ -171,7 +171,6 @@ const ADAPTER_CLASSES = {
   'local': LocalAdapter,
   'nvidia_deepseek': NvidiaDeepSeekAdapter,
   'nvidia_glm': NvidiaGlmAdapter,
-  'nvidia_qwen': NvidiaGlmAdapter,  // legacy type value, same lane -- keep for back-compat
   'gemini': GeminiAdapter,
   'openai': OpenAIAdapter,
   'groq': GroqAdapter,
@@ -423,16 +422,26 @@ Return your analysis as structured JSON with the following fields:
 ### Summary
 [one paragraph]`,
     requiresVerdict: true,
-    required_capabilities: ['deep_reasoning']
+    maxTokens: 32768,
+    required_capabilities: ['deep_reasoning'],
+    context_sensitivity: 'medium'
   }
 };
 ```
 
 Note the field names: they are `snake_case` (`system_prompt`, `output_format`,
-`suggested_tools`, `required_capabilities`) with two `camelCase` exceptions
-(`requiresVerdict`, `enableThinking`). A key that is not one of these is
-ignored silently, so a role written with invented names will load and do
-nothing.
+`suggested_tools`, `required_capabilities`, `context_sensitivity`) with four
+`camelCase` exceptions — `requiresVerdict`, `enableThinking`, `maxTokens` and
+`isMetaRole`. Nothing validates a role template against a schema, so a key
+that is not one of these is simply never read: the role loads and quietly
+behaves as if you had not set it.
+
+`maxTokens` is the one where that bites hardest. It is set on 10 of the 11
+shipped roles, ranging from 2048 to 65536, and is consumed at
+`src/handlers/subagent-handler.js:115` as `template.maxTokens || 8192`. Write
+it as `max_tokens` and your role does not error — it silently runs on the
+8192 default, which for a role that meant 65536 is an eightfold cut you will
+only notice as truncated output.
 
 **Declare capabilities, never a backend name.** There is no `defaultBackend`
 field. A role says what it *needs* via `required_capabilities`, and selection
