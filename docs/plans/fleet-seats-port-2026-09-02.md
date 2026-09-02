@@ -37,3 +37,25 @@ files changed · gate outputs verbatim · epistemic ledger (observed / inferred 
 
 ## F11 (added 2026-09-02, verified by stdio probe)
 The summary health tool renders only `backends.json` built-ins; custom seats are absent from a fresh session's health table even though `check_backend_health {"backend":"mb_worker"}` returns online. Fix lives in S6.
+
+> **CORRECTION (2026-09-02, on completing S6 — `30b3f20`).** F11 is partly a
+> misattribution, and the real SAB defect is a different one.
+>
+> **The "fresh session health table" is not SAB output.** It is the operator's own
+> session-start shell hook (the `FLEET-STATE` block). No SAB tool rendered it, so
+> SAB was never omitting custom seats from it.
+>
+> **The genuine SAB bug underneath:** the multi-backend health sweep was
+> unreachable dead code. `HealthHandler.execute` returns early when `backend` is
+> truthy and runs the sweep only when `backend` is falsy — but the tool schema
+> marked `backend` as `required`, so AJV rejected every call that would have
+> reached it. `check_backend_health {}` returned `-32602`, not a table.
+>
+> The sweep already iterated `getAllBackends()`, which is
+> `Object.fromEntries(this.backends.entries())` and therefore *already* included
+> every registered seat, custom ones included. It needed no change to list them —
+> it simply could not be invoked. Fix was to drop `backend` from `required`,
+> leaving the named-path early return untouched.
+>
+> Verified after: `check_backend_health {}` lists `mb_worker`, `coder`,
+> `mb_senior`, `local_5080` alongside the built-ins.
