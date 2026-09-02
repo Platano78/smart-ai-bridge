@@ -632,6 +632,88 @@ let cachedModel = null;
 const LOCAL_DISCOVERY_PORTS = [8081, 8087, 8088, 8001, 8000, 1234, 5000];
 
 /**
+ * Per-seat cache for getSeatContextLimit, keyed by seat identity (backend
+ * name) rather than the single module-level slot cachedLocalLimit/cachedModel
+ * use above — those two globals are for the unnamed local/auto port scan and
+ * would otherwise smear every named local seat's capacity into one number.
+ * @type {Map<string, {result: {nCtxPerRequest: number, model: string}|null, time: number}>}
+ */
+const seatLimitCache = new Map();
+const SEAT_CACHE_TTL = 30000;
+
+/**
+ * Probe ONE named local seat's own declared URL for its published context
+ * window — never a port sweep. Mirrors LocalAdapter#checkHealth's GET-only
+ * `/v1/models` call exactly (same URL derivation, same header), so this can
+ * never wake a router or trigger a model load. Two sources, most precise
+ * first:
+ * 1. `status.args` `--ctx-size` / `--parallel` / `--kv-unified` — llama-swap
+ *    only, read the same way LocalAdapter#fetchModelInfo does. Preferred
+ *    because it also carries the real slot count.
+ * 2. `meta.n_ctx` — published by a bare llama-server too (no `status`
+ *    field at all). Slot count is unknown in that case, so — mirroring
+ *    local-adapter.js's own `--parallel` default when absent — assume 1
+ *    slot and use it as-is: `nCtxPerRequest = meta.n_ctx`.
+ * Neither present -> returns null (caller falls through to config/default —
+ * see base-handler.js's resolution order). Never throws: any failure (down
+ * seat, timeout, bad JSON, no ctx published) also resolves to null so the
+ * caller can fall through immediately.
+ * @param {string} seatKey - cache key identifying the seat (backend name)
+ * @param {string} url - the seat's declared chat/completions URL
+ * @param {number} [timeout=2000]
+ * @returns {Promise<{nCtxPerRequest: number, model: string}|null>}
+ */
+async function getSeatContextLimit(seatKey, url, timeout = 2000) {
+  const cached = seatLimitCache.get(seatKey);
+  if (cached && (Date.now() - cached.time) < SEAT_CACHE_TTL) {
+    return cached.result;
+  }
+
+  let result = null;
+  if (url) {
+    try {
+      const modelsUrl = url.replace('/chat/completions', '/models');
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(timeout)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const models = data?.data;
+        if (Array.isArray(models) && models.length > 0) {
+          const loaded = models.find(m => m.status?.value === 'loaded');
+          const model = loaded || models[0];
+          const args = model.status?.args || [];
+
+          const ctxIdx = args.indexOf('--ctx-size');
+          const nCtx = ctxIdx !== -1 && args[ctxIdx + 1] ? parseInt(args[ctxIdx + 1], 10) : 0;
+
+          if (nCtx > 0) {
+            const parallelIdx = args.indexOf('--parallel');
+            const slots = parallelIdx !== -1 && args[parallelIdx + 1] ? parseInt(args[parallelIdx + 1], 10) : 1;
+            const kvUnified = args.includes('--kv-unified') || args.includes('-kvu');
+            const nCtxPerRequest = kvUnified ? nCtx : Math.floor(nCtx / slots);
+            result = { nCtxPerRequest, model: model.id };
+          } else if (typeof model.meta?.n_ctx === 'number' && model.meta.n_ctx > 0) {
+            // Bare llama-server: no status.args, so no --parallel to divide
+            // by. Slot count is unknown - assume 1, same default
+            // local-adapter.js's own --parallel parsing falls back to.
+            result = { nCtxPerRequest: model.meta.n_ctx, model: model.id };
+          }
+        }
+      }
+    } catch {
+      // Down/slow/unreachable seat - result stays null, caller falls through.
+    }
+  }
+
+  seatLimitCache.set(seatKey, { result, time: Date.now() });
+  return result;
+}
+
+/**
  * Get actual local backend context limit from any available model
  * Uses existing autodiscovery to find models across all ports, then calculates safe input limit
  * @param {number[]} [ports=LOCAL_DISCOVERY_PORTS] - Ports to scan
@@ -1024,6 +1106,7 @@ export {
   getModelSummary,
   getRouterSlotCount,
   getLocalContextLimit,
+  getSeatContextLimit,
   getAllRouterModelSlots,
   CACHE_TTL
 };

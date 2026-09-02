@@ -165,6 +165,58 @@ Additional backends can be added at `data/backends-custom.json`. These extend or
 }
 ```
 
+**Priority ties favor the custom seat.** The built-in backends occupy priorities 1-6
+(`local`=1, `nvidia_deepseek`=2, `nvidia_glm`=3, `gemini`=4, `openai_chatgpt`=5,
+`groq_llama`=6). A custom backend that reuses one of those priorities does not silently
+lose to the built-in it collided with — at equal priority, the custom seat sorts first
+in the fallback chain. This only applies to a genuinely new name; overriding an existing
+built-in's own config keeps that backend's built-in identity, so its priority still ties
+in the built-in's favor against other custom entries. To avoid relying on tie-breaking,
+just pick an unused priority (7+) for new custom backends.
+
+**Keyless cloud lanes are skipped by the fallback cascade.** A cloud-type custom backend
+(`openai`, `gemini`, `groq`, etc.) with no resolvable API key — no `config.apiKey`, no
+matching secret in the store, no provider env var set — is excluded from automatic
+fallback. It stays registered and can still be reached by naming it explicitly (e.g.
+`backend: "my_custom_backend"`), but `auto` and the cascade will never try it, so it
+can't burn a failed attempt on every request ahead of a usable local seat like
+`<worker-host>:8081`.
+
+### Multi-Seat Local Fleets
+
+`type: "local"` is not a singleton. Several custom backends can all declare
+`"type": "local"`, each with its own `config.url` — every one gets its own adapter and
+its own independent endpoint, not a shared pool. This is the actual mechanism behind a
+"fleet" of local seats (a worker box, a senior/rescue box, a specialist bench, a
+last-resort lane — whatever roles your setup needs):
+
+```json
+{
+  "backends": {
+    "mb_worker": {
+      "type": "local",
+      "enabled": true,
+      "priority": 10,
+      "config": { "url": "http://<worker-host>:8081/v1/chat/completions" }
+    },
+    "mb_senior": {
+      "type": "local",
+      "enabled": true,
+      "priority": 11,
+      "config": { "url": "http://<worker-host>:8080/v1/chat/completions" }
+    }
+  }
+}
+```
+
+Each seat is then addressable by its own name — pin any tool's `backend`/`force_backend`
+option to `"mb_worker"` or `"mb_senior"` exactly as you would to a built-in. `type: "local"`
+needs no API key (`PROVIDER_ENDPOINTS.local.envVar` is `null`), so every enabled local
+seat is unconditionally usable and never excluded by the keyless-lane check above. Each
+seat's context capacity is derived from its own declared URL (probed independently), not
+from a shared localhost port scan — see "Local Model Configuration" above, which covers
+pinning a single seat's endpoint; the same mechanism just applies per-seat here.
+
 ## Environment Variables
 
 ### API Keys

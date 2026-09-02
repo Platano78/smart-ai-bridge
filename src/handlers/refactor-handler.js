@@ -110,7 +110,7 @@ export class RefactorHandler extends BaseHandler {
       });
 
       // 4. Select backend based on scope
-      let selectedBackend = this.selectBackend(backend, scope);
+      let selectedBackend = this.selectRefactorBackend(backend, scope);
 
       // INPUT size limit check (local llama.cpp server configured limit)
       // Get dynamic context limit from loaded model
@@ -574,21 +574,39 @@ IMPORTANT:
   }
 
   /**
-   * Select backend based on scope
+   * Select backend based on scope. Named selectRefactorBackend (not
+   * selectBackend) so it can't shadow BaseHandler#selectBackend, whose
+   * {backend, explicit} return shape this method's callers don't expect.
+   *
+   * Explicit names route through the registry (BaseHandler#selectBackend),
+   * which validates the name and reports registered backends on a miss —
+   * the same validation every other tool gets. For 'auto', the scope's
+   * preferred lane (REFACTOR_BACKEND_MAP) is kept as a hint — a
+   * project-wide refactor genuinely wants a bigger lane — but only used
+   * when it's actually usable; otherwise this falls through to the
+   * registry's own auto selection instead of a hardcoded cloud default.
+   * @param {string} requestedBackend
+   * @param {string} scope
+   * @returns {string}
    */
-  selectBackend(requestedBackend, scope) {
+  selectRefactorBackend(requestedBackend, scope) {
     if (requestedBackend && requestedBackend !== 'auto') {
-      const backendMap = {
-        local: 'local',
-        deepseek: 'nvidia_deepseek',
-        glm: 'nvidia_glm',
-        gemini: 'gemini',
-        groq: 'groq_llama'
-      };
-      return backendMap[requestedBackend] || requestedBackend;
+      return this.selectBackend(requestedBackend, { scope }).backend;
     }
 
-    return REFACTOR_BACKEND_MAP[scope] || 'nvidia_glm';
+    const preferred = REFACTOR_BACKEND_MAP[scope];
+    // No registry to consult (e.g. a handler built without one) -> nothing
+    // to gate against, so keep the scope hint as-is, same as
+    // BaseHandler#selectBackend's own no-registry short-circuit.
+    const usable = this.backendRegistry?.getUsableBackends
+      ? new Set(this.backendRegistry.getUsableBackends())
+      : null;
+    if (preferred && (!usable || usable.has(preferred))) {
+      return preferred;
+    }
+
+    const resolved = this.selectBackend('auto', { scope });
+    return resolved.backend || 'auto';
   }
 
   /**

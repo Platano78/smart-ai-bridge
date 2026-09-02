@@ -31,8 +31,6 @@ const STOP_WORDS = new Set([
   'when', 'while', 'if', 'because', 'as', 'until', 'although', 'unless', 'since', 'being', 'been', 'being'
 ]);
 
-const BACKEND_ALIASES = { deepseek: 'nvidia_deepseek', glm: 'nvidia_glm', groq: 'groq_llama' };
-
 export class ExploreHandler extends BaseHandler {
   constructor(context) {
     super(context);
@@ -91,7 +89,7 @@ export class ExploreHandler extends BaseHandler {
       }
 
       // 5. Summarize findings with LLM
-      const summary = await this.summarizeFindings(findings, question, depth, backend);
+      const { text: summary, backendUsed } = await this.summarizeFindings(findings, question, depth, backend);
 
       const processingTime = Date.now() - startTime;
 
@@ -112,7 +110,7 @@ export class ExploreHandler extends BaseHandler {
         evidence: findings.evidence.slice(0, 15), // Limit evidence in response
         processing_time_ms: processingTime,
         depth,
-        backend_used: depth === 'deep' ? 'nvidia_glm' : 'groq_llama'
+        backend_used: backendUsed
       }, findings.totalChars);
 
     } catch (error) {
@@ -297,14 +295,36 @@ export class ExploreHandler extends BaseHandler {
    */
   async summarizeFindings(findings, question, depth, requestedBackend) {
     if (findings.evidence.length === 0) {
-      return `No matches found for: "${question}"`;
+      // No LLM call happens on this path — report honestly rather than
+      // guessing a lane that never ran.
+      return { text: `No matches found for: "${question}"`, backendUsed: null };
     }
 
-    // Select backend: groq for shallow (fast), nvidia_glm for deep (thorough)
-    const normalizedBackend = BACKEND_ALIASES[requestedBackend] || requestedBackend;
-    let backend = normalizedBackend !== 'auto'
-      ? normalizedBackend
-      : (depth === 'deep' ? 'nvidia_glm' : 'groq_llama');
+    // Select backend. Explicit names route through the registry
+    // (BaseHandler#selectBackend), which validates the name and resolves
+    // aliases via FRIENDLY_NAME_MAP. For 'auto', depth's preferred lane
+    // (groq for shallow/fast, nvidia_glm for deep/thorough) is kept as a
+    // hint but only used when it's actually usable; otherwise this falls
+    // through to the registry's own auto selection instead of a
+    // hardcoded cloud default.
+    let backend;
+    if (requestedBackend && requestedBackend !== 'auto') {
+      backend = this.selectBackend(requestedBackend, { depth }).backend;
+    } else {
+      const preferred = depth === 'deep' ? 'nvidia_glm' : 'groq_llama';
+      // No registry to consult (e.g. a handler built without one) -> nothing
+      // to gate against, so keep the depth hint as-is, same as
+      // BaseHandler#selectBackend's own no-registry short-circuit.
+      const usable = this.backendRegistry?.getUsableBackends
+        ? new Set(this.backendRegistry.getUsableBackends())
+        : null;
+      if (!usable || usable.has(preferred)) {
+        backend = preferred;
+      } else {
+        const resolved = this.selectBackend('auto', { depth });
+        backend = resolved.backend || 'auto';
+      }
+    }
 
     // Build evidence summary for prompt
     let evidenceSummary = '';
@@ -356,14 +376,27 @@ Provide a concise answer to the question based on the search results. Include sp
         temperature: 0.3
       });
 
+      // Report the lane that actually served (matches ask-handler.js's
+      // response.backend || X-AI-Backend header || the lane we selected),
+      // not depth/scope reconstructed a second time — makeRequestWithFallback
+      // can serve from a different lane than `backend` after a cascade.
+      const backendUsed = response?.backend || response?.headers?.['X-AI-Backend'] || backend;
+
       // Extract content from response
       const content = this.extractResponseText(response);
-      return typeof content === 'string' ? content.trim() : 'Unable to generate summary';
+      return {
+        text: typeof content === 'string' ? content.trim() : 'Unable to generate summary',
+        backendUsed
+      };
 
     } catch (error) {
       console.error(`[ExploreHandler] Summarization failed: ${error.message}`);
-      // Return a basic summary on error
-      return `Found ${findings.filesFound.length} files matching the search. Top matches: ${findings.filesFound.slice(0, 5).join(', ')}`;
+      // Return a basic summary on error — no LLM call succeeded, so report
+      // honestly rather than naming a lane that never answered.
+      return {
+        text: `Found ${findings.filesFound.length} files matching the search. Top matches: ${findings.filesFound.slice(0, 5).join(', ')}`,
+        backendUsed: null
+      };
     }
   }
 }

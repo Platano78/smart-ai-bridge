@@ -182,16 +182,20 @@ describe('BackendRegistry key resolution precedence', () => {
 });
 
 describe('saveConfig() never writes an apiKey (S1)', () => {
-  let originalConfigContent;
+  let tmpDir;
+  let tmpConfigPath;
 
-  beforeEach(() => {
-    originalConfigContent = fs.readFileSync(BACKENDS_CONFIG_PATH, 'utf8');
+  beforeEach(async () => {
+    tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sab-backends-config-'));
+    tmpConfigPath = path.join(tmpDir, 'backends.json');
+    // Seed with the real config's content so the test starts from a
+    // realistic shape without ever writing back to the tracked file.
+    const realContent = fs.readFileSync(BACKENDS_CONFIG_PATH, 'utf8');
+    fs.writeFileSync(tmpConfigPath, realContent, 'utf8');
   });
 
-  afterEach(() => {
-    // Restore the real, git-tracked file unconditionally, whether or not the
-    // test body modified it.
-    fs.writeFileSync(BACKENDS_CONFIG_PATH, originalConfigContent, 'utf8');
+  afterEach(async () => {
+    await fsPromises.rm(tmpDir, { recursive: true, force: true });
   });
 
   it('strips apiKey from every backend before writing to the tracked config file', () => {
@@ -202,10 +206,10 @@ describe('saveConfig() never writes an apiKey (S1)', () => {
       config: { apiKey: FAKE_KEY_A, model: 'test-model' }
     });
 
-    const saved = registry.saveConfig();
+    const saved = registry.saveConfig(tmpConfigPath);
     expect(saved).toBe(true);
 
-    const writtenRaw = fs.readFileSync(BACKENDS_CONFIG_PATH, 'utf8');
+    const writtenRaw = fs.readFileSync(tmpConfigPath, 'utf8');
     expect(writtenRaw).not.toContain(FAKE_KEY_A);
     expect(writtenRaw).not.toContain('apiKey');
 
@@ -256,9 +260,7 @@ describe('dashboard key-management endpoints', () => {
       config: { model: 'test-model', url: 'https://example.invalid/v1/chat/completions' }
     });
 
-    // DashboardServer does `options.port || 3456`, so 0 (ask-OS-for-a-free-port)
-    // falls through to the default — use an explicit high test port instead.
-    dashboard = new DashboardServer({ port: 34756, backendRegistry: registry });
+    dashboard = new DashboardServer({ port: 0, backendRegistry: registry });
     await dashboard.start();
     const addr = dashboard.server.address();
     baseUrl = `http://127.0.0.1:${addr.port}`;

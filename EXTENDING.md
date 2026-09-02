@@ -48,6 +48,13 @@ export MY_CUSTOM_API_KEY="your-api-key"
 
 The `BackendRegistry` loads the new backend at startup. It will use the `OpenAIAdapter` class automatically.
 
+**Adding a local seat instead of a cloud one.** `type: "local"` is not limited to one entry
+— register as many `type: "local"` backends as you have local endpoints, each under its own
+name with its own `config.url`; every one gets its own `LocalAdapter` and is probed/reached
+independently (no shared port scan, no shared key). This is the pattern for a multi-seat
+local fleet (worker box, rescue box, specialist bench, etc.) — see CONFIGURATION.md's
+"Multi-Seat Local Fleets" for a worked example. `type: "local"` needs no `apiKey` at all.
+
 ### Method 2: Dynamic Registration via Dashboard/API
 
 The `BackendRegistry` supports runtime backend addition:

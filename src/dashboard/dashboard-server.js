@@ -29,7 +29,7 @@ const __dirname = path.dirname(__filename);
 export class DashboardServer {
   constructor(options = {}) {
     this.app = express();
-    this.port = options.port || 3456;
+    this.port = options.port ?? 3456;
     // S2: bind to loopback only by default — an admin API with add/delete/key
     // endpoints and no auth has no business being LAN-reachable. Explicit
     // opt-out via SAB_DASHBOARD_HOST, loudly flagged when non-loopback.
@@ -428,7 +428,7 @@ export class DashboardServer {
 
   async stop() {
     if (this.server) {
-      this.server.close();
+      await new Promise((resolve) => this.server.close(resolve));
       this.isRunning = false;
     }
   }

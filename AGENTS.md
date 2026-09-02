@@ -75,8 +75,11 @@ Either is sufficient:
 
 Backend definitions: `src/config/backends.json`. Full reference: `CONFIGURATION.md`.
 
-The six backend identifiers are `local`, `nvidia_deepseek`, `nvidia_glm`, `gemini`,
-`openai_chatgpt`, `groq_llama`. Most tools also accept `backend: "auto"`.
+The six built-in backend identifiers are `local`, `nvidia_deepseek`, `nvidia_glm`, `gemini`,
+`openai_chatgpt`, `groq_llama` — not a closed set. Any name registered in
+`data/backends-custom.json` (including several `type: "local"` seats, each with its own
+`config.url` — a local fleet; see CONFIGURATION.md's "Multi-Seat Local Fleets") is just as
+pinnable by name on any tool. Most tools also accept `backend: "auto"`.
 
 ## Verify it works
 

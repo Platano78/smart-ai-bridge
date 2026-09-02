@@ -157,50 +157,110 @@ class BackendRegistry {
    */
   initializeDefaults() {
     const backendsConfig = loadBackendsFromConfig();
+    const customRaw = this._readCustomBackendsFile();
+
     for (const [name, backendConfig] of Object.entries(backendsConfig)) {
-      this.register(name, backendConfig);
+      // A name with a custom override gets registered WITHOUT an adapter here
+      // — loadCustomBackends() immediately re-registers it with the merged
+      // config and builds the one real adapter. Registering (and enabling)
+      // it fully here first, then again after the merge, would construct two
+      // adapters for one backend; for LocalAdapter that means two background
+      // autodiscovery port-scans per boot instead of one. `enabled` is left
+      // as the base config's own truth (not peeked/overridden) because
+      // loadCustomBackends()'s merge reads `existing.enabled` when the
+      // override itself omits `enabled`.
+      const hasOverride = Boolean(customRaw.backends?.[name]);
+      this.register(name, backendConfig, { skipAdapter: hasOverride });
     }
 
     // Load custom backends from disk (these override/extend main config)
-    this.loadCustomBackends();
+    this.loadCustomBackends(customRaw);
 
     console.error(`[BackendRegistry] Initialized ${this.backends.size} backends from backends.json`);
   }
 
   /**
-   * Load custom backends from disk
+   * Read and parse data/backends-custom.json, or {} if absent/invalid.
+   * @private
    */
-  loadCustomBackends() {
+  _readCustomBackendsFile() {
     try {
       if (existsSync(CUSTOM_BACKENDS_PATH)) {
-        const data = readFileSync(CUSTOM_BACKENDS_PATH, 'utf-8');
-        const custom = JSON.parse(data);
-
-        for (const [name, backendConfig] of Object.entries(custom.backends || {})) {
-          if (this.backends.has(name)) {
-            const existing = this.backends.get(name);
-            Object.assign(existing, backendConfig);
-            console.error(`[BackendRegistry] Updated backend from custom config: ${name}`);
-          } else {
-            this.register(name, backendConfig);
-            console.error(`[BackendRegistry] Loaded custom backend: ${name}`);
-          }
-        }
+        const parsed = JSON.parse(readFileSync(CUSTOM_BACKENDS_PATH, 'utf-8'));
+        // JSON.parse succeeds on any valid JSON value, not just objects — `null`,
+        // a bare number/string, or an array all parse without throwing. Only a
+        // plain object has a meaningful `.backends`; anything else must fall
+        // through to the same {} every other invalid-file case already returns,
+        // so callers (initializeDefaults()'s `customRaw.backends?.[name]`) never
+        // have to guard against a non-object here.
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
       }
     } catch (error) {
       console.error(`[BackendRegistry] Error loading custom backends: ${error.message}`);
+    }
+    return {};
+  }
+
+  /**
+   * Load custom backends from disk
+   * @param {Object} [preloaded] - Already-parsed custom config, reused from
+   *   initializeDefaults() to avoid a second file read; read fresh if omitted.
+   */
+  loadCustomBackends(preloaded) {
+    const custom = preloaded ?? this._readCustomBackendsFile();
+    for (const [name, backendConfig] of Object.entries(custom.backends || {})) {
+      // Per-entry try/catch, not one around the whole loop: initializeDefaults()
+      // now defers adapter creation (skipAdapter) for every overridden name, so a
+      // throw partway through this loop used to strand not just the remaining
+      // custom entries but the built-ins that were deliberately left adapter-less
+      // waiting for this merge — one malformed hand-edited entry could zero out
+      // every adapter. Containment only: skip the bad entry, name it, keep going.
+      try {
+        if (this.backends.has(name)) {
+          // Overriding an existing (built-in) backend keeps built-in identity —
+          // per R2, only a name genuinely new to backends.json counts as custom.
+          const existing = this.backends.get(name);
+          // Merge through register() rather than Object.assign(): that gave
+          // custom overrides no adapter rebuild, no fallback-chain update, and
+          // no adapter teardown on disable (a "disabled" custom entry left the
+          // enabled built-in's adapter live and reachable — the ghost-adapter
+          // bug). Rebuild the pre-resolution config from rawApiKey (never the
+          // resolved key — merging a resolved key would poison rawApiKey and
+          // break getKeyStatus()/saveConfig()'s key-stripping), then let the
+          // override win per top-level key and shallow-merge `config` so an
+          // override supplying only e.g. config.url keeps the rest.
+          const existingRawConfig = { ...existing.config, apiKey: existing.rawApiKey };
+          const merged = {
+            ...existing,
+            ...backendConfig,
+            config: { ...existingRawConfig, ...(backendConfig.config || {}) }
+          };
+          this.register(name, merged);
+          if (!merged.enabled) this.adapters.delete(name);
+          console.error(`[BackendRegistry] Updated backend from custom config: ${name}`);
+        } else {
+          // A name not present in backends.json is a genuinely new custom seat —
+          // isCustom marks it so updateFallbackChain() can break priority ties
+          // in its favor (R2: an operator's new seat outranks a stock lane).
+          this.register(name, backendConfig, { isCustom: true });
+          if (!backendConfig.enabled) this.adapters.delete(name);
+          console.error(`[BackendRegistry] Loaded custom backend: ${name}`);
+        }
+      } catch (error) {
+        console.error(`[BackendRegistry] Skipped custom backend "${name}": ${error.message}`);
+      }
     }
   }
 
   /**
    * Save current backends to the main config file (single source of truth)
    */
-  saveConfig() {
+  saveConfig(targetPath = BACKENDS_CONFIG_PATH) {
     try {
       let existingConfig = { version: "2.0.0", description: "Smart AI Bridge Backend Configuration" };
       try {
-        if (existsSync(BACKENDS_CONFIG_PATH)) {
-          existingConfig = JSON.parse(readFileSync(BACKENDS_CONFIG_PATH, 'utf-8'));
+        if (existsSync(targetPath)) {
+          existingConfig = JSON.parse(readFileSync(targetPath, 'utf-8'));
         }
       } catch (e) {
         console.error(`[BackendRegistry] Error reading existing config: ${e.message}`);
@@ -230,13 +290,13 @@ class BackendRegistry {
 
       existingConfig.backends = backends;
 
-      const dir = dirname(BACKENDS_CONFIG_PATH);
+      const dir = dirname(targetPath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }
 
       writeFileSync(
-        BACKENDS_CONFIG_PATH,
+        targetPath,
         JSON.stringify(existingConfig, null, 2),
         'utf-8'
       );
@@ -253,8 +313,20 @@ class BackendRegistry {
    * Register a backend
    * @param {string} name - Backend name
    * @param {Object} backendConfig - Backend configuration
+   * @param {Object} [options] - Registration options
+   * @param {boolean} [options.skipAdapter=false] - Record the backend without
+   *   constructing its adapter. Used by initializeDefaults() for a built-in
+   *   that a custom override will immediately re-register: without this, a
+   *   still-enabled backend gets its adapter constructed twice (once here,
+   *   once when loadCustomBackends() re-registers the merge), which for
+   *   LocalAdapter means a second background autodiscovery port-scan per
+   *   boot — the standing "never wake a router twice" ruling.
+   * @param {boolean} [options.isCustom=false] - This backend's name was not
+   *   present in backends.json — it's a genuinely new custom seat, not an
+   *   override of a built-in. updateFallbackChain() uses this to break
+   *   priority ties in the custom seat's favor (F7b).
    */
-  register(name, backendConfig) {
+  register(name, backendConfig, { skipAdapter = false, isCustom = false } = {}) {
     const { type, enabled = true, priority = 99, config = {} } = backendConfig;
 
     // rawApiKey preserves the literal/`$VAR` value as configured (never the
@@ -270,6 +342,7 @@ class BackendRegistry {
       type,
       enabled,
       priority,
+      isCustom,
       config: resolvedConfig,
       rawApiKey,
       description: backendConfig.description || `Backend: ${name}`,
@@ -280,7 +353,7 @@ class BackendRegistry {
       ...(backendConfig.ports && { ports: backendConfig.ports })
     });
 
-    if (enabled) {
+    if (enabled && !skipAdapter) {
       this.createAdapter(name);
     }
 
@@ -397,9 +470,13 @@ class BackendRegistry {
    * @private
    */
   updateFallbackChain() {
+    // Sort ascending by priority; on a tie, a custom seat (isCustom) sorts
+    // before a built-in — R2: an operator's new lane outranks a stock lane
+    // at equal priority, so a hand-edited backends-custom.json reusing
+    // priorities 2-6 doesn't silently lose to the built-in it collided with.
     const enabled = Array.from(this.backends.values())
       .filter(b => b.enabled)
-      .sort((a, b) => a.priority - b.priority);
+      .sort((a, b) => a.priority - b.priority || (b.isCustom === true) - (a.isCustom === true));
 
     this.fallbackChain = enabled.map(b => b.name);
   }
@@ -617,7 +694,45 @@ class BackendRegistry {
       }
     }
 
-    for (const name of this.fallbackChain) {
+    // Keyless cloud lanes (no resolvable API key) are excluded from the
+    // cascade itself — R1: they can never succeed, so letting them sit in
+    // the fallback chain just burns one failed attempt each before a usable
+    // seat is reached. This is scoped to the loop only; the preferredBackend
+    // attempt above keeps its existing one-honest-attempt behavior. A chain
+    // entry absent from this.backends carries no key-status evidence at all —
+    // the goal is to skip lanes we KNOW cannot work, not lanes we know
+    // nothing about, so it is left alone (usable) rather than assumed
+    // keyless. In production every chain entry comes from register() and is
+    // therefore always present in this.backends, so this is behaviourally
+    // identical to a plain fallbackChain ∩ usable intersection; the
+    // distinction only matters for a registry state built by hand (e.g.
+    // tests) that never arises via normal registration.
+    const usable = new Set(this.getUsableBackends());
+    const cascadeChain = this.fallbackChain.filter(
+      name => !this.backends.has(name) || usable.has(name)
+    );
+    // Discount names the preferredBackend block already tried — a chain that
+    // still lists the failed lane is not actually anything left to fall back
+    // to, so the emptiness check below must look at what remains untried.
+    const remaining = cascadeChain.filter(name => !attempted.includes(name));
+
+    if (remaining.length === 0) {
+      // A prior attempt (the preferredBackend block above) already failed
+      // and used up `lastError` — surface that underlying cause rather than
+      // discarding it behind a generic "nothing configured" message, which
+      // would make a routine misconfiguration much harder to diagnose.
+      if (attempted.length > 0) {
+        const failedName = attempted[attempted.length - 1];
+        throw new Error(
+          `Backend "${failedName}" failed and no other usable backend is configured to fall back to. ` +
+          `Underlying error: ${lastError?.message}. ` +
+          `Next step: configure another usable backend, or fix/retry "${failedName}".`
+        );
+      }
+      throw new Error('No usable backend is configured');
+    }
+
+    for (const name of cascadeChain) {
       if (attempted.includes(name)) continue;
 
       const adapter = this.adapters.get(name);
@@ -700,6 +815,31 @@ class BackendRegistry {
     } finally {
       this._healthSweepPromise = null;
     }
+  }
+
+  /**
+   * Snapshot of the LIVE registry in the shape auditReadiness() expects,
+   * replacing the boot-time backends.json read at server.js's audit call
+   * site. Custom-config merges (loadCustomBackends()) happen only in memory,
+   * so a snapshot taken straight from backends.json would miss them entirely
+   * — this is what actually fixes that. Includes every registered backend
+   * (enabled and disabled); the audit itself filters on `enabled`. `config`
+   * is the RESOLVED config (including its resolved apiKey), deliberately —
+   * a key sourced from the secrets store must count as configured here.
+   * @returns {{backends: Object}}
+   */
+  getAuditSnapshot() {
+    const backends = {};
+    for (const [name, b] of this.backends) {
+      backends[name] = {
+        type: b.type,
+        enabled: b.enabled,
+        priority: b.priority,
+        config: b.config,
+        ...(b.context_limit && { context_limit: b.context_limit })
+      };
+    }
+    return { backends };
   }
 
   /**
@@ -882,6 +1022,37 @@ class BackendRegistry {
   }
 
   /**
+   * Resolve a caller-supplied backend name against the LIVE registry — the
+   * single validation seam for every tool that accepts a free-form backend
+   * name (options.backend on the file tools, `model`/`force_backend` on
+   * `ask`, `backend` on check_backend_health). 'auto' (and an absent/nullish
+   * name, treated the same way) always resolves; anything else must be a
+   * registered canonical name or a FRIENDLY_NAME_MAP alias (getBackend()
+   * already checks both). Deliberately does NOT throw — an unknown name is
+   * caller error, not a protocol error, so the result carries `ok:false` and
+   * a message a handler can surface directly. The valid list is built from
+   * `this.backends` at call time, never a literal, so it can't go stale as
+   * backends are added, renamed, or removed.
+   * @param {string} [name]
+   * @returns {{ok: true, backend: string} | {ok: false, error: string, valid: string[]}}
+   */
+  resolveRequestedBackend(name) {
+    if (name === undefined || name === null || name === 'auto') {
+      return { ok: true, backend: 'auto' };
+    }
+    const backend = this.getBackend(name);
+    if (backend) {
+      return { ok: true, backend: backend.name };
+    }
+    const valid = Array.from(this.backends.keys());
+    return {
+      ok: false,
+      error: `Unknown backend: '${name}'. Registered backends: ${valid.join(', ')}`,
+      valid
+    };
+  }
+
+  /**
    * Pick a default lane for an 'auto' request. This is a routing HINT only,
    * not a capacity decision — real capacity gating happens in the handlers
    * (countTokens vs capacityTokensFor), so this threshold does not need to
@@ -902,7 +1073,11 @@ class BackendRegistry {
    */
   selectBackend(requestedBackend, context = {}) {
     if (requestedBackend && requestedBackend !== 'auto') {
-      return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend, explicit: true };
+      const resolved = this.resolveRequestedBackend(requestedBackend);
+      if (!resolved.ok) {
+        throw new Error(resolved.error);
+      }
+      return { backend: resolved.backend, explicit: true };
     }
     if (context.handlerType && this.routingOverrides[context.handlerType]) {
       const override = this.routingOverrides[context.handlerType](context);

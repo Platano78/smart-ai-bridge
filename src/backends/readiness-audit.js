@@ -52,8 +52,23 @@ async function checkLocalReachable(url, timeoutMs) {
   } catch (err) { return { error: err.message || String(err) }; }
 }
 
-/** @returns {Promise<{findings: Array, checked: number}>} */
-export async function auditReadiness({ backendsConfig, councilConfig, timeoutMs = 8000 }) {
+/**
+ * @param {Object} opts
+ * @param {Object} opts.backendsConfig
+ * @param {Object} opts.councilConfig
+ * @param {number} [opts.timeoutMs]
+ * @param {(topic: string) => string[]} [opts.resolveTopicBackends] Optional.
+ *   When provided, a topic whose stored roster is empty (council-config.json
+ *   ships `backends: []` by design — see that file's `_comment`) is checked
+ *   against this LIVE derivation instead of the empty stored array, matching
+ *   what `council-config-manager.js#getBackendsForTopic` actually returns at
+ *   request time. A topic the operator HAS customized (non-empty stored
+ *   roster) is still checked against the stored roster, as before. Omitted:
+ *   falls back to the pre-existing stored-roster-only behavior (other
+ *   callers/tests depend on this).
+ * @returns {Promise<{findings: Array, checked: number}>}
+ */
+export async function auditReadiness({ backendsConfig, councilConfig, timeoutMs = 8000, resolveTopicBackends }) {
   const findings = [];
   const entries = Object.entries(backendsConfig?.backends ?? {})
     .filter(([, def]) => def.enabled)
@@ -126,7 +141,11 @@ export async function auditReadiness({ backendsConfig, councilConfig, timeoutMs 
   const defined = new Set(entries.map(e => e.name));
   const broken = new Set(findings.filter(f => f.severity === 'critical').map(f => f.backend));
   for (const [topic, def] of Object.entries(councilConfig?.topics ?? {})) {
-    const members = def.backends ?? [];
+    const stored = def.backends ?? [];
+    // Empty stored roster is council-config.json's documented sentinel for
+    // "not operator-customized" (see its own _comment); a non-empty roster
+    // is a real operator choice and is checked as-is either way.
+    const members = (stored.length === 0 && resolveTopicBackends) ? resolveTopicBackends(topic) : stored;
     for (const g of members.filter(m => !defined.has(m))) {
       findings.push({ severity: 'critical', backend: g, topic, reason: `council topic "${topic}" names undefined backend "${g}"` });
     }
