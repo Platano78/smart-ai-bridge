@@ -191,11 +191,13 @@ class AskHandler extends BaseHandler {
         return this.buildSuccessResponse({
           model,
           requested_backend: requestedBackend,
-          actual_backend: responseHeaders['X-AI-Backend'] || selectedBackend,
+          actual_backend: response.backend || responseHeaders['X-AI-Backend'] || selectedBackend,
           prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
           response: chunkedResponse,
-          backend_used: responseHeaders['X-AI-Backend'] || selectedBackend,
-          fallback_chain: responseHeaders['X-Fallback-Chain'] || 'none',
+          backend_used: response.backend || responseHeaders['X-AI-Backend'] || selectedBackend,
+          fallback_chain: response.fallbackChain?.length
+            ? response.fallbackChain.join(' -> ')
+            : (responseHeaders['X-Fallback-Chain'] || 'none'),
           thinking_enabled: thinking,
           max_tokens: reportedMaxTokens,
           dynamic_tokens: dynamicTokens,
@@ -245,11 +247,13 @@ class AskHandler extends BaseHandler {
       return this.buildSuccessResponse({
         model,
         requested_backend: requestedBackend,
-        actual_backend: responseHeaders['X-AI-Backend'] || selectedBackend,
+        actual_backend: response.backend || responseHeaders['X-AI-Backend'] || selectedBackend,
         prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
         response: responseContent,
-        backend_used: responseHeaders['X-AI-Backend'] || selectedBackend,
-        fallback_chain: responseHeaders['X-Fallback-Chain'] || 'none',
+        backend_used: response.backend || responseHeaders['X-AI-Backend'] || selectedBackend,
+        fallback_chain: response.fallbackChain?.length
+          ? response.fallbackChain.join(' -> ')
+          : (responseHeaders['X-Fallback-Chain'] || 'none'),
         request_id: responseHeaders['X-Request-ID'],
         response_time: responseHeaders['X-Response-Time'],
         cache_status: responseHeaders['X-Cache-Status'] || 'MISS',
