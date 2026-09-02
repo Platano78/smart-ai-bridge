@@ -38,7 +38,7 @@ import { LearningEngine } from './intelligence/learning-engine.js';
 import { PatternRAGStore } from './intelligence/pattern-rag-store.js';
 import ConversationThreading from './threading/conversation-threading.js';
 import { UsageAnalytics } from './monitoring/usage-analytics.js';
-import { setBackendRegistry } from './config/council-config-manager.js';
+import { setBackendRegistry, configManager as councilConfigManager } from './config/council-config-manager.js';
 import { setBackendRegistry as setRoleTemplateRegistry } from './config/role-templates.js';
 import { crushToolResult, DEFAULT_CRUSHER_CONFIG } from './compression/smartCrush.js';
 
@@ -314,7 +314,11 @@ if (process.env.SAB_DISABLE_READINESS_AUDIT !== 'true') {
     try {
       const { auditReadiness, formatFindings } = await import('./backends/readiness-audit.js');
       const councilConfig = JSON.parse(readFileSync(join(__dirname, '../config/council-config.json'), 'utf8'));
-      const result = await auditReadiness({ backendsConfig: backendRegistry.getAuditSnapshot(), councilConfig });
+      const result = await auditReadiness({
+        backendsConfig: backendRegistry.getAuditSnapshot(),
+        councilConfig,
+        resolveTopicBackends: (topic) => councilConfigManager.getBackendsForTopic(topic)
+      });
       for (const line of formatFindings(result)) console.error(line);
     } catch (err) {
       console.error(`[SAB] Readiness audit skipped: ${err.message}`);

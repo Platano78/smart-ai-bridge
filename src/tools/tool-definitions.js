@@ -186,22 +186,21 @@ const CORE_TOOL_DEFINITIONS = [
   },
   {
     name: 'check_backend_health',
-    description: "On-demand ping of one specific backend's API endpoint to verify reachability and capture latency. Hits only the named backend, not the whole fleet. Read-only: makes one HTTP request to the backend's health endpoint. Returns: `{success, status:'online'|'offline', backend, latency_ms, last_check_iso, error?, total_check_time}`.",
+    description: "Two modes. Named (`backend` given): on-demand ping of that one backend's API endpoint to verify reachability and capture latency — read-only, one HTTP request. Returns `{success, status:'online'|'offline', backend, latency_ms, last_check_iso, error?, total_check_time}`. Summary (`backend` omitted): sweeps every backend registered in this SAB instance — every built-in plus every custom seat from your backends config — and returns a per-backend table. Returns `{success, check_type, timestamp, server_info, multi_ai_status:{total_backends, healthy_backends, ...}, backends:{[name]:{name, type, priority, specialization, overall_status:'operational'|'degraded'}}, router_status, total_check_time}`.",
     handler: 'handleCheckBackendHealth',
     schema: {
       type: 'object',
       properties: {
         backend: {
           type: 'string',
-          description: 'Backend name to check — any name registered in this SAB instance, e.g. local, gemini, nvidia_deepseek, nvidia_glm, openai_chatgpt, groq, or a custom seat from your own backends config. These are examples, not a closed list; an unregistered name returns a normal result with status:\'offline\' and an explanatory error rather than failing the call.'
+          description: 'Optional. Backend name to check — any name registered in this SAB instance, e.g. local, gemini, nvidia_deepseek, nvidia_glm, openai_chatgpt, groq, or a custom seat from your own backends config. These are examples, not a closed list; an unregistered name returns a normal result with status:\'offline\' and an explanatory error rather than failing the call. Omit to sweep every registered backend instead of checking one.'
         },
         force: {
           type: 'boolean',
           default: false,
           description: 'Bypass cache and force fresh check'
         }
-      },
-      required: ['backend']
+      }
     }
   },
   {

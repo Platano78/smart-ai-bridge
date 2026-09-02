@@ -182,6 +182,41 @@ fallback. It stays registered and can still be reached by naming it explicitly (
 can't burn a failed attempt on every request ahead of a usable local seat like
 `<worker-host>:8081`.
 
+### Multi-Seat Local Fleets
+
+`type: "local"` is not a singleton. Several custom backends can all declare
+`"type": "local"`, each with its own `config.url` — every one gets its own adapter and
+its own independent endpoint, not a shared pool. This is the actual mechanism behind a
+"fleet" of local seats (a worker box, a senior/rescue box, a specialist bench, a
+last-resort lane — whatever roles your setup needs):
+
+```json
+{
+  "backends": {
+    "mb_worker": {
+      "type": "local",
+      "enabled": true,
+      "priority": 10,
+      "config": { "url": "http://<worker-host>:8081/v1/chat/completions" }
+    },
+    "mb_senior": {
+      "type": "local",
+      "enabled": true,
+      "priority": 11,
+      "config": { "url": "http://<worker-host>:8080/v1/chat/completions" }
+    }
+  }
+}
+```
+
+Each seat is then addressable by its own name — pin any tool's `backend`/`force_backend`
+option to `"mb_worker"` or `"mb_senior"` exactly as you would to a built-in. `type: "local"`
+needs no API key (`PROVIDER_ENDPOINTS.local.envVar` is `null`), so every enabled local
+seat is unconditionally usable and never excluded by the keyless-lane check above. Each
+seat's context capacity is derived from its own declared URL (probed independently), not
+from a shared localhost port scan — see "Local Model Configuration" above, which covers
+pinning a single seat's endpoint; the same mechanism just applies per-seat here.
+
 ## Environment Variables
 
 ### API Keys
