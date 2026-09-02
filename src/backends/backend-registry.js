@@ -970,6 +970,37 @@ class BackendRegistry {
   }
 
   /**
+   * Resolve a caller-supplied backend name against the LIVE registry — the
+   * single validation seam for every tool that accepts a free-form backend
+   * name (options.backend on the file tools, `model`/`force_backend` on
+   * `ask`, `backend` on check_backend_health). 'auto' (and an absent/nullish
+   * name, treated the same way) always resolves; anything else must be a
+   * registered canonical name or a FRIENDLY_NAME_MAP alias (getBackend()
+   * already checks both). Deliberately does NOT throw — an unknown name is
+   * caller error, not a protocol error, so the result carries `ok:false` and
+   * a message a handler can surface directly. The valid list is built from
+   * `this.backends` at call time, never a literal, so it can't go stale as
+   * backends are added, renamed, or removed.
+   * @param {string} [name]
+   * @returns {{ok: true, backend: string} | {ok: false, error: string, valid: string[]}}
+   */
+  resolveRequestedBackend(name) {
+    if (name === undefined || name === null || name === 'auto') {
+      return { ok: true, backend: 'auto' };
+    }
+    const backend = this.getBackend(name);
+    if (backend) {
+      return { ok: true, backend: backend.name };
+    }
+    const valid = Array.from(this.backends.keys());
+    return {
+      ok: false,
+      error: `Unknown backend: '${name}'. Registered backends: ${valid.join(', ')}`,
+      valid
+    };
+  }
+
+  /**
    * Pick a default lane for an 'auto' request. This is a routing HINT only,
    * not a capacity decision — real capacity gating happens in the handlers
    * (countTokens vs capacityTokensFor), so this threshold does not need to
@@ -990,7 +1021,11 @@ class BackendRegistry {
    */
   selectBackend(requestedBackend, context = {}) {
     if (requestedBackend && requestedBackend !== 'auto') {
-      return { backend: FRIENDLY_NAME_MAP[requestedBackend] || requestedBackend, explicit: true };
+      const resolved = this.resolveRequestedBackend(requestedBackend);
+      if (!resolved.ok) {
+        throw new Error(resolved.error);
+      }
+      return { backend: resolved.backend, explicit: true };
     }
     if (context.handlerType && this.routingOverrides[context.handlerType]) {
       const override = this.routingOverrides[context.handlerType](context);

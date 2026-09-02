@@ -7,7 +7,7 @@
 | **Dogfood config** | `data/backends-custom.json` (gitignored) — 4 `type:"local"` seats; `local_5080` disabled by ruling |
 | **Verify by outcome** | every slice ends with a live MCP stdio call, never `npm test` alone |
 | **OPTIMIZE FOR** | correctness > backward-compat for existing `backends.json` users > minimal diff > speed; MAY SACRIFICE: elegance |
-| **Status** | [x] S1 [ ] S2 [ ] S3 [ ] S4 [ ] S5 [ ] S6 — append-only checklist; orchestrator ticks |
+| **Status** | [x] S1 [x] S2 [ ] S3 [ ] S4 [ ] S5 [ ] S6 — append-only checklist; orchestrator ticks |
 
 ## Rulings (do not re-derive)
 - Custom seats are first-class: anything a built-in can do by name, a custom seat can do by name.

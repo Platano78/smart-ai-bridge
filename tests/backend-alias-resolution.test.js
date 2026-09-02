@@ -36,21 +36,42 @@ describe('FRIENDLY_NAME_MAP', () => {
   });
 });
 
-describe("the ask tool's model enum", () => {
+/**
+ * F6: a caller-supplied backend name must be checked against the LIVE
+ * registry at call time, never against a schema-baked closed set — a custom
+ * seat (e.g. an operator's own `mb_worker`) has no fixed name SAB can ship
+ * an enum for. Re-adding an `enum` to any backend-name field silently
+ * reintroduces the bug this file is named after, so every field that names
+ * a backend is walked here, not just `ask`'s.
+ */
+describe("backend-name fields carry no closed enum (F6 regression guard)", () => {
   const ask = CORE_TOOL_DEFINITIONS.find(t => t.name === 'ask');
-  const enumValues = ask?.schema?.properties?.model?.enum ?? [];
 
-  it('is present and non-empty (the guard is worthless if the enum moved)', () => {
+  it("ask's model field accepts any string — no enum", () => {
     expect(ask).toBeTruthy();
-    expect(enumValues.length).toBeGreaterThan(1);
-    expect(enumValues).toContain('auto');
+    expect(ask.schema.properties.model).not.toHaveProperty('enum');
+    expect(ask.schema.properties.model.type).toBe('string');
   });
 
-  it('every value except auto resolves to a real registered backend', () => {
-    const broken = enumValues
-      .filter(v => v !== 'auto')
-      .filter(v => !registered.has(resolve(v)))
-      .map(v => `${v} -> ${resolve(v)}`);
-    expect(broken).toEqual([]);
+  it("ask's force_backend field accepts any string — no enum", () => {
+    expect(ask.schema.properties.force_backend).not.toHaveProperty('enum');
+  });
+
+  it("check_backend_health's backend field accepts any string — no enum", () => {
+    const health = CORE_TOOL_DEFINITIONS.find(t => t.name === 'check_backend_health');
+    expect(health.schema.properties.backend).not.toHaveProperty('enum');
+  });
+
+  it('every options.backend field across the tool definitions accepts any string — no enum', () => {
+    const withOptionsBackend = CORE_TOOL_DEFINITIONS
+      .filter(t => t.schema?.properties?.options?.properties?.backend);
+    // The guard is worthless if nothing is actually being checked.
+    expect(withOptionsBackend.length).toBeGreaterThan(1);
+
+    for (const tool of withOptionsBackend) {
+      const field = tool.schema.properties.options.properties.backend;
+      expect(field, `${tool.name}.options.backend`).not.toHaveProperty('enum');
+      expect(field.type, `${tool.name}.options.backend`).toBe('string');
+    }
   });
 });

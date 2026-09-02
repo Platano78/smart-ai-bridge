@@ -127,8 +127,7 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         model: {
           type: 'string',
-          enum: ['auto', 'local', 'gemini', 'groq', 'deepseek', 'glm', 'nvidia_deepseek', 'nvidia_glm', 'openai'],
-          description: 'AI backend to query: auto (smart routing selects a lane by task complexity + current health), local (your own router — vLLM/llama.cpp/LM Studio — autodiscovered), gemini (Google Gemini lane), nvidia_deepseek (NVIDIA-hosted DeepSeek lane — reasoning-oriented, supports streaming and the `thinking` option), nvidia_glm (NVIDIA-hosted GLM lane — code-oriented), openai (OpenAI lane), groq (Groq lane — low-latency hosted inference). No model id or context size is fixed here: each lane runs whatever `config.model` declares in backends.json, or a model selected from the provider\'s own catalog when nothing is declared. The friendly aliases `deepseek`, `glm` and `openai` are also accepted (mapped to nvidia_deepseek / nvidia_glm / openai_chatgpt), matching the other tools.'
+          description: 'AI backend to query: `auto` (default behavior — smart routing selects a lane by task complexity + current health) or the name of any backend registered in this SAB instance. Built-ins: local (your own router — vLLM/llama.cpp/LM Studio — autodiscovered), gemini (Google Gemini lane), nvidia_deepseek (NVIDIA-hosted DeepSeek lane — reasoning-oriented, supports streaming and the `thinking` option), nvidia_glm (NVIDIA-hosted GLM lane — code-oriented), openai_chatgpt (OpenAI lane), groq_llama (Groq lane — low-latency hosted inference), plus the friendly aliases `deepseek`, `glm`, `openai` and `groq`. A custom seat from your own backends config (e.g. a named local router) works the same way by its configured name — these are examples, not a closed list. Call `check_backend_health` to see what is actually configured. No model id or context size is fixed here: each lane runs whatever `config.model` declares in backends.json, or a model selected from the provider\'s own catalog when nothing is declared. An unrecognized name returns a result naming the problem and listing the valid options, rather than a protocol error.'
         },
         prompt: {
           type: 'string',
@@ -150,7 +149,7 @@ const CORE_TOOL_DEFINITIONS = [
         },
         force_backend: {
           type: 'string',
-          description: 'Force specific backend (bypasses smart routing) - use backend keys like "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai_chatgpt", "groq"'
+          description: 'Force a specific backend (bypasses smart routing) — any name registered in this SAB instance, e.g. "local", "gemini", "nvidia_deepseek", "nvidia_glm", "openai_chatgpt", "groq_llama", or a custom seat from your own backends config. Call check_backend_health to see what is actually configured.'
         },
         model_profile: {
           type: 'string',
@@ -194,7 +193,7 @@ const CORE_TOOL_DEFINITIONS = [
       properties: {
         backend: {
           type: 'string',
-          description: 'Backend name to check (local, gemini, nvidia_deepseek, nvidia_glm, openai_chatgpt, groq)'
+          description: 'Backend name to check — any name registered in this SAB instance, e.g. local, gemini, nvidia_deepseek, nvidia_glm, openai_chatgpt, groq, or a custom seat from your own backends config. These are examples, not a closed list; an unregistered name returns a normal result with status:\'offline\' and an explanatory error rather than failing the call.'
         },
         force: {
           type: 'boolean',
@@ -356,9 +355,8 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
-              description: 'AI backend to use for analysis'
+              description: 'AI backend to use for analysis: \'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured; an unrecognized name returns a result listing the valid options rather than failing.'
             },
             analysisType: {
               type: 'string',
@@ -414,9 +412,8 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'groq', 'glm', 'deepseek'],
               default: 'auto',
-              description: 'Backend for summarization (auto selects based on depth)'
+              description: 'Backend for summarization: \'auto\' (default, selects based on depth) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured.'
             }
           }
         }
@@ -444,9 +441,8 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
-              description: 'AI backend to use for generation'
+              description: 'AI backend to use for generation: \'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured; an unrecognized name returns a result listing the valid options rather than failing.'
             },
             review: {
               type: 'boolean',
@@ -493,9 +489,8 @@ const CORE_TOOL_DEFINITIONS = [
           properties: {
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
               default: 'auto',
-              description: 'AI backend to use for modification'
+              description: 'AI backend to use for modification: \'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured; an unrecognized name returns a result listing the valid options rather than failing.'
             },
             review: {
               type: 'boolean',
@@ -559,8 +554,8 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
-              default: 'auto'
+              default: 'auto',
+              description: '\'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured.'
             },
             analysisType: {
               type: 'string',
@@ -627,8 +622,8 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
-              default: 'auto'
+              default: 'auto',
+              description: '\'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured.'
             }
           }
         }
@@ -676,8 +671,8 @@ const CORE_TOOL_DEFINITIONS = [
             },
             backend: {
               type: 'string',
-              enum: ['auto', 'local', 'deepseek', 'glm', 'gemini', 'groq'],
-              default: 'auto'
+              default: 'auto',
+              description: '\'auto\' (default) or the name of any backend registered in this SAB instance — a built-in (local, gemini, groq, deepseek, glm, nvidia_deepseek, nvidia_glm, openai) or a custom seat from your own backends config. Call check_backend_health to see what is actually configured.'
             },
             findReferences: {
               type: 'boolean',
