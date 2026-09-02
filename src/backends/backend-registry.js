@@ -250,12 +250,12 @@ class BackendRegistry {
   /**
    * Save current backends to the main config file (single source of truth)
    */
-  saveConfig() {
+  saveConfig(targetPath = BACKENDS_CONFIG_PATH) {
     try {
       let existingConfig = { version: "2.0.0", description: "Smart AI Bridge Backend Configuration" };
       try {
-        if (existsSync(BACKENDS_CONFIG_PATH)) {
-          existingConfig = JSON.parse(readFileSync(BACKENDS_CONFIG_PATH, 'utf-8'));
+        if (existsSync(targetPath)) {
+          existingConfig = JSON.parse(readFileSync(targetPath, 'utf-8'));
         }
       } catch (e) {
         console.error(`[BackendRegistry] Error reading existing config: ${e.message}`);
@@ -285,13 +285,13 @@ class BackendRegistry {
 
       existingConfig.backends = backends;
 
-      const dir = dirname(BACKENDS_CONFIG_PATH);
+      const dir = dirname(targetPath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }
 
       writeFileSync(
-        BACKENDS_CONFIG_PATH,
+        targetPath,
         JSON.stringify(existingConfig, null, 2),
         'utf-8'
       );
