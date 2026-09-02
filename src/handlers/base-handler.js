@@ -13,7 +13,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { PlaybookSystem } from '../intelligence/playbook-system.js';
 import { detectLanguage } from '../utils/language-detector.js';
-import { getLocalContextLimit } from '../utils/model-discovery.js';
+import { getLocalContextLimit, getSeatContextLimit } from '../utils/model-discovery.js';
 import { PROVIDER_ENDPOINTS } from '../backends/provider-endpoints.js';
 import { discoverCapacity } from '../backends/capacity-discovery.js';
 
@@ -154,7 +154,12 @@ class BaseHandler {
    * @returns {Promise<{tokens: number, chars: number}>}
    */
   async _resolveCapacity(backendName) {
-    if (backendName === 'local' || backendName === 'auto') {
+    if (backendName === 'auto') {
+      return this._resolveAutoCapacity();
+    }
+
+    if (backendName === 'local') {
+      // Unnamed/built-in local lane: unchanged localhost-scan behavior.
       let chars;
       try {
         chars = (await this.getContextLimit()).charLimit;
@@ -164,6 +169,16 @@ class BaseHandler {
       return { chars, tokens: Math.floor(chars / 4) };
     }
 
+    // TYPE check, not a name check — a NAMED custom seat (e.g. mb_worker)
+    // is type:"local" but fails the name checks above, so it must be
+    // routed here rather than falling into the non-local discovery chain
+    // below (which skips it entirely: a local seat has no API key, so
+    // _discoveredCapacity's key guard always returns null for it).
+    const backend = this.backendRegistry?.getBackend?.(backendName);
+    if (backend?.type === 'local') {
+      return this._resolveNamedLocalSeatCapacity(backendName, backend);
+    }
+
     try {
       const discovered = await this._discoveredCapacity(backendName);
       if (discovered != null) return discovered;
@@ -171,13 +186,84 @@ class BaseHandler {
       // Discovery must never block capacity resolution — fall through.
     }
 
-    const configuredLimit = this.backendRegistry?.getBackend?.(backendName)?.context_limit;
+    const configuredLimit = backend?.context_limit;
     if (typeof configuredLimit === 'number' && configuredLimit > 0) {
       const tokens = Math.floor(configuredLimit * 0.9);
       return { tokens, chars: tokens * 4 };
     }
 
     const chars = Math.floor(this.getBackendContextLimit(backendName) * 0.9);
+    return { chars, tokens: Math.floor(chars / 4) };
+  }
+
+  /**
+   * Capacity for a NAMED custom local seat (type:"local", registered under
+   * any name other than the literal 'local'/'auto'). Resolution order:
+   * 1. PROBED — that seat's own declared config.url, GET /v1/models only
+   *    (getSeatContextLimit mirrors LocalAdapter#checkHealth exactly, so
+   *    this can never wake a router or trigger a model load). Only set
+   *    when the seat publishes --ctx-size via llama-swap's status.args.
+   * 2. CONFIGURED — the seat's `context_limit` from the registry config.
+   * 3. CONSERVATIVE DEFAULT — getBackendContextLimit(), the same flat
+   *    fallback every other backend type uses.
+   * Deliberately never falls to the 20000-char scan floor: a reachable
+   * seat that simply doesn't publish --ctx-size (e.g. a bare llama-server)
+   * is not "nothing found" and must not be punished with that floor.
+   * @param {string} backendName
+   * @param {Object} backend - registry entry, already known type:'local'
+   * @returns {Promise<{tokens: number, chars: number}>}
+   */
+  async _resolveNamedLocalSeatCapacity(backendName, backend) {
+    const seatUrl = backend?.config?.url;
+    if (seatUrl) {
+      try {
+        const probed = await getSeatContextLimit(backendName, seatUrl);
+        if (probed?.nCtxPerRequest) {
+          const safeInputTokens = Math.floor(probed.nCtxPerRequest * 0.65);
+          return { tokens: safeInputTokens, chars: safeInputTokens * 4 };
+        }
+      } catch {
+        // Probe must never block capacity resolution — fall through.
+      }
+    }
+
+    const configuredLimit = backend?.context_limit;
+    if (typeof configuredLimit === 'number' && configuredLimit > 0) {
+      const tokens = Math.floor(configuredLimit * 0.9);
+      return { tokens, chars: tokens * 4 };
+    }
+
+    const chars = Math.floor(this.getBackendContextLimit(backendName) * 0.9);
+    return { chars, tokens: Math.floor(chars / 4) };
+  }
+
+  /**
+   * Capacity for 'auto' — resolved honestly to the capacity of the seat
+   * selectBackend('auto') would actually route to (R5): reporting a
+   * capacity the chosen lane doesn't have would let an oversize payload
+   * through. selectBackend prefers the highest-priority usable local
+   * candidate, so this naturally satisfies "auto >= the best enabled
+   * local seat" without a separate rule. Falls back to today's
+   * localhost-scan behavior when selectBackend can't resolve anything
+   * (no registry, or nothing usable).
+   * @returns {Promise<{tokens: number, chars: number}>}
+   */
+  async _resolveAutoCapacity() {
+    const resolved = this.selectBackend('auto');
+    if (resolved?.backend && resolved.backend !== 'auto') {
+      try {
+        return await this._resolveCapacity(resolved.backend);
+      } catch {
+        // Fall through to today's default auto behavior below.
+      }
+    }
+
+    let chars;
+    try {
+      chars = (await this.getContextLimit()).charLimit;
+    } catch {
+      chars = this.getBackendContextLimit('local');
+    }
     return { chars, tokens: Math.floor(chars / 4) };
   }
 
