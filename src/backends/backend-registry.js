@@ -217,6 +217,8 @@ class BackendRegistry {
       // every adapter. Containment only: skip the bad entry, name it, keep going.
       try {
         if (this.backends.has(name)) {
+          // Overriding an existing (built-in) backend keeps built-in identity —
+          // per R2, only a name genuinely new to backends.json counts as custom.
           const existing = this.backends.get(name);
           // Merge through register() rather than Object.assign(): that gave
           // custom overrides no adapter rebuild, no fallback-chain update, and
@@ -237,7 +239,10 @@ class BackendRegistry {
           if (!merged.enabled) this.adapters.delete(name);
           console.error(`[BackendRegistry] Updated backend from custom config: ${name}`);
         } else {
-          this.register(name, backendConfig);
+          // A name not present in backends.json is a genuinely new custom seat —
+          // isCustom marks it so updateFallbackChain() can break priority ties
+          // in its favor (R2: an operator's new seat outranks a stock lane).
+          this.register(name, backendConfig, { isCustom: true });
           if (!backendConfig.enabled) this.adapters.delete(name);
           console.error(`[BackendRegistry] Loaded custom backend: ${name}`);
         }
@@ -316,8 +321,12 @@ class BackendRegistry {
    *   once when loadCustomBackends() re-registers the merge), which for
    *   LocalAdapter means a second background autodiscovery port-scan per
    *   boot — the standing "never wake a router twice" ruling.
+   * @param {boolean} [options.isCustom=false] - This backend's name was not
+   *   present in backends.json — it's a genuinely new custom seat, not an
+   *   override of a built-in. updateFallbackChain() uses this to break
+   *   priority ties in the custom seat's favor (F7b).
    */
-  register(name, backendConfig, { skipAdapter = false } = {}) {
+  register(name, backendConfig, { skipAdapter = false, isCustom = false } = {}) {
     const { type, enabled = true, priority = 99, config = {} } = backendConfig;
 
     // rawApiKey preserves the literal/`$VAR` value as configured (never the
@@ -333,6 +342,7 @@ class BackendRegistry {
       type,
       enabled,
       priority,
+      isCustom,
       config: resolvedConfig,
       rawApiKey,
       description: backendConfig.description || `Backend: ${name}`,
@@ -460,9 +470,13 @@ class BackendRegistry {
    * @private
    */
   updateFallbackChain() {
+    // Sort ascending by priority; on a tie, a custom seat (isCustom) sorts
+    // before a built-in — R2: an operator's new lane outranks a stock lane
+    // at equal priority, so a hand-edited backends-custom.json reusing
+    // priorities 2-6 doesn't silently lose to the built-in it collided with.
     const enabled = Array.from(this.backends.values())
       .filter(b => b.enabled)
-      .sort((a, b) => a.priority - b.priority);
+      .sort((a, b) => a.priority - b.priority || (b.isCustom === true) - (a.isCustom === true));
 
     this.fallbackChain = enabled.map(b => b.name);
   }
@@ -680,7 +694,45 @@ class BackendRegistry {
       }
     }
 
-    for (const name of this.fallbackChain) {
+    // Keyless cloud lanes (no resolvable API key) are excluded from the
+    // cascade itself — R1: they can never succeed, so letting them sit in
+    // the fallback chain just burns one failed attempt each before a usable
+    // seat is reached. This is scoped to the loop only; the preferredBackend
+    // attempt above keeps its existing one-honest-attempt behavior. A chain
+    // entry absent from this.backends carries no key-status evidence at all —
+    // the goal is to skip lanes we KNOW cannot work, not lanes we know
+    // nothing about, so it is left alone (usable) rather than assumed
+    // keyless. In production every chain entry comes from register() and is
+    // therefore always present in this.backends, so this is behaviourally
+    // identical to a plain fallbackChain ∩ usable intersection; the
+    // distinction only matters for a registry state built by hand (e.g.
+    // tests) that never arises via normal registration.
+    const usable = new Set(this.getUsableBackends());
+    const cascadeChain = this.fallbackChain.filter(
+      name => !this.backends.has(name) || usable.has(name)
+    );
+    // Discount names the preferredBackend block already tried — a chain that
+    // still lists the failed lane is not actually anything left to fall back
+    // to, so the emptiness check below must look at what remains untried.
+    const remaining = cascadeChain.filter(name => !attempted.includes(name));
+
+    if (remaining.length === 0) {
+      // A prior attempt (the preferredBackend block above) already failed
+      // and used up `lastError` — surface that underlying cause rather than
+      // discarding it behind a generic "nothing configured" message, which
+      // would make a routine misconfiguration much harder to diagnose.
+      if (attempted.length > 0) {
+        const failedName = attempted[attempted.length - 1];
+        throw new Error(
+          `Backend "${failedName}" failed and no other usable backend is configured to fall back to. ` +
+          `Underlying error: ${lastError?.message}. ` +
+          `Next step: configure another usable backend, or fix/retry "${failedName}".`
+        );
+      }
+      throw new Error('No usable backend is configured');
+    }
+
+    for (const name of cascadeChain) {
       if (attempted.includes(name)) continue;
 
       const adapter = this.adapters.get(name);
