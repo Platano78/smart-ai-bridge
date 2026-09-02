@@ -146,11 +146,14 @@ class LocalAdapter extends BackendAdapter {
             this.availableModels = availableModels.map(m => {
               const args = m.status?.args || [];
 
-              // Extract --ctx-size
+              // Extract --ctx-size; when status.args is absent (bare
+              // llama-server has no `status` field at all), fall back to
+              // meta.n_ctx before the flat 4096 default — mirrors
+              // model-discovery.js's getSeatContextLimit normalization.
               const ctxIdx = args.indexOf('--ctx-size');
               const nCtx = ctxIdx !== -1 && args[ctxIdx + 1]
                 ? parseInt(args[ctxIdx + 1], 10)
-                : 4096;
+                : (typeof m.meta?.n_ctx === 'number' && m.meta.n_ctx > 0 ? m.meta.n_ctx : 4096);
 
               // Extract --parallel
               const parallelIdx = args.indexOf('--parallel');
@@ -248,7 +251,9 @@ class LocalAdapter extends BackendAdapter {
         this.availableModels = loadedModels.map(m => {
           const args = m.status?.args || [];
           const ctxIdx = args.indexOf('--ctx-size');
-          const nCtx = ctxIdx !== -1 && args[ctxIdx + 1] ? parseInt(args[ctxIdx + 1], 10) : 4096;
+          const nCtx = ctxIdx !== -1 && args[ctxIdx + 1]
+            ? parseInt(args[ctxIdx + 1], 10)
+            : (typeof m.meta?.n_ctx === 'number' && m.meta.n_ctx > 0 ? m.meta.n_ctx : 4096);
           const parallelIdx = args.indexOf('--parallel');
           const slots = parallelIdx !== -1 && args[parallelIdx + 1] ? parseInt(args[parallelIdx + 1], 10) : 1;
           const kvUnified = args.includes('--kv-unified') || args.includes('-kvu');
