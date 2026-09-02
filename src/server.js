@@ -314,7 +314,7 @@ if (process.env.SAB_DISABLE_READINESS_AUDIT !== 'true') {
     try {
       const { auditReadiness, formatFindings } = await import('./backends/readiness-audit.js');
       const councilConfig = JSON.parse(readFileSync(join(__dirname, '../config/council-config.json'), 'utf8'));
-      const result = await auditReadiness({ backendsConfig: _backendsConfig, councilConfig });
+      const result = await auditReadiness({ backendsConfig: backendRegistry.getAuditSnapshot(), councilConfig });
       for (const line of formatFindings(result)) console.error(line);
     } catch (err) {
       console.error(`[SAB] Readiness audit skipped: ${err.message}`);
